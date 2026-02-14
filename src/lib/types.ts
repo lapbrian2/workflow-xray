@@ -80,13 +80,19 @@ export interface DecomposeRequest {
 export interface CompareResult {
   added: Step[];
   removed: Step[];
-  modified: { step: Step; changes: string[] }[];
+  modified: { step: Step; beforeStep: Step; changes: string[] }[];
+  unchanged: Step[];
+  gapsResolved: Gap[];
+  gapsNew: Gap[];
+  gapsPersistent: Gap[];
   healthDelta: {
     complexity: number;
     fragility: number;
     automationPotential: number;
     teamLoadBalance: number;
   };
+  healthBefore: HealthMetrics;
+  healthAfter: HealthMetrics;
   summary: string;
 }
 

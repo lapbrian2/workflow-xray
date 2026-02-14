@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import type { Workflow, GapType } from "@/lib/types";
 import { GAP_LABELS } from "@/lib/types";
 import WorkflowCard from "./workflow-card";
@@ -226,6 +227,25 @@ export default function WorkflowLibrary() {
         >
           Search
         </button>
+        <Link
+          href="/compare"
+          style={{
+            padding: "8px 24px",
+            borderRadius: "var(--radius-sm)",
+            border: "1px solid var(--color-border)",
+            background: "var(--color-surface)",
+            color: "var(--color-dark)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: "pointer",
+            textDecoration: "none",
+            display: "inline-flex",
+            alignItems: "center",
+          }}
+        >
+          Compare
+        </Link>
       </div>
 
       {/* Sort + Filter bar */}

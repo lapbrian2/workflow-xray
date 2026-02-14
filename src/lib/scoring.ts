@@ -37,18 +37,26 @@ export function computeHealth(steps: Step[], gaps: Gap[]): HealthMetrics {
 
   // Team load balance: how evenly distributed owners are
   const owners = steps.map((s) => s.owner).filter(Boolean) as string[];
-  let teamLoadBalance = 100;
-  if (owners.length > 0) {
+  let teamLoadBalance: number;
+  if (owners.length === 0) {
+    // No ownership assigned — can't evaluate balance; use neutral score
+    teamLoadBalance = 50;
+  } else {
     const ownerCounts: Record<string, number> = {};
     owners.forEach((o) => {
       ownerCounts[o] = (ownerCounts[o] || 0) + 1;
     });
     const counts = Object.values(ownerCounts);
-    const max = Math.max(...counts);
-    const min = Math.min(...counts);
-    const avg = counts.reduce((a, b) => a + b, 0) / counts.length;
-    // Perfect balance = 100, completely imbalanced = low score
-    if (avg > 0) {
+    const uniqueOwners = counts.length;
+
+    if (uniqueOwners === 1) {
+      // Single owner for all steps — worst balance
+      teamLoadBalance = Math.min(30, Math.round(100 / owners.length));
+    } else {
+      const max = Math.max(...counts);
+      const min = Math.min(...counts);
+      const avg = counts.reduce((a, b) => a + b, 0) / counts.length;
+      // Perfect balance = 100, completely imbalanced = low score
       teamLoadBalance = Math.round(100 - ((max - min) / avg) * 25);
       teamLoadBalance = Math.max(0, Math.min(100, teamLoadBalance));
     }

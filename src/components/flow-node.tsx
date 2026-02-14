@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Handle, Position } from "@xyflow/react";
 import type { Step } from "@/lib/types";
 import { LAYER_COLORS, LAYER_LABELS } from "@/lib/types";
@@ -15,10 +16,18 @@ interface FlowNodeProps {
 export default function FlowNode({ data }: FlowNodeProps) {
   const { step, selected, onClick } = data;
   const color = LAYER_COLORS[step.layer];
+  const [hovered, setHovered] = useState(false);
+
+  const descriptionPreview =
+    step.description && step.description.length > 60
+      ? step.description.slice(0, 60) + "\u2026"
+      : step.description || "";
 
   return (
     <div
       onClick={() => onClick(step.id)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         padding: "12px 16px",
         borderRadius: "var(--radius-sm)",
@@ -28,9 +37,12 @@ export default function FlowNode({ data }: FlowNodeProps) {
         maxWidth: 240,
         cursor: "pointer",
         transition: "all 0.2s",
+        transform: hovered ? "scale(1.02)" : "scale(1)",
         boxShadow: selected
           ? `0 0 0 3px ${color}20`
-          : "0 1px 3px rgba(0,0,0,0.06)",
+          : hovered
+            ? `0 4px 12px rgba(0,0,0,0.12)`
+            : "0 1px 3px rgba(0,0,0,0.06)",
       }}
     >
       <Handle
@@ -67,10 +79,14 @@ export default function FlowNode({ data }: FlowNodeProps) {
             fontWeight: 600,
             color: "#fff",
             background: color,
-            padding: "1px 6px",
-            borderRadius: 4,
+            padding: "2px 8px",
+            borderRadius: 10,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 3,
           }}
         >
+          <span style={{ fontSize: 9, fontWeight: 500, opacity: 0.85 }}>Auto:</span>
           {step.automationScore}%
         </span>
       </div>
@@ -83,11 +99,26 @@ export default function FlowNode({ data }: FlowNodeProps) {
           color: "var(--color-dark)",
           fontFamily: "var(--font-mono)",
           lineHeight: 1.3,
-          marginBottom: 4,
+          marginBottom: descriptionPreview ? 2 : 4,
         }}
       >
         {step.name}
       </div>
+
+      {/* Description preview */}
+      {descriptionPreview && (
+        <div
+          style={{
+            fontSize: 11,
+            color: "var(--color-muted)",
+            fontFamily: "var(--font-body)",
+            lineHeight: 1.4,
+            marginBottom: 4,
+          }}
+        >
+          {descriptionPreview}
+        </div>
+      )}
 
       {/* Owner */}
       {step.owner && (
@@ -122,6 +153,50 @@ export default function FlowNode({ data }: FlowNodeProps) {
           ))}
         </div>
       )}
+
+      {/* Input / Output indicator */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 4,
+          marginTop: 10,
+          paddingTop: 8,
+          borderTop: `1px solid var(--color-border)`,
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            fontWeight: 600,
+            color: "var(--color-muted)",
+          }}
+        >
+          {step.inputs.length}
+        </span>
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            color: "var(--color-muted)",
+            opacity: 0.6,
+          }}
+        >
+          {"\u2192"}
+        </span>
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            fontWeight: 600,
+            color: "var(--color-muted)",
+          }}
+        >
+          {step.outputs.length}
+        </span>
+      </div>
 
       <Handle
         type="source"

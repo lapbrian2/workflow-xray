@@ -13,6 +13,9 @@ const GAP_ICONS: Record<string, string> = {
   context_loss: "\u21C4",
   single_dependency: "\u26D4",
   manual_overhead: "\u23F1",
+  missing_feedback: "\u21BA",
+  missing_fallback: "\u26A1",
+  scope_ambiguity: "\u2753",
 };
 
 export default function GapCard({ gap, index }: GapCardProps) {
@@ -23,6 +26,7 @@ export default function GapCard({ gap, index }: GapCardProps) {
       style={{
         background: "var(--color-surface)",
         border: "1px solid var(--color-border)",
+        borderLeft: `3px solid ${sevColor}`,
         borderRadius: "var(--radius-lg)",
         padding: 16,
         animation: `slideUp 0.3s ease ${index * 0.06}s both`,
@@ -55,11 +59,11 @@ export default function GapCard({ gap, index }: GapCardProps) {
           style={{
             fontFamily: "var(--font-mono)",
             fontSize: 10,
-            fontWeight: 600,
-            color: sevColor,
-            background: `${sevColor}15`,
-            padding: "3px 8px",
-            borderRadius: 4,
+            fontWeight: 700,
+            color: "#fff",
+            background: sevColor,
+            padding: "3px 10px",
+            borderRadius: 12,
             textTransform: "uppercase",
             letterSpacing: "0.06em",
           }}
@@ -116,22 +120,42 @@ export default function GapCard({ gap, index }: GapCardProps) {
       {gap.stepIds.length > 0 && (
         <div
           style={{
-            marginTop: 8,
+            marginTop: 10,
             display: "flex",
-            gap: 4,
+            alignItems: "center",
+            gap: 6,
             flexWrap: "wrap",
           }}
         >
+          {/* Step count badge */}
           <span
             style={{
               fontFamily: "var(--font-mono)",
               fontSize: 10,
-              color: "var(--color-muted)",
-              marginRight: 4,
+              fontWeight: 600,
+              color: "var(--color-dark)",
+              background: `${sevColor}18`,
+              border: `1px solid ${sevColor}30`,
+              padding: "2px 8px",
+              borderRadius: 10,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
             }}
           >
-            Affects:
+            Affects
+            <span
+              style={{
+                fontWeight: 700,
+                color: sevColor,
+              }}
+            >
+              {gap.stepIds.length}
+            </span>
+            {gap.stepIds.length === 1 ? "step" : "steps"}
           </span>
+
+          {/* Step ID tags */}
           {gap.stepIds.map((id) => (
             <span
               key={id}

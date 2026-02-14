@@ -16,10 +16,13 @@ export async function saveWorkflow(workflow: Workflow): Promise<void> {
   if (kv) {
     await kv.set(`workflow:${workflow.id}`, JSON.stringify(workflow));
     // Maintain an index of all workflow IDs
-    const ids: string[] = (await kv.get("workflow:ids")) || [];
+    let ids: string[] = (await kv.get("workflow:ids")) || [];
+    if (typeof ids === "string") {
+      try { ids = JSON.parse(ids); } catch { ids = []; }
+    }
     if (!ids.includes(workflow.id)) {
       ids.push(workflow.id);
-      await kv.set("workflow:ids", JSON.stringify(ids));
+      await kv.set("workflow:ids", ids);
     }
   } else {
     memoryStore.set(workflow.id, workflow);
@@ -29,9 +32,17 @@ export async function saveWorkflow(workflow: Workflow): Promise<void> {
 export async function getWorkflow(id: string): Promise<Workflow | null> {
   const kv = await getKv();
   if (kv) {
-    const raw = await kv.get<string>(`workflow:${id}`);
+    const raw = await kv.get(`workflow:${id}`);
     if (!raw) return null;
-    return typeof raw === "string" ? JSON.parse(raw) : raw;
+    // @vercel/kv auto-parses JSON, but if stored as string, parse it
+    if (typeof raw === "string") {
+      try {
+        return JSON.parse(raw) as Workflow;
+      } catch {
+        return null;
+      }
+    }
+    return raw as Workflow;
   }
   return memoryStore.get(id) || null;
 }

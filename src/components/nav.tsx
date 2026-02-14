@@ -9,6 +9,7 @@ export default function Nav() {
   const links = [
     { href: "/", label: "X-Ray" },
     { href: "/library", label: "Library" },
+    { href: "/compare", label: "Compare" },
   ];
 
   return (
