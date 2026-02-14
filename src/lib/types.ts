@@ -144,3 +144,90 @@ export const SEVERITY_COLORS: Record<Severity, string> = {
   medium: "#D4A017",
   high: "#E8553A",
 };
+
+// ─── Remediation Plan Types ───
+
+export type TaskPriority = "critical" | "high" | "medium" | "low";
+export type TaskStatus = "not_started" | "in_progress" | "completed" | "blocked";
+export type TaskEffort = "quick_win" | "incremental" | "strategic";
+
+export interface RemediationTask {
+  id: string;                      // task_1, task_2, etc.
+  title: string;                   // Short action-oriented name
+  description: string;             // What to do, 2-3 sentences
+  priority: TaskPriority;
+  effort: TaskEffort;              // quick_win = 1 week, incremental = 1 month, strategic = 3+ months
+  owner: string | null;            // Suggested assignee role
+  gapIds: number[];                // Indices of gaps this task addresses
+  stepIds: string[];               // Step IDs this task improves
+  tools: string[];                 // Tools/platforms to use
+  successMetric: string;           // How to measure completion
+  dependencies: string[];          // task IDs this depends on
+  status: TaskStatus;
+}
+
+export interface RemediationPhase {
+  id: string;                      // phase_1, phase_2, etc.
+  name: string;                    // "Quick Wins", "Process Improvements", etc.
+  description: string;
+  timeframe: string;               // "Week 1-2", "Month 1-2", etc.
+  tasks: RemediationTask[];
+}
+
+export interface ProjectedImpact {
+  metricName: string;              // e.g., "Fragility", "Automation %", "Weekly hours saved"
+  currentValue: string;
+  projectedValue: string;
+  confidence: "high" | "medium" | "low";
+  assumption: string;              // Basis for projection
+}
+
+export interface RemediationPlan {
+  id: string;
+  workflowId: string;             // Links to the X-Ray workflow
+  title: string;                   // "Remediation Plan: {workflow title}"
+  summary: string;                 // Executive summary, 3-5 sentences
+  phases: RemediationPhase[];
+  projectedImpact: ProjectedImpact[];
+  teamContext?: {
+    teamSize?: number;
+    budget?: string;
+    timeline?: string;
+    constraints?: string[];
+  };
+  createdAt: string;
+  updatedAt: string;
+  promptVersion?: string;
+  modelUsed?: string;
+  tokenUsage?: {
+    inputTokens: number;
+    outputTokens: number;
+  };
+}
+
+export const TASK_PRIORITY_COLORS: Record<TaskPriority, string> = {
+  critical: "#E8553A",
+  high: "#D4A017",
+  medium: "#2D7DD2",
+  low: "#17A589",
+};
+
+export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
+  critical: "Critical",
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+};
+
+export const TASK_EFFORT_LABELS: Record<TaskEffort, string> = {
+  quick_win: "Quick Win (1 week)",
+  incremental: "Incremental (1 month)",
+  strategic: "Strategic (3+ months)",
+};
+
+export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  not_started: "Not Started",
+  in_progress: "In Progress",
+  completed: "Completed",
+  blocked: "Blocked",
+};

@@ -1,0 +1,315 @@
+import { NextRequest, NextResponse } from "next/server";
+import { Client } from "@notionhq/client";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import type { RemediationPlan } from "@/lib/types";
+import { TASK_PRIORITY_LABELS, TASK_EFFORT_LABELS, GAP_LABELS } from "@/lib/types";
+
+export async function POST(request: NextRequest) {
+  try {
+    // Rate limit: 10 syncs per minute per IP
+    const ip = getClientIp(request);
+    const rl = rateLimit(`remediation-notion:${ip}`, 10, 60);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: `Rate limit exceeded. Try again in ${rl.resetInSeconds}s.` },
+        { status: 429, headers: { "Retry-After": String(rl.resetInSeconds) } }
+      );
+    }
+
+    const notionKey = process.env.NOTION_API_KEY;
+    if (!notionKey) {
+      return NextResponse.json(
+        { error: "Notion integration not configured." },
+        { status: 503 }
+      );
+    }
+
+    const body = await request.json();
+    const plan: RemediationPlan = body.plan;
+    const parentPageId: string | undefined = body.parentPageId; // X-Ray Notion page ID
+    const gaps: { type: string; severity: string }[] = body.gaps || [];
+
+    if (!plan || !plan.phases) {
+      return NextResponse.json(
+        { error: "Invalid remediation plan data." },
+        { status: 400 }
+      );
+    }
+
+    const notion = new Client({ auth: notionKey });
+
+    // Build Notion blocks for the remediation plan
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const children: any[] = [];
+
+    // ── Executive Summary ──
+    children.push({
+      object: "block",
+      type: "heading_2",
+      heading_2: {
+        rich_text: [{ type: "text", text: { content: "Executive Summary" } }],
+      },
+    });
+
+    children.push({
+      object: "block",
+      type: "callout",
+      callout: {
+        rich_text: [
+          { type: "text", text: { content: plan.summary } },
+        ],
+        icon: { type: "emoji", emoji: "📋" },
+        color: "blue_background",
+      },
+    });
+
+    // ── Phase sections ──
+    const totalTasks = plan.phases.reduce((s, p) => s + p.tasks.length, 0);
+    children.push({
+      object: "block",
+      type: "paragraph",
+      paragraph: {
+        rich_text: [
+          { type: "text", text: { content: `${plan.phases.length} phases · ${totalTasks} tasks` }, annotations: { bold: true, color: "gray" } },
+        ],
+      },
+    });
+
+    for (const phase of plan.phases) {
+      children.push({
+        object: "block",
+        type: "heading_2",
+        heading_2: {
+          rich_text: [
+            { type: "text", text: { content: `${phase.name}` } },
+            { type: "text", text: { content: ` — ${phase.timeframe}` }, annotations: { italic: true, color: "gray" } },
+          ],
+        },
+      });
+
+      if (phase.description) {
+        children.push({
+          object: "block",
+          type: "paragraph",
+          paragraph: {
+            rich_text: [
+              { type: "text", text: { content: phase.description }, annotations: { italic: true, color: "gray" } },
+            ],
+          },
+        });
+      }
+
+      // Tasks as to-do items
+      for (const task of phase.tasks) {
+        const priorityEmoji = task.priority === "critical" ? "🔴" : task.priority === "high" ? "🟠" : task.priority === "medium" ? "🔵" : "🟢";
+
+        children.push({
+          object: "block",
+          type: "to_do",
+          to_do: {
+            rich_text: [
+              { type: "text", text: { content: `${priorityEmoji} ${task.title}` }, annotations: { bold: true } },
+              { type: "text", text: { content: ` [${TASK_PRIORITY_LABELS[task.priority]}]` }, annotations: { color: "gray" } },
+            ],
+            checked: task.status === "completed",
+          },
+        });
+
+        // Description
+        const desc = task.description.length > 200
+          ? task.description.slice(0, 200) + "..."
+          : task.description;
+        children.push({
+          object: "block",
+          type: "paragraph",
+          paragraph: {
+            rich_text: [
+              { type: "text", text: { content: desc } },
+            ],
+          },
+        });
+
+        // Meta line
+        const meta: string[] = [];
+        if (task.owner) meta.push(`Owner: ${task.owner}`);
+        meta.push(`Effort: ${TASK_EFFORT_LABELS[task.effort]}`);
+        if (task.tools.length > 0) meta.push(`Tools: ${task.tools.join(", ")}`);
+
+        children.push({
+          object: "block",
+          type: "paragraph",
+          paragraph: {
+            rich_text: [
+              { type: "text", text: { content: meta.join(" · ") }, annotations: { italic: true, color: "gray" } },
+            ],
+          },
+        });
+
+        // Success metric
+        if (task.successMetric) {
+          children.push({
+            object: "block",
+            type: "paragraph",
+            paragraph: {
+              rich_text: [
+                { type: "text", text: { content: "✅ " } },
+                { type: "text", text: { content: task.successMetric }, annotations: { italic: true, color: "green" } },
+              ],
+            },
+          });
+        }
+
+        // Addressed gaps
+        if (task.gapIds.length > 0) {
+          const gapNames = task.gapIds
+            .map((idx) => {
+              const g = gaps[idx];
+              if (!g) return null;
+              return GAP_LABELS[g.type as keyof typeof GAP_LABELS] || g.type;
+            })
+            .filter(Boolean)
+            .join(", ");
+          if (gapNames) {
+            children.push({
+              object: "block",
+              type: "paragraph",
+              paragraph: {
+                rich_text: [
+                  { type: "text", text: { content: `Addresses: ${gapNames}` }, annotations: { italic: true, color: "gray" } },
+                ],
+              },
+            });
+          }
+        }
+      }
+    }
+
+    // ── Projected Impact ──
+    if (plan.projectedImpact.length > 0) {
+      children.push({
+        object: "block",
+        type: "heading_2",
+        heading_2: {
+          rich_text: [{ type: "text", text: { content: "Projected Impact" } }],
+        },
+      });
+
+      for (const impact of plan.projectedImpact) {
+        children.push({
+          object: "block",
+          type: "bulleted_list_item",
+          bulleted_list_item: {
+            rich_text: [
+              { type: "text", text: { content: impact.metricName }, annotations: { bold: true } },
+              { type: "text", text: { content: `: ${impact.currentValue} → ${impact.projectedValue}` } },
+              { type: "text", text: { content: ` (${impact.confidence} confidence)` }, annotations: { italic: true, color: "gray" } },
+            ],
+          },
+        });
+      }
+    }
+
+    // ── Footer ──
+    children.push({
+      object: "block",
+      type: "divider",
+      divider: {},
+    });
+
+    const syncTimestamp = new Date().toLocaleString("en-US", {
+      month: "long", day: "numeric", year: "numeric",
+      hour: "numeric", minute: "2-digit", timeZoneName: "short",
+    });
+
+    children.push({
+      object: "block",
+      type: "callout",
+      callout: {
+        rich_text: [
+          { type: "text", text: { content: `Generated by Workflow X-Ray on ${syncTimestamp}. This is a remediation plan, not the diagnostic.` } },
+        ],
+        icon: { type: "emoji", emoji: "⚠️" },
+        color: "gray_background",
+      },
+    });
+
+    // Create as child page of the X-Ray Notion page, or as standalone
+    let pageParent: { page_id: string } | { database_id: string };
+    const databaseId = process.env.NOTION_XRAY_DATABASE_ID;
+
+    if (parentPageId) {
+      // Create as child page under the X-Ray entry
+      pageParent = { page_id: parentPageId };
+    } else if (databaseId) {
+      // Create as a standalone page in the database
+      // (This is fallback — normally we have the parent page)
+      pageParent = { database_id: databaseId };
+    } else {
+      return NextResponse.json(
+        { error: "No Notion parent configured for remediation plan." },
+        { status: 503 }
+      );
+    }
+
+    // Create the page
+    const response = await notion.pages.create({
+      parent: pageParent,
+      properties: parentPageId
+        ? {
+            title: {
+              title: [{ text: { content: plan.title } }],
+            },
+          }
+        : {
+            Workflow: {
+              title: [{ text: { content: plan.title } }],
+            },
+          },
+      children: children.slice(0, 100), // Notion max 100 blocks per create
+      icon: { type: "emoji", emoji: "🔧" },
+    });
+
+    const pageId = (response as { id: string }).id;
+
+    // Append remaining blocks if > 100
+    for (let i = 100; i < children.length; i += 100) {
+      await notion.blocks.children.append({
+        block_id: pageId,
+        children: children.slice(i, i + 100),
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      notionUrl: `https://notion.so/${pageId.replace(/-/g, "")}`,
+      pageId,
+    });
+  } catch (error) {
+    console.error("Remediation Notion sync error:", error);
+
+    const notionError = error as { code?: string; status?: number };
+    if (notionError.code === "object_not_found" || notionError.status === 404) {
+      return NextResponse.json(
+        { error: "Notion page not found. The parent X-Ray page may have been deleted." },
+        { status: 404 }
+      );
+    }
+    if (notionError.status === 401) {
+      return NextResponse.json(
+        { error: "Notion connection expired. Ask your admin to reconnect." },
+        { status: 401 }
+      );
+    }
+    if (notionError.status === 403) {
+      return NextResponse.json(
+        { error: "The integration doesn't have access to this Notion page." },
+        { status: 403 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Failed to sync remediation plan to Notion." },
+      { status: 500 }
+    );
+  }
+}

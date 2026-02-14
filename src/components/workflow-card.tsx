@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { Workflow } from "@/lib/types";
+import type { Workflow, RemediationPlan } from "@/lib/types";
 import { formatDate, truncate } from "@/lib/utils";
 
 interface WorkflowCardProps {
@@ -260,6 +260,27 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
               >
                 v{workflow.version}
               </span>
+            )}
+            {(workflow as Workflow & { remediationPlan?: RemediationPlan }).remediationPlan && (
+              <Link
+                href={`/xray/${workflow.id}/remediation`}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 9,
+                  background: "linear-gradient(135deg, #17A589, #1ABC9C)",
+                  color: "#fff",
+                  padding: "2px 7px",
+                  borderRadius: 4,
+                  fontWeight: 600,
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                🔧 Plan
+              </Link>
             )}
           </span>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>

@@ -415,6 +415,28 @@ export default function XRayPage() {
               "Download PDF"
             )}
           </button>
+          <Link
+            href={`/xray/${id}/remediation`}
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              color: "#fff",
+              padding: "4px 12px",
+              borderRadius: 4,
+              border: "none",
+              background: "linear-gradient(135deg, #17A589 0%, #1ABC9C 100%)",
+              cursor: "pointer",
+              transition: "all 0.2s",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontWeight: 600,
+              textDecoration: "none",
+              boxShadow: "0 2px 8px rgba(23, 165, 137, 0.25)",
+            }}
+          >
+            Remediation Plan
+          </Link>
           <button
             onClick={handleReanalyze}
             style={{
