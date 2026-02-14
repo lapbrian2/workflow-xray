@@ -19,8 +19,28 @@ function setAll(workflows: Workflow[]): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(workflows));
-  } catch {
-    // Storage full or unavailable — silently fail
+  } catch (error) {
+    if (
+      error instanceof DOMException &&
+      error.name === "QuotaExceededError"
+    ) {
+      console.warn("localStorage quota exceeded — pruning oldest workflows.");
+      // Auto-prune: keep only 20 most recent
+      const pruned = [...workflows]
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )
+        .slice(0, 20);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(pruned));
+      } catch {
+        console.error("localStorage still full after pruning — clearing.");
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    } else {
+      console.warn("Failed to save to localStorage:", error);
+    }
   }
 }
 

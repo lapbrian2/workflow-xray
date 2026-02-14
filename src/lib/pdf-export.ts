@@ -113,7 +113,14 @@ function generateActionPlan(gaps: Gap[], steps: Step[]): { phase: string; items:
 }
 
 export async function exportToPdf(decomposition: Decomposition, costContext?: CostContext): Promise<void> {
-  const { jsPDF } = await import("jspdf");
+  let jsPDF;
+  try {
+    ({ jsPDF } = await import("jspdf"));
+  } catch {
+    throw new Error("Failed to load PDF library. Please try again.");
+  }
+
+  try {
 
   const doc = new jsPDF({
     orientation: "portrait",
@@ -837,4 +844,11 @@ export async function exportToPdf(decomposition: Decomposition, costContext?: Co
   // ── Save ──
   const filename = `${decomposition.title.replace(/[^a-zA-Z0-9]+/g, "-").replace(/-+$/, "").toLowerCase()}-xray-report.pdf`;
   doc.save(filename);
+
+  } catch (error) {
+    console.error("PDF generation failed:", error);
+    throw new Error(
+      `Failed to generate PDF report: ${error instanceof Error ? error.message : "Unknown error"}`
+    );
+  }
 }

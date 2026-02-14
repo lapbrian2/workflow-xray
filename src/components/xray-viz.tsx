@@ -109,13 +109,14 @@ export default function XRayViz({ decomposition }: XRayVizProps) {
       let maxLen = 0;
       let maxParent: string | null = null;
       for (const dep of step.dependencies) {
-        const len = computeLongest(dep, new Set(visited));
+        const len = computeLongest(dep, visited);
         if (len > maxLen) {
           maxLen = len;
           maxParent = dep;
         }
       }
 
+      visited.delete(stepId); // allow this node in other paths
       const total = maxLen + 1;
       longestPath.set(stepId, total);
       pathParent.set(stepId, maxParent);

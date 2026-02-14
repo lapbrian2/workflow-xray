@@ -28,8 +28,11 @@ export default function XRayPage() {
     setExporting(true);
     try {
       await exportToPdf(workflow.decomposition, workflow.costContext);
-    } catch {
-      console.error("PDF export failed");
+    } catch (err) {
+      console.error("PDF export failed:", err);
+      setError(
+        err instanceof Error ? err.message : "PDF export failed. Please try again."
+      );
     } finally {
       setExporting(false);
     }
@@ -41,62 +44,71 @@ export default function XRayPage() {
     router.push(`/?reanalyze=${parentId}`);
   };
 
-  const load = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      // Check localStorage first for instant load
-      const local = getWorkflowLocal(id);
-      let resolved: Workflow | null = local;
-
-      // Then try server (authoritative source) — update if found
-      try {
-        const res = await fetch(`/api/workflows?id=${id}`);
-        if (res.ok) {
-          const serverData: Workflow = await res.json();
-          resolved = serverData;
-          saveWorkflowLocal(serverData); // sync back to localStorage
-        }
-      } catch {
-        // Server unavailable — use local data
-      }
-
-      if (!resolved) {
-        throw new Error("Workflow not found");
-      }
-
-      setWorkflow(resolved);
-
-      // Fetch version siblings if this workflow has a parentId or is itself a parent
-      const rootId = resolved.parentId || resolved.id;
-      try {
-        // Try server first for siblings
-        const allRes = await fetch("/api/workflows");
-        if (allRes.ok) {
-          const allData = await allRes.json();
-          const siblings = (allData.workflows as Workflow[]).filter(
-            (w: Workflow) => w.id === rootId || w.parentId === rootId
-          );
-          if (siblings.length > 1) {
-            setVersionSiblings(siblings);
-          } else {
-            setVersionSiblings([]);
-          }
-        }
-      } catch {
-        // Silently ignore version fetch errors
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Retry counter to re-trigger the effect
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    load();
+    let cancelled = false;
+
+    const loadWorkflow = async () => {
+      setError(null);
+      setLoading(true);
+      try {
+        const local = getWorkflowLocal(id);
+        let resolved: Workflow | null = local;
+
+        try {
+          const res = await fetch(`/api/workflows?id=${id}`);
+          if (cancelled) return;
+          if (res.ok) {
+            const serverData: Workflow = await res.json();
+            resolved = serverData;
+            saveWorkflowLocal(serverData);
+          }
+        } catch {
+          // Server unavailable — use local data
+        }
+
+        if (cancelled) return;
+
+        if (!resolved) {
+          throw new Error("Workflow not found");
+        }
+
+        setWorkflow(resolved);
+
+        const rootId = resolved.parentId || resolved.id;
+        try {
+          const allRes = await fetch("/api/workflows");
+          if (cancelled) return;
+          if (allRes.ok) {
+            const allData = await allRes.json();
+            const siblings = (allData.workflows as Workflow[]).filter(
+              (w: Workflow) => w.id === rootId || w.parentId === rootId
+            );
+            setVersionSiblings(siblings.length > 1 ? siblings : []);
+          }
+        } catch {
+          // Silently ignore version fetch errors
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadWorkflow();
+
+    return () => {
+      cancelled = true;
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, retryCount]);
 
   /* ── Loading State ── */
   if (loading) {
@@ -217,7 +229,7 @@ export default function XRayPage() {
           </div>
           <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
             <button
-              onClick={load}
+              onClick={() => setRetryCount((c) => c + 1)}
               style={{
                 fontFamily: "var(--font-mono)",
                 fontSize: 13,

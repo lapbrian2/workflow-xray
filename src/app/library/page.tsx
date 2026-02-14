@@ -59,7 +59,7 @@ export default function LibraryPage() {
               backgroundClip: "text",
             }}
           >
-            Operations Dashboard
+            Workflow Library
           </h1>
           <p
             style={{

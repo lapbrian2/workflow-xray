@@ -8,6 +8,22 @@ import type {
 } from "@/lib/types";
 import { GAP_LABELS, SEVERITY_COLORS, LAYER_LABELS, LAYER_COLORS } from "@/lib/types";
 
+/** Type-safe step property accessor for comparison display */
+function getStepProp(step: Step, key: string): string {
+  switch (key) {
+    case "automationScore": return `${step.automationScore}%`;
+    case "tools": return step.tools.join(", ");
+    case "owner": return step.owner ?? "\u2014";
+    case "description": return step.description;
+    case "name": return step.name;
+    case "layer": return LAYER_LABELS[step.layer] || step.layer;
+    case "inputs": return step.inputs.join(", ");
+    case "outputs": return step.outputs.join(", ");
+    case "dependencies": return step.dependencies.join(", ");
+    default: return "\u2014";
+  }
+}
+
 interface CompareViewProps {
   result: CompareResult;
   before: Decomposition;
@@ -647,23 +663,8 @@ function StepDiffCard({
       {type === "modified" && changes && beforeStep && (
         <div style={{ marginTop: 8 }}>
           {changes.map((change) => {
-            const bVal =
-              change === "automationScore"
-                ? `${beforeStep.automationScore}%`
-                : change === "tools"
-                  ? beforeStep.tools.join(", ")
-                  : String(
-                      (beforeStep as unknown as Record<string, unknown>)[change] ?? "\u2014"
-                    );
-
-            const aVal =
-              change === "automationScore"
-                ? `${step.automationScore}%`
-                : change === "tools"
-                  ? step.tools.join(", ")
-                  : String(
-                      (step as unknown as Record<string, unknown>)[change] ?? "\u2014"
-                    );
+            const bVal = getStepProp(beforeStep, change);
+            const aVal = getStepProp(step, change);
 
             return (
               <div

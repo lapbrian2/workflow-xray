@@ -98,8 +98,23 @@ export async function decomposeWorkflow(
     jsonStr = jsonMatch[1];
   }
 
-  const parsed = JSON.parse(jsonStr);
-  const validated = DecompositionResponseSchema.parse(parsed);
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonStr);
+  } catch (err) {
+    throw new Error(
+      `Claude returned invalid JSON: ${err instanceof Error ? err.message : "Parse failed"}. Response starts with: "${jsonStr.slice(0, 120)}..."`
+    );
+  }
+
+  let validated;
+  try {
+    validated = DecompositionResponseSchema.parse(parsed);
+  } catch (err) {
+    throw new Error(
+      `Claude output failed schema validation: ${err instanceof Error ? err.message : "Validation error"}`
+    );
+  }
 
   const health = computeHealth(validated.steps, validated.gaps);
 

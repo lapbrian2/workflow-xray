@@ -42,7 +42,8 @@ export default function StructuredForm({
     onStagesChange(stages.filter((_, i) => i !== index));
   };
 
-  const canSubmit = stages.length >= 2 && stages.every((s) => s.name.trim());
+  const filledStages = stages.filter((s) => s.name.trim());
+  const canSubmit = filledStages.length >= 2;
 
   return (
     <div>

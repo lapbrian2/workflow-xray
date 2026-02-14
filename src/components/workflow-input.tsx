@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { saveWorkflowLocal } from "@/lib/client-db";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 import type { StageInput, CostContext } from "@/lib/types";
 import FreeformInput from "./freeform-input";
 import StructuredForm from "./structured-form";
@@ -45,18 +46,22 @@ export default function WorkflowInput({
               )
               .join("\n");
 
-      const res = await fetch("/api/decompose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          description,
-          stages: inputMode === "structured" ? stages : undefined,
-          ...(reanalyzeParentId ? { parentId: reanalyzeParentId } : {}),
-          ...(costContext.hourlyRate || costContext.hoursPerStep
-            ? { costContext }
-            : {}),
-        }),
-      });
+      const res = await fetchWithTimeout(
+        "/api/decompose",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            description,
+            stages: inputMode === "structured" ? stages : undefined,
+            ...(reanalyzeParentId ? { parentId: reanalyzeParentId } : {}),
+            ...(costContext.hourlyRate || costContext.hoursPerStep
+              ? { costContext }
+              : {}),
+          }),
+        },
+        120000 // 2 min timeout — Claude decomposition can take a while
+      );
 
       if (!res.ok) {
         const err = await res.json();

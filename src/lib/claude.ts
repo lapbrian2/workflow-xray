@@ -6,19 +6,25 @@ let systemPrompt: string | null = null;
 
 function getSystemPrompt(): string {
   if (systemPrompt) return systemPrompt;
-  try {
-    systemPrompt = readFileSync(
-      join(process.cwd(), "src/prompts/decompose-system.md"),
-      "utf-8"
-    );
-  } catch {
-    // Fallback for production builds where file paths differ
-    systemPrompt = readFileSync(
-      join(process.cwd(), "prompts/decompose-system.md"),
-      "utf-8"
-    );
+
+  const paths = [
+    join(process.cwd(), "src/prompts/decompose-system.md"),
+    join(process.cwd(), "prompts/decompose-system.md"),
+    join(process.cwd(), ".next/server/src/prompts/decompose-system.md"),
+  ];
+
+  for (const p of paths) {
+    try {
+      systemPrompt = readFileSync(p, "utf-8");
+      return systemPrompt;
+    } catch {
+      // Try next path
+    }
   }
-  return systemPrompt;
+
+  throw new Error(
+    `System prompt file not found. Searched: ${paths.join(", ")}. Check that deployment includes src/prompts/.`
+  );
 }
 
 const client = new Anthropic({

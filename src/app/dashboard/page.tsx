@@ -41,16 +41,17 @@ export default function DashboardPage() {
   const ownerStats = useMemo(() => {
     const map: Record<
       string,
-      { steps: number; workflows: Set<string>; avgAutomation: number; totalAuto: number }
+      { steps: number; workflows: Set<string>; totalAuto: number; minAuto: number }
     > = {};
     workflows.forEach((w) =>
       w.decomposition.steps.forEach((s) => {
         const name = s.owner || "Unassigned";
         if (!map[name])
-          map[name] = { steps: 0, workflows: new Set(), avgAutomation: 0, totalAuto: 0 };
+          map[name] = { steps: 0, workflows: new Set(), totalAuto: 0, minAuto: 100 };
         map[name].steps++;
         map[name].workflows.add(w.id);
         map[name].totalAuto += s.automationScore;
+        map[name].minAuto = Math.min(map[name].minAuto, s.automationScore);
       })
     );
     return Object.entries(map)
@@ -59,6 +60,7 @@ export default function DashboardPage() {
         steps: d.steps,
         workflows: d.workflows.size,
         avgAutomation: Math.round(d.totalAuto / d.steps),
+        minAutomation: d.minAuto,
       }))
       .sort((a, b) => b.steps - a.steps);
   }, [workflows]);
@@ -144,7 +146,9 @@ export default function DashboardPage() {
     workflows.forEach((w) => {
       const d = new Date(w.createdAt);
       const weekStart = new Date(d);
-      weekStart.setDate(d.getDate() - d.getDay());
+      // ISO week start (Monday): getDay() 0=Sun→-6, 1=Mon→0, 2=Tue→-1, etc.
+      const dayOfWeek = weekStart.getDay();
+      weekStart.setDate(weekStart.getDate() - ((dayOfWeek + 6) % 7));
       const key = weekStart.toISOString().split("T")[0];
       buckets[key] = (buckets[key] || 0) + 1;
     });
@@ -353,9 +357,9 @@ export default function DashboardPage() {
                     width: `${(o.steps / maxOwnerSteps) * 100}%`,
                     height: "100%",
                     background:
-                      o.avgAutomation >= 60
+                      o.minAutomation >= 60
                         ? "#17A589"
-                        : o.avgAutomation >= 40
+                        : o.minAutomation >= 40
                           ? "#D4A017"
                           : "#E8553A",
                     borderRadius: 4,
