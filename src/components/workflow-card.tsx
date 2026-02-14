@@ -23,10 +23,17 @@ function fragilityBarColor(fragility: number): string {
   return "#17A589";
 }
 
+function getHealthBorderColor(avgHealth: number): string {
+  if (avgHealth >= 65) return "#17A589";
+  if (avgHealth >= 40) return "#D4A017";
+  return "#E8553A";
+}
+
 export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) {
   const { decomposition } = workflow;
   const health = decomposition.health;
   const [hovered, setHovered] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Average health indicator color
   const avgHealth =
@@ -35,48 +42,82 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
     4;
   const healthColor =
     avgHealth >= 65 ? "#17A589" : avgHealth >= 40 ? "#D4A017" : "#E8553A";
+  const borderAccentColor = getHealthBorderColor(avgHealth);
+
+  const handleDeleteClick = () => {
+    if (confirmDelete) {
+      onDelete?.(workflow.id);
+    } else {
+      setConfirmDelete(true);
+      // Auto-cancel after 3 seconds
+      setTimeout(() => setConfirmDelete(false), 3000);
+    }
+  };
 
   return (
     <div
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseLeave={() => { setHovered(false); setConfirmDelete(false); }}
       style={{
         background: "var(--color-surface)",
         border: `1px solid ${hovered ? "var(--color-accent)" : "var(--color-border)"}`,
         borderRadius: "var(--radius-lg)",
+        borderLeft: `3px solid ${borderAccentColor}`,
         padding: 0,
-        transition: "border-color 0.2s, box-shadow 0.2s",
+        transition: "all 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
         display: "flex",
         flexDirection: "column",
         boxShadow: hovered
-          ? "0 6px 20px rgba(0,0,0,0.10)"
-          : "0 1px 3px rgba(0,0,0,0.04)",
+          ? "0 12px 32px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.02)"
+          : "0 1px 4px rgba(0,0,0,0.04)",
         overflow: "hidden",
+        position: "relative",
+        transform: hovered ? "translateY(-4px)" : "translateY(0)",
       }}
     >
+      {/* Shimmer overlay on hover */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background:
+            "linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.03) 30%, rgba(232,85,58,0.04) 50%, rgba(255,255,255,0.03) 70%, transparent 100%)",
+          backgroundSize: "300% 100%",
+          animation: hovered ? "cardShimmer 3s ease infinite" : "none",
+          pointerEvents: "none",
+          zIndex: 0,
+          opacity: hovered ? 1 : 0,
+          transition: "opacity 0.3s ease",
+        }}
+      />
+
       {/* Fragility bar at top */}
       <div
         style={{
-          height: 4,
+          height: 3,
           width: "100%",
           background: "var(--color-border)",
-          borderRadius: "var(--radius-lg) var(--radius-lg) 0 0",
           overflow: "hidden",
+          position: "relative",
+          zIndex: 1,
         }}
       >
         <div
           style={{
             height: "100%",
             width: `${health.fragility}%`,
-            background: fragilityBarColor(health.fragility),
-            borderRadius: "var(--radius-lg) 0 0 0",
-            transition: "width 0.4s ease",
+            background: `linear-gradient(90deg, ${fragilityBarColor(health.fragility)}, ${fragilityBarColor(health.fragility)}88)`,
+            transition: "width 0.6s cubic-bezier(0.4, 0, 0.2, 1)",
+            transformOrigin: "left",
           }}
           title={`Fragility: ${health.fragility}%`}
         />
       </div>
 
-      <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+      <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 8, flex: 1, position: "relative", zIndex: 1 }}>
         <div
           style={{
             display: "flex",
@@ -93,18 +134,25 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
               color: "var(--color-dark)",
               textDecoration: "none",
               lineHeight: 1.3,
+              transition: "color 0.2s ease",
             }}
           >
             {decomposition.title}
           </Link>
+          {/* Animated health indicator */}
           <div
             style={{
-              width: 10,
-              height: 10,
+              width: 12,
+              height: 12,
               borderRadius: "50%",
-              background: healthColor,
+              background: `radial-gradient(circle, ${healthColor} 40%, ${healthColor}88 100%)`,
               flexShrink: 0,
               marginTop: 4,
+              boxShadow: hovered
+                ? `0 0 8px ${healthColor}55`
+                : `0 0 0 ${healthColor}00`,
+              transition: "box-shadow 0.3s ease",
+              animation: hovered ? "dotPulse 2s ease infinite" : "none",
             }}
             title={`Health: ${Math.round(avgHealth)}%`}
           />
@@ -120,53 +168,52 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
           {truncate(workflow.description, 120)}
         </p>
 
+        {/* Stats with mini-bars */}
         <div
           style={{
             display: "flex",
-            gap: 8,
+            gap: 10,
             flexWrap: "wrap",
           }}
         >
-          <Tag label={`${decomposition.steps.length} steps`} />
-          <Tag label={`${decomposition.gaps.length} gaps`} />
-          <Tag label={`${health.automationPotential}% automatable`} />
+          <StatTag
+            label={`${decomposition.steps.length} steps`}
+            value={Math.min(decomposition.steps.length / 15, 1)}
+            color="#2D7DD2"
+          />
+          <StatTag
+            label={`${decomposition.gaps.length} gaps`}
+            value={Math.min(decomposition.gaps.length / 8, 1)}
+            color={decomposition.gaps.length > 4 ? "#E8553A" : "#D4A017"}
+          />
+          <StatTag
+            label={`${health.automationPotential}% auto`}
+            value={health.automationPotential / 100}
+            color="#17A589"
+          />
         </div>
 
-        {/* Mini health summary dots */}
+        {/* Health mini-bars instead of just dots */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 10,
+            gap: 8,
             marginTop: 4,
           }}
         >
-          <HealthDot
-            label="Complexity"
-            value={health.complexity}
-            color={healthDotColor(health.complexity, true)}
-          />
-          <HealthDot
-            label="Fragility"
-            value={health.fragility}
-            color={healthDotColor(health.fragility, true)}
-          />
-          <HealthDot
-            label="Automation"
-            value={health.automationPotential}
-            color={healthDotColor(health.automationPotential, false)}
-          />
-          <HealthDot
-            label="Balance"
-            value={health.teamLoadBalance}
-            color={healthDotColor(health.teamLoadBalance, false)}
-          />
+          <MiniHealthBar label="Complexity" value={health.complexity} invert />
+          <MiniHealthBar label="Fragility" value={health.fragility} invert />
+          <MiniHealthBar label="Automation" value={health.automationPotential} />
+          <MiniHealthBar label="Balance" value={health.teamLoadBalance} />
           <span
             style={{
               fontFamily: "var(--font-mono)",
-              fontSize: 9,
+              fontSize: 8,
               color: "var(--color-muted)",
               marginLeft: "auto",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
             }}
           >
             health
@@ -179,7 +226,7 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
             justifyContent: "space-between",
             alignItems: "center",
             marginTop: "auto",
-            paddingTop: 8,
+            paddingTop: 10,
             borderTop: "1px solid var(--color-border)",
           }}
         >
@@ -204,10 +251,10 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: 9,
-                  background: "var(--color-accent)",
+                  background: "linear-gradient(135deg, var(--color-accent), #F09060)",
                   color: "#fff",
-                  padding: "1px 6px",
-                  borderRadius: 3,
+                  padding: "2px 7px",
+                  borderRadius: 4,
                   fontWeight: 600,
                 }}
               >
@@ -215,7 +262,7 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
               </span>
             )}
           </span>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <Link
               href={`/xray/${workflow.id}`}
               style={{
@@ -224,28 +271,36 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
                 fontWeight: 600,
                 color: "#fff",
                 textDecoration: "none",
-                padding: "5px 12px",
+                padding: "5px 14px",
                 borderRadius: 6,
-                background: "var(--color-accent)",
-                transition: "opacity 0.15s",
+                background: "linear-gradient(135deg, var(--color-accent) 0%, #F09060 100%)",
+                transition: "all 0.2s ease",
+                boxShadow: "0 2px 8px rgba(232, 85, 58, 0.2)",
               }}
             >
               View
             </Link>
             {onDelete && (
               <button
-                onClick={() => onDelete(workflow.id)}
+                onClick={handleDeleteClick}
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: 11,
-                  color: "var(--color-muted)",
-                  background: "none",
-                  border: "none",
+                  color: confirmDelete ? "#fff" : "var(--color-muted)",
+                  background: confirmDelete
+                    ? "linear-gradient(135deg, #E8553A, #c0392b)"
+                    : "none",
+                  border: confirmDelete ? "none" : "none",
                   cursor: "pointer",
-                  padding: "4px 8px",
+                  padding: confirmDelete ? "5px 12px" : "4px 8px",
+                  borderRadius: 6,
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  fontWeight: confirmDelete ? 600 : 400,
+                  boxShadow: confirmDelete ? "0 2px 8px rgba(232, 85, 58, 0.25)" : "none",
+                  transform: confirmDelete ? "scale(1.05)" : "scale(1)",
                 }}
               >
-                Delete
+                {confirmDelete ? "Confirm?" : "Delete"}
               </button>
             )}
           </div>
@@ -255,44 +310,97 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
   );
 }
 
-function Tag({ label }: { label: string }) {
+function StatTag({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <span
       style={{
         fontFamily: "var(--font-mono)",
         fontSize: 10,
-        padding: "2px 8px",
-        borderRadius: 4,
+        padding: "3px 10px 3px 8px",
+        borderRadius: 5,
         background: "var(--color-border)",
         color: "var(--color-text)",
         fontWeight: 500,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        position: "relative",
+        overflow: "hidden",
       }}
     >
+      {/* Mini bar indicator */}
+      <span
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          height: 2,
+          width: `${value * 100}%`,
+          background: `linear-gradient(90deg, ${color}, ${color}88)`,
+          borderRadius: 2,
+          transition: "width 0.5s ease",
+        }}
+      />
       {label}
     </span>
   );
 }
 
-function HealthDot({
+function MiniHealthBar({
   label,
   value,
-  color,
+  invert,
 }: {
   label: string;
   value: number;
-  color: string;
+  invert?: boolean;
 }) {
+  const v = invert ? 100 - value : value;
+  const color = v >= 65 ? "#17A589" : v >= 40 ? "#D4A017" : "#E8553A";
+
   return (
     <div
       title={`${label}: ${value}%`}
       style={{
-        width: 8,
-        height: 8,
-        borderRadius: "50%",
-        background: color,
-        flexShrink: 0,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 2,
         cursor: "default",
       }}
-    />
+    >
+      {/* Bar */}
+      <div
+        style={{
+          width: 24,
+          height: 4,
+          borderRadius: 2,
+          background: "var(--color-border)",
+          overflow: "hidden",
+          position: "relative",
+        }}
+      >
+        <div
+          style={{
+            width: `${value}%`,
+            height: "100%",
+            background: `linear-gradient(90deg, ${color}, ${color}cc)`,
+            borderRadius: 2,
+            transition: "width 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+            transformOrigin: "left",
+          }}
+        />
+      </div>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 7,
+          color: "var(--color-muted)",
+          lineHeight: 1,
+        }}
+      >
+        {value}
+      </span>
+    </div>
   );
 }

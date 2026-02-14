@@ -29,13 +29,18 @@ export async function POST(request: NextRequest) {
     let version = 1;
 
     if (parentId) {
-      // Count existing versions of this parent
+      // Count existing versions: parent (v1) + children with this parentId
       try {
         const allWorkflows = await listWorkflows();
-        const siblings = allWorkflows.filter(
+        const existingVersions = allWorkflows.filter(
           (w) => w.parentId === parentId || w.id === parentId
         );
-        version = siblings.length + 1;
+        // The new workflow is the next version after all existing ones
+        const maxVersion = existingVersions.reduce(
+          (max, w) => Math.max(max, w.version || 1),
+          1
+        );
+        version = maxVersion + 1;
       } catch {
         version = 2; // fallback if listing fails
       }

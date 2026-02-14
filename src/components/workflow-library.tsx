@@ -18,6 +18,7 @@ export default function WorkflowLibrary() {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [gapFilter, setGapFilter] = useState<GapType | "all">("all");
+  const [searchFocused, setSearchFocused] = useState(false);
 
   const fetchWorkflows = async () => {
     setError(null);
@@ -190,62 +191,105 @@ export default function WorkflowLibrary() {
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(5, 1fr)",
-            gap: 8,
-            marginBottom: 24,
-            animation: "fadeIn 0.3s ease",
+            gap: 10,
+            marginBottom: 28,
           }}
         >
-          <QuickStat label="Workflows" value={String(workflows.length)} />
-          <QuickStat label="Avg Automation" value={`${quickStats.avgAutomation}%`} color="#17A589" />
-          <QuickStat label="Avg Fragility" value={`${quickStats.avgFragility}%`} color="#E8553A" />
-          <QuickStat
-            label="Top Gap"
-            value={quickStats.topGap ? GAP_LABELS[quickStats.topGap[0] as GapType] || quickStats.topGap[0] : "—"}
-            sub={quickStats.topGap ? `${quickStats.topGap[1]}×` : undefined}
-            color="#D4A017"
-          />
-          <QuickStat
-            label="Busiest Owner"
-            value={quickStats.topOwner ? quickStats.topOwner[0] : "—"}
-            sub={quickStats.topOwner ? `${quickStats.topOwner[1]} steps` : undefined}
-            color="#8E44AD"
-          />
+          {[
+            { label: "Workflows", value: String(workflows.length), color: undefined, sub: undefined, delay: 0 },
+            { label: "Avg Automation", value: `${quickStats.avgAutomation}%`, color: "#17A589", sub: undefined, delay: 1 },
+            { label: "Avg Fragility", value: `${quickStats.avgFragility}%`, color: "#E8553A", sub: undefined, delay: 2 },
+            {
+              label: "Top Gap",
+              value: quickStats.topGap ? GAP_LABELS[quickStats.topGap[0] as GapType] || quickStats.topGap[0] : "\u2014",
+              sub: quickStats.topGap ? `${quickStats.topGap[1]}\u00d7` : undefined,
+              color: "#D4A017",
+              delay: 3,
+            },
+            {
+              label: "Busiest Owner",
+              value: quickStats.topOwner ? quickStats.topOwner[0] : "\u2014",
+              sub: quickStats.topOwner ? `${quickStats.topOwner[1]} steps` : undefined,
+              color: "#8E44AD",
+              delay: 4,
+            },
+          ].map((stat, i) => (
+            <QuickStat
+              key={stat.label}
+              label={stat.label}
+              value={stat.value}
+              color={stat.color}
+              sub={stat.sub}
+              delay={stat.delay}
+            />
+          ))}
         </div>
       )}
 
       {/* Search + Controls */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          placeholder="Search workflows..."
+        <div
           style={{
             flex: 1,
             minWidth: 200,
-            padding: "8px 16px",
-            borderRadius: "var(--radius-sm)",
-            border: "1px solid var(--color-border)",
-            fontFamily: "var(--font-body)",
-            fontSize: 14,
-            color: "var(--color-dark)",
-            outline: "none",
-            background: "var(--color-surface)",
+            position: "relative",
           }}
-        />
+        >
+          {/* Search icon */}
+          <div
+            style={{
+              position: "absolute",
+              left: 14,
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: searchFocused ? "var(--color-accent)" : "var(--color-muted)",
+              transition: "color 0.3s ease",
+              fontSize: 14,
+              pointerEvents: "none",
+              zIndex: 1,
+            }}
+          >
+            &#x2315;
+          </div>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            placeholder="Search workflows..."
+            style={{
+              width: "100%",
+              padding: "10px 16px 10px 36px",
+              borderRadius: "var(--radius-sm)",
+              border: `1.5px solid ${searchFocused ? "var(--color-accent)" : "var(--color-border)"}`,
+              fontFamily: "var(--font-body)",
+              fontSize: 14,
+              color: "var(--color-dark)",
+              outline: "none",
+              background: "var(--color-surface)",
+              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+              boxShadow: searchFocused
+                ? "0 0 0 3px rgba(232, 85, 58, 0.1), 0 4px 12px rgba(0,0,0,0.06)"
+                : "0 1px 3px rgba(0,0,0,0.04)",
+            }}
+          />
+        </div>
         <button
           onClick={handleSearch}
           style={{
-            padding: "8px 24px",
+            padding: "10px 28px",
             borderRadius: "var(--radius-sm)",
             border: "none",
-            background: "var(--color-dark)",
+            background: "linear-gradient(135deg, var(--color-dark) 0%, #2a3a52 100%)",
             color: "#F0F2F5",
             fontFamily: "var(--font-mono)",
             fontSize: 12,
             fontWeight: 600,
             cursor: "pointer",
+            transition: "all 0.2s ease",
+            boxShadow: "0 2px 8px rgba(28, 37, 54, 0.2)",
           }}
         >
           Search
@@ -253,9 +297,9 @@ export default function WorkflowLibrary() {
         <Link
           href="/compare"
           style={{
-            padding: "8px 24px",
+            padding: "10px 24px",
             borderRadius: "var(--radius-sm)",
-            border: "1px solid var(--color-border)",
+            border: "1.5px solid var(--color-border)",
             background: "var(--color-surface)",
             color: "var(--color-dark)",
             fontFamily: "var(--font-mono)",
@@ -265,6 +309,8 @@ export default function WorkflowLibrary() {
             textDecoration: "none",
             display: "inline-flex",
             alignItems: "center",
+            transition: "all 0.2s ease",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
           }}
         >
           Compare
@@ -277,13 +323,14 @@ export default function WorkflowLibrary() {
           style={{
             display: "flex",
             gap: 16,
-            marginBottom: 16,
+            marginBottom: 20,
             alignItems: "center",
             flexWrap: "wrap",
+            animation: "fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both",
           }}
         >
           {/* Sort pills */}
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <span
               style={{
                 fontFamily: "var(--font-mono)",
@@ -297,34 +344,45 @@ export default function WorkflowLibrary() {
             >
               Sort:
             </span>
-            {sortOptions.map((opt) => (
-              <button
-                key={opt.key}
-                onClick={() => handleSort(opt.key)}
-                style={{
-                  padding: "4px 8px",
-                  borderRadius: 4,
-                  border: "none",
-                  background: sortKey === opt.key ? "var(--color-dark)" : "var(--color-border)",
-                  color: sortKey === opt.key ? "#F0F2F5" : "var(--color-text)",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 10,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
-              >
-                {opt.label}
-                {sortKey === opt.key && (
-                  <span style={{ marginLeft: 2 }}>{sortDir === "desc" ? "↓" : "↑"}</span>
-                )}
-              </button>
-            ))}
+            {sortOptions.map((opt) => {
+              const isActive = sortKey === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  onClick={() => handleSort(opt.key)}
+                  style={{
+                    padding: "5px 10px",
+                    borderRadius: 6,
+                    border: "none",
+                    background: isActive
+                      ? "linear-gradient(135deg, var(--color-dark) 0%, #2a3a52 100%)"
+                      : "var(--color-border)",
+                    color: isActive ? "#F0F2F5" : "var(--color-text)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 10,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                    boxShadow: isActive
+                      ? "0 2px 8px rgba(28, 37, 54, 0.25)"
+                      : "none",
+                    transform: isActive ? "scale(1.05)" : "scale(1)",
+                  }}
+                >
+                  {opt.label}
+                  {isActive && (
+                    <span style={{ marginLeft: 3, fontSize: 9 }}>
+                      {sortDir === "desc" ? "\u2193" : "\u2191"}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {/* Gap filter */}
           {availableGapTypes.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <span
                 style={{
                   fontFamily: "var(--font-mono)",
@@ -341,41 +399,52 @@ export default function WorkflowLibrary() {
               <button
                 onClick={() => setGapFilter("all")}
                 style={{
-                  padding: "4px 8px",
-                  borderRadius: 4,
+                  padding: "5px 10px",
+                  borderRadius: 6,
                   border: "none",
-                  background: gapFilter === "all" ? "var(--color-dark)" : "var(--color-border)",
+                  background: gapFilter === "all"
+                    ? "linear-gradient(135deg, var(--color-dark) 0%, #2a3a52 100%)"
+                    : "var(--color-border)",
                   color: gapFilter === "all" ? "#F0F2F5" : "var(--color-text)",
                   fontFamily: "var(--font-mono)",
                   fontSize: 10,
                   fontWeight: 600,
                   cursor: "pointer",
-                  transition: "all 0.15s",
+                  transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                  boxShadow: gapFilter === "all" ? "0 2px 8px rgba(28, 37, 54, 0.25)" : "none",
+                  transform: gapFilter === "all" ? "scale(1.05)" : "scale(1)",
                 }}
               >
                 All
               </button>
-              {availableGapTypes.map((gt) => (
-                <button
-                  key={gt}
-                  onClick={() => setGapFilter(gt === gapFilter ? "all" : gt)}
-                  style={{
-                    padding: "4px 8px",
-                    borderRadius: 4,
-                    border: "none",
-                    background: gapFilter === gt ? "var(--color-accent)" : "var(--color-border)",
-                    color: gapFilter === gt ? "#fff" : "var(--color-text)",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 10,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    transition: "all 0.15s",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {GAP_LABELS[gt] || gt}
-                </button>
-              ))}
+              {availableGapTypes.map((gt) => {
+                const isActive = gapFilter === gt;
+                return (
+                  <button
+                    key={gt}
+                    onClick={() => setGapFilter(gt === gapFilter ? "all" : gt)}
+                    style={{
+                      padding: "5px 10px",
+                      borderRadius: 6,
+                      border: "none",
+                      background: isActive
+                        ? "linear-gradient(135deg, var(--color-accent) 0%, #F09060 100%)"
+                        : "var(--color-border)",
+                      color: isActive ? "#fff" : "var(--color-text)",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                      whiteSpace: "nowrap",
+                      boxShadow: isActive ? "0 2px 8px rgba(232, 85, 58, 0.3)" : "none",
+                      transform: isActive ? "scale(1.05)" : "scale(1)",
+                    }}
+                  >
+                    {GAP_LABELS[gt] || gt}
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -386,6 +455,9 @@ export default function WorkflowLibrary() {
               fontSize: 10,
               color: "var(--color-muted)",
               marginLeft: "auto",
+              background: "var(--color-border)",
+              padding: "4px 10px",
+              borderRadius: 20,
             }}
           >
             {filtered.length} of {workflows.length}
@@ -406,18 +478,35 @@ export default function WorkflowLibrary() {
             <div
               key={i}
               style={{
-                padding: 16,
+                padding: 20,
                 borderRadius: "var(--radius-lg)",
                 border: "1px solid var(--color-border)",
                 background: "var(--color-surface)",
+                overflow: "hidden",
+                position: "relative",
               }}
             >
+              {/* Shimmer overlay */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background:
+                    "linear-gradient(90deg, transparent 0%, rgba(232,85,58,0.03) 50%, transparent 100%)",
+                  backgroundSize: "300% 100%",
+                  animation: "cardShimmer 2s ease infinite",
+                  pointerEvents: "none",
+                }}
+              />
               <div
                 style={{
                   height: 16,
                   width: "70%",
                   background: "var(--color-border)",
-                  borderRadius: 4,
+                  borderRadius: 6,
                   marginBottom: 12,
                   animation: `pulse-slow 1.5s ease ${i * 0.15}s infinite`,
                 }}
@@ -427,7 +516,7 @@ export default function WorkflowLibrary() {
                   height: 12,
                   width: "50%",
                   background: "var(--color-border)",
-                  borderRadius: 4,
+                  borderRadius: 6,
                   marginBottom: 16,
                   animation: `pulse-slow 1.5s ease ${i * 0.15 + 0.1}s infinite`,
                 }}
@@ -440,7 +529,7 @@ export default function WorkflowLibrary() {
                       height: 20,
                       width: w,
                       background: "var(--color-border)",
-                      borderRadius: 4,
+                      borderRadius: 6,
                       animation: `pulse-slow 1.5s ease ${i * 0.15 + 0.2}s infinite`,
                     }}
                   />
@@ -453,18 +542,27 @@ export default function WorkflowLibrary() {
 
       {/* Error */}
       {!loading && error && (
-        <div style={{ textAlign: "center", padding: "64px 24px" }}>
+        <div
+          style={{
+            textAlign: "center",
+            padding: "64px 24px",
+            animation: "fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both",
+          }}
+        >
           <div
             style={{
-              width: 48,
-              height: 48,
+              width: 56,
+              height: 56,
               borderRadius: "50%",
-              background: "#FDF0EE",
+              background: "linear-gradient(135deg, #FDF0EE, #fce8e4)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               margin: "0 auto 16px",
-              fontSize: 20,
+              fontSize: 22,
+              fontWeight: 700,
+              color: "#E8553A",
+              boxShadow: "0 4px 16px rgba(232, 85, 58, 0.15)",
             }}
           >
             !
@@ -475,15 +573,16 @@ export default function WorkflowLibrary() {
           <button
             onClick={() => { setLoading(true); fetchWorkflows(); }}
             style={{
-              padding: "8px 24px",
+              padding: "10px 28px",
               borderRadius: "var(--radius-sm)",
               border: "none",
-              background: "var(--color-accent)",
+              background: "linear-gradient(135deg, var(--color-accent) 0%, #F09060 100%)",
               color: "#fff",
               fontFamily: "var(--font-mono)",
               fontSize: 13,
               fontWeight: 600,
               cursor: "pointer",
+              boxShadow: "0 4px 12px rgba(232, 85, 58, 0.25)",
             }}
           >
             Retry
@@ -493,18 +592,24 @@ export default function WorkflowLibrary() {
 
       {/* Empty — no workflows */}
       {!loading && !error && workflows.length === 0 && !search && (
-        <div style={{ textAlign: "center", padding: "64px 24px" }}>
+        <div
+          style={{
+            textAlign: "center",
+            padding: "64px 24px",
+            animation: "fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both",
+          }}
+        >
           <div
             style={{
-              width: 48,
-              height: 48,
+              width: 56,
+              height: 56,
               borderRadius: "50%",
-              background: "var(--color-border)",
+              background: "linear-gradient(135deg, var(--color-border), #dfe4ea)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               margin: "0 auto 16px",
-              fontSize: 20,
+              fontSize: 22,
               color: "var(--color-muted)",
             }}
           >
@@ -521,7 +626,13 @@ export default function WorkflowLibrary() {
 
       {/* Partial — filter/search returned no results */}
       {!loading && !error && workflows.length > 0 && filtered.length === 0 && (
-        <div style={{ textAlign: "center", padding: "64px 24px" }}>
+        <div
+          style={{
+            textAlign: "center",
+            padding: "64px 24px",
+            animation: "fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both",
+          }}
+        >
           <div style={{ fontSize: 16, color: "var(--color-text)", fontFamily: "var(--font-body)", marginBottom: 8 }}>
             No workflows match this filter
           </div>
@@ -531,14 +642,15 @@ export default function WorkflowLibrary() {
           <button
             onClick={() => { setGapFilter("all"); setSearch(""); }}
             style={{
-              padding: "8px 16px",
+              padding: "8px 20px",
               borderRadius: "var(--radius-sm)",
-              border: "1px solid var(--color-border)",
+              border: "1.5px solid var(--color-border)",
               background: "var(--color-surface)",
               fontFamily: "var(--font-mono)",
               fontSize: 12,
               color: "var(--color-text)",
               cursor: "pointer",
+              transition: "all 0.2s ease",
             }}
           >
             Clear Filters
@@ -552,11 +664,18 @@ export default function WorkflowLibrary() {
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-            gap: 16,
+            gap: 18,
           }}
         >
-          {filtered.map((w) => (
-            <WorkflowCard key={w.id} workflow={w} onDelete={handleDelete} />
+          {filtered.map((w, i) => (
+            <div
+              key={w.id}
+              style={{
+                animation: `fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) ${Math.min(i * 0.06, 0.6)}s both`,
+              }}
+            >
+              <WorkflowCard workflow={w} onDelete={handleDelete} />
+            </div>
           ))}
         </div>
       )}
@@ -569,29 +688,63 @@ function QuickStat({
   value,
   sub,
   color,
+  delay,
 }: {
   label: string;
   value: string;
   sub?: string;
   color?: string;
+  delay: number;
 }) {
+  const [hovered, setHovered] = useState(false);
+
   return (
     <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
-        padding: 16,
-        background: "var(--color-surface)",
-        borderRadius: "var(--radius-sm)",
-        border: "1px solid var(--color-border)",
+        padding: 18,
+        background: hovered
+          ? "linear-gradient(135deg, var(--color-surface) 0%, rgba(255,255,255,0.9) 100%)"
+          : "var(--color-surface)",
+        borderRadius: "var(--radius-lg)",
+        border: `1.5px solid ${hovered ? (color || "var(--color-accent)") : "var(--color-border)"}`,
         textAlign: "center",
+        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+        animation: `fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${delay * 0.08}s both`,
+        boxShadow: hovered
+          ? `0 8px 24px ${color ? color + "18" : "rgba(0,0,0,0.08)"}`
+          : "0 1px 3px rgba(0,0,0,0.04)",
+        transform: hovered ? "translateY(-2px)" : "translateY(0)",
+        cursor: "default",
+        position: "relative",
+        overflow: "hidden",
       }}
     >
+      {/* Subtle top accent bar */}
       <div
         style={{
-          fontSize: 18,
+          position: "absolute",
+          top: 0,
+          left: "20%",
+          right: "20%",
+          height: 2,
+          background: color
+            ? `linear-gradient(90deg, transparent, ${color}, transparent)`
+            : "linear-gradient(90deg, transparent, var(--color-border), transparent)",
+          opacity: hovered ? 0.8 : 0.3,
+          transition: "opacity 0.3s ease",
+          borderRadius: "0 0 2px 2px",
+        }}
+      />
+      <div
+        style={{
+          fontSize: 22,
           fontWeight: 700,
           fontFamily: "var(--font-mono)",
           color: color || "var(--color-dark)",
           lineHeight: 1.2,
+          animation: `statCount 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${delay * 0.08 + 0.2}s both`,
         }}
       >
         {value}
@@ -614,9 +767,9 @@ function QuickStat({
           fontSize: 9,
           color: "var(--color-muted)",
           fontWeight: 500,
-          letterSpacing: "0.04em",
+          letterSpacing: "0.06em",
           textTransform: "uppercase",
-          marginTop: 4,
+          marginTop: 6,
         }}
       >
         {label}

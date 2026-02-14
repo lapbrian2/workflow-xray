@@ -91,7 +91,10 @@ export default function XRayViz({ decomposition }: XRayVizProps) {
 
     function getDepth(stepId: string, visited = new Set<string>()): number {
       if (depthMap.has(stepId)) return depthMap.get(stepId)!;
-      if (visited.has(stepId)) return 0;
+      if (visited.has(stepId)) {
+        depthMap.set(stepId, 0);
+        return 0;
+      }
       visited.add(stepId);
 
       const step = steps.find((s) => s.id === stepId);

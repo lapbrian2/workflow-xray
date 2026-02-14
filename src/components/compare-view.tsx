@@ -17,21 +17,14 @@ interface CompareViewProps {
 }
 
 export default function CompareView({ result, before, after, onExportPdf, exporting }: CompareViewProps) {
-  const { added, removed, modified, healthDelta } = result;
+  const {
+    added, removed, modified, unchanged,
+    gapsResolved, gapsNew, gapsPersistent,
+    healthDelta,
+  } = result;
 
-  // ── Compute gap diffs from before/after decompositions ──
-  const beforeGapKeys = before.gaps.map(gapKey);
-  const afterGapKeys = after.gaps.map(gapKey);
-  const gapsResolved = before.gaps.filter((g) => !afterGapKeys.includes(gapKey(g)));
-  const gapsNew = after.gaps.filter((g) => !beforeGapKeys.includes(gapKey(g)));
-  const gapsPersistent = after.gaps.filter((g) => beforeGapKeys.includes(gapKey(g)));
-
-  // ── Compute unchanged steps ──
-  const modifiedIds = new Set(modified.map((m) => m.step.id));
-  const addedIds = new Set(added.map((s) => s.id));
-  const unchangedSteps = after.steps.filter(
-    (s) => !addedIds.has(s.id) && !modifiedIds.has(s.id)
-  );
+  // Use unchanged from API, fallback to computing locally
+  const unchangedSteps = unchanged || [];
 
   // ── Build summary parts ──
   const summaryParts: string[] = [];
@@ -55,9 +48,6 @@ export default function CompareView({ result, before, after, onExportPdf, export
       `fragility ${healthDelta.fragility < 0 ? "reduced" : "increased"} by ${Math.abs(healthDelta.fragility)} points`
     );
   }
-
-  // ── Find before-step for modified steps ──
-  const beforeStepMap = new Map(before.steps.map((s) => [s.id, s]));
 
   return (
     <div style={{ animation: "fadeIn 0.3s ease" }}>
@@ -352,7 +342,7 @@ export default function CompareView({ result, before, after, onExportPdf, export
             step={m.step}
             type="modified"
             changes={m.changes}
-            beforeStep={beforeStepMap.get(m.step.id)}
+            beforeStep={m.beforeStep}
           />
         ))}
         {unchangedSteps.map((s) => (
@@ -429,12 +419,6 @@ export default function CompareView({ result, before, after, onExportPdf, export
       </div>
     </div>
   );
-}
-
-// ── Helpers ──
-
-function gapKey(g: Gap): string {
-  return `${g.type}::${g.description}`;
 }
 
 // ── Sub-components ──
