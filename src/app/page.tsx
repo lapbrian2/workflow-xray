@@ -4,7 +4,7 @@ import WorkflowInput from "@/components/workflow-input";
 import { useStore } from "@/lib/store";
 
 export default function Home() {
-  const { error, isDecomposing } = useStore();
+  const { error, isDecomposing, setError } = useStore();
 
   return (
     <div
@@ -60,33 +60,48 @@ export default function Home() {
       {isDecomposing && (
         <div
           style={{
-            textAlign: "center",
-            padding: 24,
+            padding: "24px 32px",
             marginBottom: 24,
             background: "#EDF4FC",
-            borderRadius: 12,
+            borderRadius: "var(--radius-lg)",
             border: "1px solid #2D7DD220",
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
           }}
         >
           <div
             style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              color: "#2D7DD2",
-              fontWeight: 600,
+              width: 24,
+              height: 24,
+              border: "3px solid #2D7DD230",
+              borderTop: "3px solid #2D7DD2",
+              borderRadius: "50%",
+              animation: "spin 0.8s linear infinite",
+              flexShrink: 0,
             }}
-          >
-            Claude is analyzing your workflow...
-          </div>
-          <div
-            style={{
-              fontFamily: "var(--font-body)",
-              fontSize: 12,
-              color: "var(--color-text)",
-              marginTop: 8,
-            }}
-          >
-            This usually takes 3-8 seconds.
+          />
+          <div>
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 12,
+                color: "#2D7DD2",
+                fontWeight: 600,
+              }}
+            >
+              Claude is analyzing your workflow...
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--font-body)",
+                fontSize: 12,
+                color: "var(--color-text)",
+                marginTop: 4,
+              }}
+            >
+              This usually takes 3-8 seconds.
+            </div>
           </div>
         </div>
       )}
@@ -98,14 +113,71 @@ export default function Home() {
             padding: "16px 24px",
             marginBottom: 24,
             background: "#FDF0EE",
-            borderRadius: 12,
+            borderRadius: "var(--radius-lg)",
             border: "1px solid #E8553A20",
-            fontFamily: "var(--font-mono)",
-            fontSize: 12,
-            color: "#C0392B",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 12,
           }}
         >
-          {error}
+          <div
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: "50%",
+              background: "#E8553A20",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              marginTop: 1,
+              fontSize: 12,
+              fontWeight: 700,
+              color: "#C0392B",
+            }}
+          >
+            !
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 12,
+                color: "#C0392B",
+                fontWeight: 600,
+                marginBottom: 4,
+              }}
+            >
+              Decomposition failed
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--font-body)",
+                fontSize: 12,
+                color: "#C0392B",
+                opacity: 0.8,
+                lineHeight: 1.5,
+              }}
+            >
+              {error}
+            </div>
+          </div>
+          <button
+            onClick={() => setError(null)}
+            style={{
+              background: "none",
+              border: "none",
+              fontSize: 16,
+              color: "#C0392B",
+              cursor: "pointer",
+              padding: "2px 6px",
+              borderRadius: 4,
+              opacity: 0.6,
+              flexShrink: 0,
+            }}
+          >
+            &times;
+          </button>
         </div>
       )}
 

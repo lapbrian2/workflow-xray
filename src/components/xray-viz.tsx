@@ -28,6 +28,53 @@ interface XRayVizProps {
 export default function XRayViz({ decomposition }: XRayVizProps) {
   const { selectedNodeId, setSelectedNodeId } = useStore();
 
+  /* ── Empty State ── */
+  if (!decomposition.steps || decomposition.steps.length === 0) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100%",
+          color: "var(--color-muted)",
+          fontFamily: "var(--font-body)",
+          padding: 48,
+          textAlign: "center",
+        }}
+      >
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            background: "var(--color-border)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 16,
+            fontSize: 20,
+          }}
+        >
+          &#x25C7;
+        </div>
+        <div
+          style={{
+            fontSize: 15,
+            color: "var(--color-text)",
+            marginBottom: 4,
+          }}
+        >
+          No steps to visualize
+        </div>
+        <div style={{ fontSize: 13 }}>
+          The decomposition produced no workflow steps.
+        </div>
+      </div>
+    );
+  }
+
   const handleNodeClick = useCallback(
     (id: string) => {
       setSelectedNodeId(selectedNodeId === id ? null : id);

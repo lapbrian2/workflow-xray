@@ -17,40 +17,97 @@ export default function XRayPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch(`/api/workflows?id=${id}`);
-        if (!res.ok) throw new Error("Workflow not found");
-        const data = await res.json();
-        setWorkflow(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load");
-      } finally {
-        setLoading(false);
-      }
+  const load = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/workflows?id=${id}`);
+      if (!res.ok) throw new Error("Workflow not found");
+      const data = await res.json();
+      setWorkflow(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load");
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  /* ── Loading State ── */
   if (loading) {
     return (
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "40px 32px" }}>
+        {/* Back link skeleton */}
         <div
           style={{
-            textAlign: "center",
-            padding: "80px 24px",
-            color: "var(--color-muted)",
-            fontFamily: "var(--font-body)",
-            fontSize: 15,
+            height: 12,
+            width: 80,
+            background: "var(--color-border)",
+            borderRadius: 4,
+            marginBottom: 8,
+            animation: "pulse-slow 1.5s ease infinite",
           }}
-        >
-          Loading workflow...
+        />
+        {/* Title skeleton */}
+        <div
+          style={{
+            height: 32,
+            width: 320,
+            background: "var(--color-border)",
+            borderRadius: "var(--radius-sm)",
+            marginBottom: 12,
+            animation: "pulse-slow 1.5s ease 0.1s infinite",
+          }}
+        />
+        {/* Tags skeleton */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+          {[72, 56, 96].map((w, i) => (
+            <div
+              key={i}
+              style={{
+                height: 20,
+                width: w,
+                background: "var(--color-border)",
+                borderRadius: 4,
+                animation: `pulse-slow 1.5s ease ${0.2 + i * 0.1}s infinite`,
+              }}
+            />
+          ))}
         </div>
+        {/* Tab skeleton */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+          {[80, 64, 72].map((w, i) => (
+            <div
+              key={i}
+              style={{
+                height: 32,
+                width: w,
+                background: "var(--color-border)",
+                borderRadius: "var(--radius-sm)",
+                animation: `pulse-slow 1.5s ease ${0.3 + i * 0.1}s infinite`,
+              }}
+            />
+          ))}
+        </div>
+        {/* Content skeleton */}
+        <div
+          style={{
+            height: 500,
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
+            borderRadius: "var(--radius-lg)",
+            animation: "pulse-slow 1.5s ease 0.5s infinite",
+          }}
+        />
       </div>
     );
   }
 
+  /* ── Error State ── */
   if (error || !workflow) {
     return (
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "40px 32px" }}>
@@ -62,33 +119,80 @@ export default function XRayPage() {
         >
           <div
             style={{
+              width: 56,
+              height: 56,
+              borderRadius: "50%",
+              background: "#FDF0EE",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 16px",
+              fontSize: 24,
+              color: "#E8553A",
+              fontWeight: 700,
+            }}
+          >
+            !
+          </div>
+          <div
+            style={{
               fontSize: 16,
               color: "#C0392B",
               fontFamily: "var(--font-body)",
-              marginBottom: 16,
+              marginBottom: 8,
             }}
           >
             {error || "Workflow not found"}
           </div>
-          <Link
-            href="/"
+          <div
             style={{
-              fontFamily: "var(--font-mono)",
               fontSize: 13,
-              color: "var(--color-dark)",
-              textDecoration: "none",
-              padding: "8px 16px",
-              borderRadius: 6,
-              background: "var(--color-border)",
+              color: "var(--color-muted)",
+              fontFamily: "var(--font-body)",
+              marginBottom: 24,
             }}
           >
-            Back to Home
-          </Link>
+            The workflow may have been deleted or the link is invalid.
+          </div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+            <button
+              onClick={load}
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 13,
+                fontWeight: 600,
+                color: "#fff",
+                padding: "8px 24px",
+                borderRadius: "var(--radius-sm)",
+                border: "none",
+                background: "var(--color-accent)",
+                cursor: "pointer",
+              }}
+            >
+              Retry
+            </button>
+            <Link
+              href="/"
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 13,
+                color: "var(--color-text)",
+                textDecoration: "none",
+                padding: "8px 16px",
+                borderRadius: "var(--radius-sm)",
+                border: "1px solid var(--color-border)",
+                background: "var(--color-surface)",
+              }}
+            >
+              Back to Home
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
+  /* ── Success State ── */
   const { decomposition } = workflow;
   const tabs = [
     { key: "flow" as const, label: "Flow Map" },

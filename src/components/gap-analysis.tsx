@@ -13,13 +13,44 @@ export default function GapAnalysis({ gaps }: GapAnalysisProps) {
       <div
         style={{
           textAlign: "center",
-          padding: "40px 24px",
-          color: "var(--color-muted)",
-          fontFamily: "var(--font-body)",
-          fontSize: 15,
+          padding: "64px 24px",
         }}
       >
-        No gaps detected in this workflow. Looking good!
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            background: "#E8F8F5",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 16px",
+            fontSize: 20,
+            color: "#17A589",
+          }}
+        >
+          &#x2713;
+        </div>
+        <div
+          style={{
+            fontSize: 15,
+            color: "var(--color-text)",
+            fontFamily: "var(--font-body)",
+            marginBottom: 4,
+          }}
+        >
+          No gaps detected
+        </div>
+        <div
+          style={{
+            fontSize: 13,
+            color: "var(--color-muted)",
+            fontFamily: "var(--font-body)",
+          }}
+        >
+          This workflow looks well-structured. Nice work!
+        </div>
       </div>
     );
   }
