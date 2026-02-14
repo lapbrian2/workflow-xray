@@ -23,8 +23,8 @@ export default function GapCard({ gap, index }: GapCardProps) {
       style={{
         background: "var(--color-surface)",
         border: "1px solid var(--color-border)",
-        borderRadius: 10,
-        padding: "16px 20px",
+        borderRadius: "var(--radius-lg)",
+        padding: 16,
         animation: `slideUp 0.3s ease ${index * 0.06}s both`,
       }}
     >
@@ -34,7 +34,7 @@ export default function GapCard({ gap, index }: GapCardProps) {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: 10,
+          marginBottom: 8,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -71,10 +71,10 @@ export default function GapCard({ gap, index }: GapCardProps) {
       {/* Description */}
       <p
         style={{
-          fontSize: 13.5,
+          fontSize: 13,
           color: "var(--color-text)",
           lineHeight: 1.6,
-          marginBottom: 12,
+          marginBottom: 16,
         }}
       >
         {gap.description}
@@ -83,9 +83,9 @@ export default function GapCard({ gap, index }: GapCardProps) {
       {/* Suggestion */}
       <div
         style={{
-          padding: "10px 14px",
+          padding: "8px 16px",
           background: "#E9F7EF",
-          borderRadius: 7,
+          borderRadius: "var(--radius-sm)",
           borderLeft: "3px solid #17A589",
         }}
       >
@@ -116,7 +116,7 @@ export default function GapCard({ gap, index }: GapCardProps) {
       {gap.stepIds.length > 0 && (
         <div
           style={{
-            marginTop: 10,
+            marginTop: 8,
             display: "flex",
             gap: 4,
             flexWrap: "wrap",

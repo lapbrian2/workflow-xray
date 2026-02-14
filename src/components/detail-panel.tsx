@@ -20,10 +20,10 @@ export default function DetailPanel({ step, onClose }: DetailPanelProps) {
         right: 0,
         top: 0,
         bottom: 0,
-        width: 340,
+        width: 336,
         background: "var(--color-surface)",
         borderLeft: "1px solid var(--color-border)",
-        padding: "20px",
+        padding: 24,
         overflowY: "auto",
         animation: "slideIn 0.2s ease",
         zIndex: 10,
@@ -92,7 +92,7 @@ export default function DetailPanel({ step, onClose }: DetailPanelProps) {
       <div
         style={{
           padding: "12px 16px",
-          borderRadius: 8,
+          borderRadius: "var(--radius-sm)",
           background: `${color}08`,
           borderLeft: `3px solid ${color}`,
           marginBottom: 16,
@@ -105,12 +105,12 @@ export default function DetailPanel({ step, onClose }: DetailPanelProps) {
             fontWeight: 700,
             color: "var(--color-muted)",
             letterSpacing: "0.06em",
-            marginBottom: 6,
+            marginBottom: 8,
           }}
         >
           AUTOMATION SCORE
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div
             style={{
               flex: 1,
@@ -209,7 +209,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div style={{ marginBottom: 14 }}>
+    <div style={{ marginBottom: 16 }}>
       <div
         style={{
           fontFamily: "var(--font-mono)",
@@ -217,7 +217,7 @@ function Section({
           fontWeight: 700,
           color: "var(--color-muted)",
           letterSpacing: "0.06em",
-          marginBottom: 6,
+          marginBottom: 8,
         }}
       >
         {title}

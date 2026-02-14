@@ -22,7 +22,7 @@ export default function HealthCard({
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(4, 1fr)",
-          gap: 12,
+          gap: 16,
           marginBottom: 24,
         }}
       >
@@ -43,7 +43,7 @@ export default function HealthCard({
           gap: 16,
           padding: "24px",
           background: "var(--color-surface)",
-          borderRadius: 12,
+          borderRadius: "var(--radius-lg)",
           border: "1px solid var(--color-border)",
           marginBottom: 24,
         }}
@@ -73,9 +73,9 @@ export default function HealthCard({
       {/* Detailed bars */}
       <div
         style={{
-          padding: "20px",
+          padding: 24,
           background: "var(--color-surface)",
-          borderRadius: 12,
+          borderRadius: "var(--radius-lg)",
           border: "1px solid var(--color-border)",
         }}
       >
@@ -127,9 +127,9 @@ function StatBox({
   return (
     <div
       style={{
-        padding: "14px 16px",
+        padding: 16,
         background: "var(--color-surface)",
-        borderRadius: 10,
+        borderRadius: "var(--radius-sm)",
         border: "1px solid var(--color-border)",
         textAlign: "center",
       }}
@@ -151,7 +151,7 @@ function StatBox({
           color: "var(--color-muted)",
           fontWeight: 500,
           letterSpacing: "0.04em",
-          marginTop: 2,
+          marginTop: 4,
         }}
       >
         {label}

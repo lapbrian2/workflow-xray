@@ -35,8 +35,8 @@ export default function FreeformInput({
         style={{
           width: "100%",
           minHeight: 180,
-          padding: "16px 20px",
-          borderRadius: 10,
+          padding: "16px",
+          borderRadius: "var(--radius-sm)",
           border: "1px solid var(--color-border)",
           background: "var(--color-surface)",
           fontFamily: "var(--font-body)",
@@ -69,17 +69,17 @@ export default function FreeformInput({
           onClick={onSubmit}
           disabled={disabled || value.trim().length < 20}
           style={{
-            padding: "10px 24px",
-            borderRadius: 8,
+            padding: "8px 24px",
+            borderRadius: "var(--radius-sm)",
             border: "none",
             background:
               disabled || value.trim().length < 20
                 ? "var(--color-border)"
-                : "var(--color-dark)",
+                : "var(--color-accent)",
             color:
               disabled || value.trim().length < 20
                 ? "var(--color-muted)"
-                : "#F0F2F5",
+                : "#fff",
             fontFamily: "var(--font-mono)",
             fontSize: 13,
             fontWeight: 600,
@@ -93,7 +93,7 @@ export default function FreeformInput({
       </div>
 
       {/* Example prompts */}
-      <div style={{ marginTop: 20 }}>
+      <div style={{ marginTop: 24 }}>
         <div
           style={{
             fontFamily: "var(--font-mono)",
@@ -107,7 +107,7 @@ export default function FreeformInput({
         >
           Try an example
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {EXAMPLES.map((ex, i) => (
             <button
               key={i}
@@ -115,8 +115,8 @@ export default function FreeformInput({
               disabled={disabled}
               style={{
                 textAlign: "left",
-                padding: "10px 14px",
-                borderRadius: 8,
+                padding: "8px 16px",
+                borderRadius: "var(--radius-sm)",
                 border: "1px solid var(--color-border)",
                 background: "var(--color-surface)",
                 fontFamily: "var(--font-body)",
@@ -124,7 +124,7 @@ export default function FreeformInput({
                 color: "var(--color-text)",
                 lineHeight: 1.5,
                 cursor: disabled ? "not-allowed" : "pointer",
-                transition: "border-color 0.2s",
+                transition: "border-color 0.2s, box-shadow 0.2s",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",

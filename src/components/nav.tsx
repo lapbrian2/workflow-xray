@@ -15,7 +15,7 @@ export default function Nav() {
     <nav
       style={{
         background: "var(--color-dark)",
-        padding: "0 28px",
+        padding: "0 32px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",

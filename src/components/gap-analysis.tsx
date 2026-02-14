@@ -13,7 +13,7 @@ export default function GapAnalysis({ gaps }: GapAnalysisProps) {
       <div
         style={{
           textAlign: "center",
-          padding: "40px 20px",
+          padding: "40px 24px",
           color: "var(--color-muted)",
           fontFamily: "var(--font-body)",
           fontSize: 15,
@@ -52,7 +52,7 @@ export default function GapAnalysis({ gaps }: GapAnalysisProps) {
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
-          gap: 12,
+          gap: 16,
         }}
       >
         {gaps.map((gap, i) => (
@@ -78,8 +78,8 @@ function Badge({
         fontFamily: "var(--font-mono)",
         fontSize: 11,
         fontWeight: 600,
-        padding: "4px 10px",
-        borderRadius: 5,
+        padding: "4px 8px",
+        borderRadius: 4,
         background: `${color}12`,
         color,
       }}

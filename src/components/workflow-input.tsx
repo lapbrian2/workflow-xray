@@ -66,8 +66,8 @@ export default function WorkflowInput() {
           gap: 2,
           marginBottom: 16,
           background: "var(--color-border)",
-          borderRadius: 8,
-          padding: 3,
+          borderRadius: "var(--radius-sm)",
+          padding: 4,
           width: "fit-content",
         }}
       >
@@ -76,13 +76,13 @@ export default function WorkflowInput() {
             key={mode}
             onClick={() => setInputMode(mode)}
             style={{
-              padding: "7px 16px",
+              padding: "8px 16px",
               borderRadius: 6,
               border: "none",
               background:
                 inputMode === mode ? "var(--color-surface)" : "transparent",
               fontFamily: "var(--font-mono)",
-              fontSize: 11.5,
+              fontSize: 12,
               fontWeight: inputMode === mode ? 600 : 400,
               color:
                 inputMode === mode ? "var(--color-dark)" : "var(--color-muted)",

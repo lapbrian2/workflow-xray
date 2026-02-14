@@ -21,7 +21,7 @@ export default function FlowNode({ data }: FlowNodeProps) {
       onClick={() => onClick(step.id)}
       style={{
         padding: "12px 16px",
-        borderRadius: 10,
+        borderRadius: "var(--radius-sm)",
         background: selected ? `${color}12` : "#fff",
         border: `2px solid ${selected ? color : color + "40"}`,
         minWidth: 180,
@@ -45,7 +45,7 @@ export default function FlowNode({ data }: FlowNodeProps) {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: 6,
+          marginBottom: 8,
         }}
       >
         <span
@@ -104,7 +104,7 @@ export default function FlowNode({ data }: FlowNodeProps) {
 
       {/* Tools */}
       {step.tools.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 6 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
           {step.tools.map((tool) => (
             <span
               key={tool}

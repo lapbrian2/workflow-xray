@@ -26,12 +26,12 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
       style={{
         background: "var(--color-surface)",
         border: "1px solid var(--color-border)",
-        borderRadius: 10,
-        padding: "16px 20px",
+        borderRadius: "var(--radius-lg)",
+        padding: 16,
         transition: "border-color 0.2s, box-shadow 0.2s",
         display: "flex",
         flexDirection: "column",
-        gap: 10,
+        gap: 8,
       }}
     >
       <div
@@ -108,7 +108,7 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
         >
           {formatDate(workflow.createdAt)}
         </span>
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: 8 }}>
           <Link
             href={`/xray/${workflow.id}`}
             style={{
@@ -117,8 +117,8 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
               fontWeight: 600,
               color: "var(--color-dark)",
               textDecoration: "none",
-              padding: "4px 10px",
-              borderRadius: 5,
+              padding: "4px 8px",
+              borderRadius: 4,
               background: "var(--color-border)",
             }}
           >
@@ -152,7 +152,7 @@ function Tag({ label }: { label: string }) {
       style={{
         fontFamily: "var(--font-mono)",
         fontSize: 10,
-        padding: "2px 7px",
+        padding: "2px 8px",
         borderRadius: 4,
         background: "var(--color-border)",
         color: "var(--color-text)",

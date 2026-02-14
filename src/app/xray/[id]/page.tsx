@@ -35,11 +35,11 @@ export default function XRayPage() {
 
   if (loading) {
     return (
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "40px 28px" }}>
+      <div style={{ maxWidth: 960, margin: "0 auto", padding: "40px 32px" }}>
         <div
           style={{
             textAlign: "center",
-            padding: "80px 20px",
+            padding: "80px 24px",
             color: "var(--color-muted)",
             fontFamily: "var(--font-body)",
             fontSize: 15,
@@ -53,11 +53,11 @@ export default function XRayPage() {
 
   if (error || !workflow) {
     return (
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "40px 28px" }}>
+      <div style={{ maxWidth: 960, margin: "0 auto", padding: "40px 32px" }}>
         <div
           style={{
             textAlign: "center",
-            padding: "80px 20px",
+            padding: "80px 24px",
           }}
         >
           <div
@@ -65,7 +65,7 @@ export default function XRayPage() {
               fontSize: 16,
               color: "#C0392B",
               fontFamily: "var(--font-body)",
-              marginBottom: 12,
+              marginBottom: 16,
             }}
           >
             {error || "Workflow not found"}
@@ -97,9 +97,9 @@ export default function XRayPage() {
   ];
 
   return (
-    <div style={{ maxWidth: 960, margin: "0 auto", padding: "28px 28px 60px" }}>
+    <div style={{ maxWidth: 960, margin: "0 auto", padding: "32px 32px 64px" }}>
       {/* Header */}
-      <div style={{ marginBottom: 20 }}>
+      <div style={{ marginBottom: 24 }}>
         <Link
           href="/"
           style={{
@@ -115,7 +115,7 @@ export default function XRayPage() {
         </Link>
         <h1
           style={{
-            fontSize: 24,
+            fontSize: 32,
             fontWeight: 900,
             fontFamily: "var(--font-display)",
             color: "var(--color-dark)",
@@ -142,10 +142,10 @@ export default function XRayPage() {
         style={{
           display: "flex",
           gap: 2,
-          marginBottom: 20,
+          marginBottom: 24,
           background: "var(--color-border)",
-          borderRadius: 8,
-          padding: 3,
+          borderRadius: "var(--radius-sm)",
+          padding: 4,
           width: "fit-content",
         }}
       >
@@ -154,7 +154,7 @@ export default function XRayPage() {
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             style={{
-              padding: "8px 18px",
+              padding: "8px 16px",
               borderRadius: 6,
               border: "none",
               background:
@@ -181,7 +181,7 @@ export default function XRayPage() {
           <div
             style={{
               height: 600,
-              borderRadius: 12,
+              borderRadius: "var(--radius-lg)",
               border: "1px solid var(--color-border)",
               background: "var(--color-surface)",
               overflow: "hidden",

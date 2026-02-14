@@ -43,8 +43,8 @@ export default function StageCard({
   return (
     <div
       style={{
-        padding: "14px 16px",
-        borderRadius: 9,
+        padding: 16,
+        borderRadius: "var(--radius-sm)",
         border: "1px solid var(--color-border)",
         background: "var(--color-surface)",
         animation: `slideUp 0.3s ease ${index * 0.05}s both`,
@@ -55,7 +55,7 @@ export default function StageCard({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: 10,
+          marginBottom: 8,
         }}
       >
         <span

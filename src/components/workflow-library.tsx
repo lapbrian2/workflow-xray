@@ -41,7 +41,7 @@ export default function WorkflowLibrary() {
   return (
     <div>
       {/* Search */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
         <input
           type="text"
           value={search}
@@ -50,8 +50,8 @@ export default function WorkflowLibrary() {
           placeholder="Search workflows..."
           style={{
             flex: 1,
-            padding: "10px 16px",
-            borderRadius: 8,
+            padding: "8px 16px",
+            borderRadius: "var(--radius-sm)",
             border: "1px solid var(--color-border)",
             fontFamily: "var(--font-body)",
             fontSize: 14,
@@ -63,8 +63,8 @@ export default function WorkflowLibrary() {
         <button
           onClick={handleSearch}
           style={{
-            padding: "10px 20px",
-            borderRadius: 8,
+            padding: "8px 24px",
+            borderRadius: "var(--radius-sm)",
             border: "none",
             background: "var(--color-dark)",
             color: "#F0F2F5",
@@ -83,7 +83,7 @@ export default function WorkflowLibrary() {
         <div
           style={{
             textAlign: "center",
-            padding: "60px 20px",
+            padding: "64px 24px",
             color: "var(--color-muted)",
             fontFamily: "var(--font-body)",
           }}
@@ -94,7 +94,7 @@ export default function WorkflowLibrary() {
         <div
           style={{
             textAlign: "center",
-            padding: "60px 20px",
+            padding: "64px 24px",
           }}
         >
           <div
@@ -122,7 +122,7 @@ export default function WorkflowLibrary() {
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-            gap: 12,
+            gap: 16,
           }}
         >
           {workflows.map((w) => (

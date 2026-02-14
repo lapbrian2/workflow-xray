@@ -46,7 +46,7 @@ export default function StructuredForm({
 
   return (
     <div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {stages.map((stage, i) => (
           <StageCard
             key={i}
@@ -63,7 +63,7 @@ export default function StructuredForm({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginTop: 12,
+          marginTop: 16,
         }}
       >
         <button
@@ -71,7 +71,7 @@ export default function StructuredForm({
           disabled={disabled}
           style={{
             padding: "8px 16px",
-            borderRadius: 7,
+            borderRadius: "var(--radius-sm)",
             border: "1px dashed var(--color-border)",
             background: "transparent",
             fontFamily: "var(--font-mono)",
@@ -86,15 +86,15 @@ export default function StructuredForm({
           onClick={onSubmit}
           disabled={disabled || !canSubmit}
           style={{
-            padding: "10px 24px",
-            borderRadius: 8,
+            padding: "8px 24px",
+            borderRadius: "var(--radius-sm)",
             border: "none",
             background:
               disabled || !canSubmit
                 ? "var(--color-border)"
-                : "var(--color-dark)",
+                : "var(--color-accent)",
             color:
-              disabled || !canSubmit ? "var(--color-muted)" : "#F0F2F5",
+              disabled || !canSubmit ? "var(--color-muted)" : "#fff",
             fontFamily: "var(--font-mono)",
             fontSize: 13,
             fontWeight: 600,
