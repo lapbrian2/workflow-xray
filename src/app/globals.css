@@ -1,23 +1,44 @@
 @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+:root {
+  --color-cell: #17a589;
+  --color-orchestration: #2d7dd2;
+  --color-memory: #8e44ad;
+  --color-human: #d4a017;
+  --color-integration: #616a6b;
+  --color-accent: #e8553a;
+  --color-bg: #f7f8fa;
+  --color-surface: #ffffff;
+  --color-dark: #1c2536;
+  --color-text: #4a5568;
+  --color-muted: #8895a7;
+  --color-border: #e8ecf1;
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-body: "Source Serif 4", Georgia, serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
 }
 
+@theme inline {
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-dark);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 @keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 * {
@@ -26,18 +47,20 @@
   padding: 0;
 }
 
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #d5dae1;
-  border-radius: 3px;
+body {
+  font-family: var(--font-body);
+  background: var(--color-bg);
+  color: var(--color-dark);
+  -webkit-font-smoothing: antialiased;
 }
 
-code {
-  font-family: "JetBrains Mono", "Fira Code", monospace;
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d5dae1; border-radius: 3px; }
+
+code, pre {
+  font-family: var(--font-mono);
 }
+
+.react-flow__node { cursor: pointer !important; }
+.react-flow__attribution { display: none !important; }

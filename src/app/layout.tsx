@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import Nav from "@/components/nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Workflow X-Ray — Architecture Blueprint",
+  title: "Workflow X-Ray",
   description:
-    "Architecture & component blueprint for the Workflow X-Ray platform — from internal diagnostic to Glass-Box platform.",
+    "Decompose any workflow into visual flow maps with gap analysis and health scoring — powered by Claude.",
 };
 
 export default function RootLayout({
@@ -14,7 +15,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <Nav />
+        <main>{children}</main>
+      </body>
     </html>
   );
 }
