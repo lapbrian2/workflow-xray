@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { Workflow, CompareResult } from "@/lib/types";
+import { listWorkflowsLocal, mergeWithServer } from "@/lib/client-db";
 import CompareView from "@/components/compare-view";
 
 export default function ComparePage() {
@@ -18,10 +19,26 @@ export default function ComparePage() {
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
+    // Load from localStorage first (instant)
+    const localWorkflows = listWorkflowsLocal();
+    if (localWorkflows.length > 0) {
+      setWorkflows(localWorkflows);
+      setLoading(false);
+    }
+
+    // Then try server and merge
     fetch("/api/workflows")
       .then((r) => r.json())
-      .then((data) => setWorkflows(data.workflows || []))
-      .catch(() => setError("Failed to load workflows"))
+      .then((data) => {
+        const serverWorkflows: Workflow[] = data.workflows || [];
+        const merged = mergeWithServer(serverWorkflows);
+        setWorkflows(merged);
+      })
+      .catch(() => {
+        if (localWorkflows.length === 0) {
+          setError("Failed to load workflows");
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 

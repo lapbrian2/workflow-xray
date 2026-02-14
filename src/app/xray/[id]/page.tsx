@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Workflow } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { getWorkflowLocal, saveWorkflowLocal } from "@/lib/client-db";
 import XRayViz from "@/components/xray-viz";
 import GapAnalysis from "@/components/gap-analysis";
 import HealthCard from "@/components/health-card";
@@ -44,19 +45,37 @@ export default function XRayPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch(`/api/workflows?id=${id}`);
-      if (!res.ok) throw new Error("Workflow not found");
-      const data: Workflow = await res.json();
-      setWorkflow(data);
+      // Check localStorage first for instant load
+      const local = getWorkflowLocal(id);
+      let resolved: Workflow | null = local;
+
+      // Then try server (authoritative source) — update if found
+      try {
+        const res = await fetch(`/api/workflows?id=${id}`);
+        if (res.ok) {
+          const serverData: Workflow = await res.json();
+          resolved = serverData;
+          saveWorkflowLocal(serverData); // sync back to localStorage
+        }
+      } catch {
+        // Server unavailable — use local data
+      }
+
+      if (!resolved) {
+        throw new Error("Workflow not found");
+      }
+
+      setWorkflow(resolved);
 
       // Fetch version siblings if this workflow has a parentId or is itself a parent
-      const rootId = data.parentId || data.id;
+      const rootId = resolved.parentId || resolved.id;
       try {
+        // Try server first for siblings
         const allRes = await fetch("/api/workflows");
         if (allRes.ok) {
           const allData = await allRes.json();
           const siblings = (allData.workflows as Workflow[]).filter(
-            (w) => w.id === rootId || w.parentId === rootId
+            (w: Workflow) => w.id === rootId || w.parentId === rootId
           );
           if (siblings.length > 1) {
             setVersionSiblings(siblings);

@@ -10,6 +10,7 @@ export default function Nav() {
     { href: "/", label: "X-Ray" },
     { href: "/library", label: "Library" },
     { href: "/compare", label: "Compare" },
+    { href: "/dashboard", label: "Dashboard" },
   ];
 
   return (

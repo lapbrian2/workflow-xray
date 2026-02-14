@@ -3,16 +3,25 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
+import { saveWorkflowLocal } from "@/lib/client-db";
 import type { StageInput } from "@/lib/types";
 import FreeformInput from "./freeform-input";
 import StructuredForm from "./structured-form";
 
-export default function WorkflowInput() {
+interface WorkflowInputProps {
+  initialText?: string;
+  reanalyzeParentId?: string;
+}
+
+export default function WorkflowInput({
+  initialText,
+  reanalyzeParentId,
+}: WorkflowInputProps = {}) {
   const router = useRouter();
   const { inputMode, setInputMode, isDecomposing, setIsDecomposing, setError } =
     useStore();
 
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialText || "");
   const [stages, setStages] = useState<StageInput[]>([
     { name: "", owner: "", tools: "", inputs: "", outputs: "" },
     { name: "", owner: "", tools: "", inputs: "", outputs: "" },
@@ -40,6 +49,7 @@ export default function WorkflowInput() {
         body: JSON.stringify({
           description,
           stages: inputMode === "structured" ? stages : undefined,
+          ...(reanalyzeParentId ? { parentId: reanalyzeParentId } : {}),
         }),
       });
 
@@ -49,6 +59,8 @@ export default function WorkflowInput() {
       }
 
       const workflow = await res.json();
+      // Persist to localStorage for immediate availability
+      saveWorkflowLocal(workflow);
       router.push(`/xray/${workflow.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");

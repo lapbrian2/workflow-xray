@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import type { Workflow, GapType } from "@/lib/types";
 import { GAP_LABELS } from "@/lib/types";
+import { listWorkflowsLocal, mergeWithServer, deleteWorkflowLocal } from "@/lib/client-db";
 import WorkflowCard from "./workflow-card";
 
 type SortKey = "date" | "gaps" | "automation" | "fragility" | "complexity" | "steps";
@@ -21,14 +22,34 @@ export default function WorkflowLibrary() {
   const fetchWorkflows = async () => {
     setError(null);
     try {
+      // Load from localStorage first (instant)
+      const localWorkflows = listWorkflowsLocal(search || undefined);
+      if (localWorkflows.length > 0) {
+        setWorkflows(localWorkflows);
+        setLoading(false);
+      }
+
+      // Then try server and merge
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       const res = await fetch(`/api/workflows?${params}`);
-      if (!res.ok) throw new Error("Failed to load workflows");
-      const data = await res.json();
-      setWorkflows(data.workflows || []);
+      if (res.ok) {
+        const data = await res.json();
+        const serverWorkflows: Workflow[] = data.workflows || [];
+        // Merge server data with local data — server wins on conflicts
+        const merged = mergeWithServer(serverWorkflows);
+        setWorkflows(search ? merged.filter((w) => {
+          const q = search.toLowerCase();
+          return w.decomposition.title.toLowerCase().includes(q) ||
+            w.description.toLowerCase().includes(q);
+        }) : merged);
+      } else if (localWorkflows.length === 0) {
+        throw new Error("Failed to load workflows");
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      if (workflows.length === 0) {
+        setError(err instanceof Error ? err.message : "Something went wrong");
+      }
     } finally {
       setLoading(false);
     }
@@ -45,7 +66,9 @@ export default function WorkflowLibrary() {
   };
 
   const handleDelete = async (id: string) => {
-    await fetch(`/api/workflows?id=${id}`, { method: "DELETE" });
+    // Delete from both server and localStorage
+    deleteWorkflowLocal(id);
+    await fetch(`/api/workflows?id=${id}`, { method: "DELETE" }).catch(() => {});
     setWorkflows((w) => w.filter((wf) => wf.id !== id));
   };
 

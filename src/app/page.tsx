@@ -1,10 +1,48 @@
 "use client";
 
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import WorkflowInput from "@/components/workflow-input";
 import { useStore } from "@/lib/store";
+import { getWorkflowLocal } from "@/lib/client-db";
+import type { Workflow } from "@/lib/types";
 
-export default function Home() {
+function HomeContent() {
   const { error, isDecomposing, setError } = useStore();
+  const searchParams = useSearchParams();
+  const reanalyzeId = searchParams.get("reanalyze");
+
+  const [reanalyzeWorkflow, setReanalyzeWorkflow] = useState<Workflow | null>(
+    null
+  );
+  const [reanalyzeLoading, setReanalyzeLoading] = useState(false);
+
+  useEffect(() => {
+    if (!reanalyzeId) {
+      setReanalyzeWorkflow(null);
+      return;
+    }
+    setReanalyzeLoading(true);
+
+    // Check localStorage first
+    const local = getWorkflowLocal(reanalyzeId);
+    if (local) {
+      setReanalyzeWorkflow(local);
+      setReanalyzeLoading(false);
+    }
+
+    // Then try server
+    fetch(`/api/workflows?id=${reanalyzeId}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Not found");
+        return res.json();
+      })
+      .then((data: Workflow) => setReanalyzeWorkflow(data))
+      .catch(() => {
+        if (!local) setReanalyzeWorkflow(null);
+      })
+      .finally(() => setReanalyzeLoading(false));
+  }, [reanalyzeId]);
 
   return (
     <div
@@ -181,10 +219,79 @@ export default function Home() {
         </div>
       )}
 
+      {/* Re-analyze banner */}
+      {reanalyzeId && !reanalyzeLoading && reanalyzeWorkflow && (
+        <div
+          style={{
+            padding: "16px 24px",
+            marginBottom: 24,
+            background: "#FFF8F6",
+            borderRadius: "var(--radius-lg)",
+            border: "1px solid #E8553A30",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <div
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: "50%",
+              background: "#E8553A20",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              fontSize: 12,
+              fontWeight: 700,
+              color: "var(--color-accent)",
+            }}
+          >
+            &#x21bb;
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 12,
+                color: "var(--color-accent)",
+                fontWeight: 600,
+                marginBottom: 2,
+              }}
+            >
+              Re-analyzing: {reanalyzeWorkflow.decomposition.title}
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--font-body)",
+                fontSize: 12,
+                color: "var(--color-text)",
+                opacity: 0.8,
+              }}
+            >
+              This will create a new version.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Input */}
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
-        <WorkflowInput />
+        <WorkflowInput
+          key={reanalyzeId || "default"}
+          initialText={reanalyzeWorkflow?.description}
+          reanalyzeParentId={reanalyzeId || undefined}
+        />
       </div>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
   );
 }
