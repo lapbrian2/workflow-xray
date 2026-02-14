@@ -10,46 +10,22 @@ interface GapAnalysisProps {
 export default function GapAnalysis({ gaps }: GapAnalysisProps) {
   if (gaps.length === 0) {
     return (
-      <div
-        style={{
-          textAlign: "center",
-          padding: "64px 24px",
-        }}
-      >
+      <div className="empty-state">
         <div
+          className="empty-state-icon"
           style={{
-            width: 48,
-            height: 48,
-            borderRadius: "50%",
-            background: "#E8F8F5",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            margin: "0 auto 16px",
-            fontSize: 20,
+            background: "linear-gradient(135deg, #E8F8F5, #D5F5F0)",
             color: "#17A589",
           }}
         >
           &#x2713;
         </div>
-        <div
-          style={{
-            fontSize: 15,
-            color: "var(--color-text)",
-            fontFamily: "var(--font-body)",
-            marginBottom: 4,
-          }}
-        >
+        <div className="empty-state-title" style={{ color: "#17A589" }}>
           No gaps detected
         </div>
-        <div
-          style={{
-            fontSize: 13,
-            color: "var(--color-muted)",
-            fontFamily: "var(--font-body)",
-          }}
-        >
-          This workflow looks well-structured. Nice work!
+        <div className="empty-state-desc">
+          This workflow looks well-structured with no significant gaps identified.
+          Great job designing a robust process!
         </div>
       </div>
     );
@@ -105,17 +81,14 @@ function Badge({
 }) {
   return (
     <span
+      className="badge"
       style={{
-        fontFamily: "var(--font-mono)",
-        fontSize: 11,
-        fontWeight: 600,
-        padding: "4px 8px",
-        borderRadius: 4,
         background: `${color}12`,
         color,
+        border: `1px solid ${color}20`,
       }}
     >
-      {count} {label}
+      <span style={{ fontWeight: 800 }}>{count}</span> {label}
     </span>
   );
 }

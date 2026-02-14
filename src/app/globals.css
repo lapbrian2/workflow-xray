@@ -606,3 +606,137 @@ button:disabled {
   z-index: 100;
   box-shadow: var(--shadow-md);
 }
+
+/* ── Enhanced Input Styles ── */
+input[type="text"],
+input[type="number"],
+input[type="password"],
+input[type="email"],
+input[type="url"] {
+  transition: border-color var(--duration-normal) var(--ease-default),
+              box-shadow var(--duration-normal) var(--ease-default);
+}
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+input[type="url"]:focus {
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 0 0 3px rgba(232, 85, 58, 0.08) !important;
+}
+
+textarea {
+  transition: border-color var(--duration-normal) var(--ease-default),
+              box-shadow var(--duration-normal) var(--ease-default);
+}
+textarea:focus {
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 0 0 3px rgba(232, 85, 58, 0.08), var(--shadow-md) !important;
+}
+
+/* ── Badge Utility ── */
+.badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Subtle page section divider ── */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--color-border) 20%, var(--color-border) 80%, transparent 100%);
+  margin: var(--space-xl) 0;
+}
+
+/* ── Glassmorphism card (used on login, modals) ── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255,255,255,0.04) inset;
+}
+
+/* ── Gradient text utility ── */
+.text-gradient {
+  background: linear-gradient(135deg, var(--color-dark) 0%, var(--color-accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Animated dot indicator ── */
+.dot-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+/* ── Status badges ── */
+.status-success {
+  color: var(--color-success);
+  background: rgba(23, 165, 137, 0.08);
+  border: 1px solid rgba(23, 165, 137, 0.15);
+}
+.status-warning {
+  color: var(--color-warning);
+  background: rgba(212, 160, 23, 0.08);
+  border: 1px solid rgba(212, 160, 23, 0.15);
+}
+.status-danger {
+  color: var(--color-danger);
+  background: rgba(192, 57, 43, 0.08);
+  border: 1px solid rgba(192, 57, 43, 0.15);
+}
+.status-info {
+  color: var(--color-info);
+  background: rgba(45, 125, 210, 0.08);
+  border: 1px solid rgba(45, 125, 210, 0.15);
+}
+
+/* ── Smooth page transitions ── */
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.page-enter {
+  animation: pageEnter 0.4s var(--ease-spring) both;
+}
+
+/* ── Selection highlight ── */
+::selection {
+  background: rgba(232, 85, 58, 0.15);
+  color: var(--color-dark);
+}
+
+/* ── Improved link hover ── */
+a {
+  transition: color var(--duration-fast) var(--ease-default);
+}
+
+/* ── Print styles ── */
+@media print {
+  nav, .skip-to-content, button, .progress-bar {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+    color: #000;
+  }
+}

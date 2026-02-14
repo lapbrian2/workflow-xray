@@ -234,13 +234,13 @@ export default function FreeformInput({
           onClick={onSubmit}
           disabled={disabled || value.trim().length < 20}
           style={{
-            padding: "8px 24px",
+            padding: "10px 28px",
             borderRadius: "var(--radius-sm)",
             border: "none",
             background:
               disabled || value.trim().length < 20
                 ? "var(--color-border)"
-                : "var(--color-accent)",
+                : "linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-light) 100%)",
             color:
               disabled || value.trim().length < 20
                 ? "var(--color-muted)"
@@ -252,7 +252,12 @@ export default function FreeformInput({
               disabled || value.trim().length < 20
                 ? "not-allowed"
                 : "pointer",
-            transition: "all 0.2s",
+            transition: "all var(--duration-normal) var(--ease-default)",
+            boxShadow:
+              disabled || value.trim().length < 20
+                ? "none"
+                : "var(--shadow-accent)",
+            letterSpacing: "0.02em",
           }}
         >
           {disabled ? (

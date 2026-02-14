@@ -113,43 +113,54 @@ export default function ComparePage() {
   const after = getSelectionWorkflow(1);
 
   return (
-    <div style={{ maxWidth: 960, margin: "0 auto", padding: "32px 32px 64px" }}>
-      <Link
-        href="/library"
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          color: "var(--color-muted)",
-          textDecoration: "none",
-          marginBottom: 8,
-          display: "inline-block",
-        }}
-      >
-        &larr; Library
-      </Link>
-      <h1
-        style={{
-          fontSize: 32,
-          fontWeight: 900,
-          fontFamily: "var(--font-display)",
-          color: "var(--color-dark)",
-          letterSpacing: "-0.02em",
-          marginBottom: 8,
-        }}
-      >
-        Compare Workflows
-      </h1>
-      <p
-        style={{
-          fontFamily: "var(--font-body)",
-          fontSize: 14,
-          color: "var(--color-text)",
-          marginBottom: 24,
-        }}
-      >
-        Select two workflows to compare side-by-side. See what changed, what
-        improved, and what needs attention.
-      </p>
+    <div style={{ maxWidth: 960, margin: "0 auto", padding: "clamp(20px, 4vw, 32px) clamp(16px, 4vw, 32px) 64px" }}>
+      {/* Page Header */}
+      <div style={{ marginBottom: 28, animation: "fadeInUp 0.4s var(--ease-spring) both" }}>
+        <Link
+          href="/library"
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            color: "var(--color-muted)",
+            textDecoration: "none",
+            marginBottom: 8,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "4px 8px",
+            borderRadius: "var(--radius-xs)",
+            transition: "all var(--duration-fast) var(--ease-default)",
+          }}
+        >
+          &larr; Library
+        </Link>
+        <h1
+          style={{
+            fontSize: "clamp(28px, 5vw, 36px)",
+            fontWeight: 900,
+            fontFamily: "var(--font-display)",
+            letterSpacing: "-0.02em",
+            marginBottom: 10,
+            background:
+              "linear-gradient(135deg, var(--color-dark) 0%, var(--color-accent) 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}
+        >
+          Compare Workflows
+        </h1>
+        <p
+          style={{
+            fontFamily: "var(--font-body)",
+            fontSize: 14,
+            color: "var(--color-text)",
+          }}
+        >
+          Select two workflows to compare side-by-side. See what changed, what
+          improved, and what needs attention.
+        </p>
+      </div>
 
       {/* Selection status bar */}
       <div
@@ -248,7 +259,7 @@ export default function ComparePage() {
             border: "none",
             background:
               selected[0] && selected[1]
-                ? "var(--color-accent)"
+                ? "linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-light) 100%)"
                 : "var(--color-border)",
             color: selected[0] && selected[1] ? "#fff" : "var(--color-muted)",
             fontFamily: "var(--font-mono)",
@@ -257,10 +268,14 @@ export default function ComparePage() {
             cursor:
               selected[0] && selected[1] && !comparing ? "pointer" : "default",
             opacity: comparing ? 0.7 : 1,
-            transition: "all 0.2s",
+            transition: "all var(--duration-normal) var(--ease-default)",
             display: "flex",
             alignItems: "center",
             gap: 6,
+            boxShadow:
+              selected[0] && selected[1]
+                ? "var(--shadow-accent)"
+                : "none",
           }}
         >
           {comparing ? (
@@ -330,39 +345,28 @@ export default function ComparePage() {
           )}
 
           {!loading && workflows.length === 0 && (
-            <div style={{ textAlign: "center", padding: "64px 24px" }}>
-              <div
-                style={{
-                  fontSize: 16,
-                  color: "var(--color-text)",
-                  fontFamily: "var(--font-body)",
-                  marginBottom: 8,
-                }}
-              >
+            <div className="empty-state">
+              <div className="empty-state-icon">
+                &#x2194;
+              </div>
+              <div className="empty-state-title">
                 No workflows to compare
               </div>
-              <div
-                style={{
-                  fontSize: 13,
-                  color: "var(--color-muted)",
-                  marginBottom: 16,
-                }}
-              >
+              <div className="empty-state-desc">
                 You need at least two saved workflows to use the compare feature.
+                Create your first workflow to get started.
               </div>
               <Link
                 href="/"
+                className="btn-primary"
                 style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 13,
-                  color: "#fff",
-                  background: "var(--color-accent)",
-                  padding: "8px 24px",
-                  borderRadius: "var(--radius-sm)",
                   textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
                 }}
               >
-                Create a Workflow
+                Create a Workflow &rarr;
               </Link>
             </div>
           )}
@@ -384,9 +388,10 @@ export default function ComparePage() {
                   <button
                     key={w.id}
                     onClick={() => handleSelect(w.id)}
+                    className="card-interactive"
                     style={{
                       padding: 16,
-                      borderRadius: "var(--radius-sm)",
+                      borderRadius: "var(--radius-lg)",
                       border: `2px solid ${
                         isFirst
                           ? "#2D7DD2"
@@ -396,12 +401,12 @@ export default function ComparePage() {
                       }`,
                       background: isSelected
                         ? isFirst
-                          ? "#2D7DD208"
-                          : "#17A58908"
+                          ? "linear-gradient(135deg, #2D7DD208 0%, #2D7DD204 100%)"
+                          : "linear-gradient(135deg, #17A58908 0%, #17A58904 100%)"
                         : "var(--color-surface)",
                       cursor: "pointer",
                       textAlign: "left",
-                      transition: "all 0.15s",
+                      transition: "all var(--duration-normal) var(--ease-default)",
                     }}
                   >
                     <div
@@ -479,16 +484,61 @@ export default function ComparePage() {
       {error && (
         <div
           style={{
-            padding: 16,
-            background: "#FDF0EE",
-            borderRadius: "var(--radius-sm)",
-            color: "#C0392B",
-            fontFamily: "var(--font-body)",
-            fontSize: 14,
+            padding: "14px 20px",
+            background: "linear-gradient(135deg, rgba(253,240,238,0.95) 0%, rgba(255,230,225,0.9) 100%)",
+            borderRadius: "var(--radius-lg)",
+            border: "1px solid rgba(232,85,58,0.12)",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
             marginBottom: 24,
+            animation: "fadeInUpSm 0.35s var(--ease-default)",
+            boxShadow: "0 2px 12px rgba(232,85,58,0.06)",
           }}
         >
-          {error}
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              background: "rgba(232,85,58,0.1)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 13,
+              fontWeight: 700,
+              color: "#C0392B",
+              flexShrink: 0,
+            }}
+          >
+            !
+          </div>
+          <div
+            style={{
+              fontFamily: "var(--font-body)",
+              fontSize: 13,
+              color: "#C0392B",
+              lineHeight: 1.5,
+            }}
+          >
+            {error}
+          </div>
+          <button
+            onClick={() => setError(null)}
+            style={{
+              background: "none",
+              border: "none",
+              fontSize: 16,
+              color: "#C0392B",
+              cursor: "pointer",
+              padding: "2px 6px",
+              opacity: 0.6,
+              flexShrink: 0,
+              marginLeft: "auto",
+            }}
+          >
+            &times;
+          </button>
         </div>
       )}
 

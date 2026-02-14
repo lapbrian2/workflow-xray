@@ -33,8 +33,6 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
   const { decomposition } = workflow;
   const health = decomposition.health;
   const [hovered, setHovered] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-
   // Average health indicator color
   const avgHealth =
     (health.automationPotential + health.teamLoadBalance +
@@ -45,19 +43,13 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
   const borderAccentColor = getHealthBorderColor(avgHealth);
 
   const handleDeleteClick = () => {
-    if (confirmDelete) {
-      onDelete?.(workflow.id);
-    } else {
-      setConfirmDelete(true);
-      // Auto-cancel after 3 seconds
-      setTimeout(() => setConfirmDelete(false), 3000);
-    }
+    onDelete?.(workflow.id);
   };
 
   return (
     <div
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); setConfirmDelete(false); }}
+      onMouseLeave={() => setHovered(false)}
       style={{
         background: "var(--color-surface)",
         border: `1px solid ${hovered ? "var(--color-accent)" : "var(--color-border)"}`,
@@ -72,7 +64,7 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
           : "0 1px 4px rgba(0,0,0,0.04)",
         overflow: "hidden",
         position: "relative",
-        transform: hovered ? "translateY(-4px)" : "translateY(0)",
+        transform: hovered ? "translateY(-2px)" : "translateY(0)",
       }}
     >
       {/* Shimmer overlay on hover */}
@@ -304,24 +296,21 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
             {onDelete && (
               <button
                 onClick={handleDeleteClick}
+                aria-label={`Delete ${decomposition.title}`}
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: 11,
-                  color: confirmDelete ? "#fff" : "var(--color-muted)",
-                  background: confirmDelete
-                    ? "linear-gradient(135deg, #E8553A, #c0392b)"
-                    : "none",
-                  border: confirmDelete ? "none" : "none",
+                  color: "var(--color-muted)",
+                  background: "none",
+                  border: "none",
                   cursor: "pointer",
-                  padding: confirmDelete ? "5px 12px" : "4px 8px",
+                  padding: "4px 8px",
                   borderRadius: 6,
-                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                  fontWeight: confirmDelete ? 600 : 400,
-                  boxShadow: confirmDelete ? "0 2px 8px rgba(232, 85, 58, 0.25)" : "none",
-                  transform: confirmDelete ? "scale(1.05)" : "scale(1)",
+                  transition: "all var(--duration-fast) var(--ease-default)",
+                  fontWeight: 400,
                 }}
               >
-                {confirmDelete ? "Confirm?" : "Delete"}
+                Delete
               </button>
             )}
           </div>

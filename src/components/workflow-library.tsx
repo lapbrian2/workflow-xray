@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
 import type { Workflow, GapType } from "@/lib/types";
 import { GAP_LABELS } from "@/lib/types";
 import { listWorkflowsLocal, mergeWithServer, deleteWorkflowLocal } from "@/lib/client-db";
 import WorkflowCard from "./workflow-card";
+import ConfirmModal from "./confirm-modal";
 
 type SortKey = "date" | "gaps" | "automation" | "fragility" | "complexity" | "steps";
 type SortDir = "asc" | "desc";
@@ -18,7 +19,9 @@ export default function WorkflowLibrary() {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [gapFilter, setGapFilter] = useState<GapType | "all">("all");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const [bulkSyncing, setBulkSyncing] = useState(false);
   const [bulkSyncProgress, setBulkSyncProgress] = useState<{
     done: number;
@@ -67,22 +70,33 @@ export default function WorkflowLibrary() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Debounced search — auto-filter as user types
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const handleSearch = () => {
+    setDebouncedSearch(search);
     setLoading(true);
     fetchWorkflows();
   };
 
-  const handleDelete = async (id: string) => {
-    // Confirmation dialog to prevent accidental deletion
+  const handleDeleteRequest = useCallback((id: string) => {
     const workflow = workflows.find((w) => w.id === id);
     const title = workflow?.decomposition?.title || "this workflow";
-    if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    setDeleteTarget({ id, title });
+  }, [workflows]);
 
-    // Delete from both server and localStorage
-    deleteWorkflowLocal(id);
-    await fetch(`/api/workflows?id=${id}`, { method: "DELETE" }).catch(() => {});
-    setWorkflows((w) => w.filter((wf) => wf.id !== id));
-  };
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTarget) return;
+    deleteWorkflowLocal(deleteTarget.id);
+    await fetch(`/api/workflows?id=${deleteTarget.id}`, { method: "DELETE" }).catch(() => {});
+    setWorkflows((w) => w.filter((wf) => wf.id !== deleteTarget.id));
+    setDeleteTarget(null);
+  }, [deleteTarget]);
 
   const bulkSyncLock = useRef(false);
   const handleBulkSync = async () => {
@@ -167,6 +181,15 @@ export default function WorkflowLibrary() {
   const filtered = useMemo(() => {
     let result = [...workflows];
 
+    // Client-side debounced search filter
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase().trim();
+      result = result.filter((w) =>
+        w.decomposition.title.toLowerCase().includes(q) ||
+        w.description.toLowerCase().includes(q)
+      );
+    }
+
     // Gap type filter
     if (gapFilter !== "all") {
       result = result.filter((w) =>
@@ -209,7 +232,7 @@ export default function WorkflowLibrary() {
     });
 
     return result;
-  }, [workflows, gapFilter, sortKey, sortDir]);
+  }, [workflows, debouncedSearch, gapFilter, sortKey, sortDir]);
 
   // ── All gap types present across all workflows ──
   const availableGapTypes = useMemo(() => {
@@ -749,35 +772,29 @@ export default function WorkflowLibrary() {
 
       {/* Empty — no workflows */}
       {!loading && !error && workflows.length === 0 && !search && (
-        <div
-          style={{
-            textAlign: "center",
-            padding: "64px 24px",
-            animation: "fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both",
-          }}
-        >
-          <div
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: "50%",
-              background: "linear-gradient(135deg, var(--color-border), #dfe4ea)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 16px",
-              fontSize: 22,
-              color: "var(--color-muted)",
-            }}
-          >
+        <div className="empty-state">
+          <div className="empty-state-icon">
             &#x2731;
           </div>
-          <div style={{ fontSize: 16, color: "var(--color-text)", fontFamily: "var(--font-body)", marginBottom: 8 }}>
+          <div className="empty-state-title">
             No workflows yet
           </div>
-          <div style={{ fontSize: 13, color: "var(--color-muted)", fontFamily: "var(--font-body)" }}>
-            Decompose a workflow to see it here.
+          <div className="empty-state-desc">
+            Your analyzed workflows will appear here. Start by decomposing
+            a workflow to build your library.
           </div>
+          <Link
+            href="/"
+            className="btn-primary"
+            style={{
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            Decompose a Workflow &rarr;
+          </Link>
         </div>
       )}
 
@@ -831,11 +848,23 @@ export default function WorkflowLibrary() {
                 animation: `fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) ${Math.min(i * 0.06, 0.6)}s both`,
               }}
             >
-              <WorkflowCard workflow={w} onDelete={handleDelete} />
+              <WorkflowCard workflow={w} onDelete={handleDeleteRequest} />
             </div>
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Delete Workflow"
+        message={`Are you sure you want to delete "${deleteTarget?.title}"? This action cannot be undone and the workflow data will be permanently removed.`}
+        confirmLabel="Delete"
+        cancelLabel="Keep It"
+        variant="danger"
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

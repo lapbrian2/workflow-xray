@@ -50,9 +50,9 @@ export default function GapCard({ gap, index }: GapCardProps) {
         padding: 0,
         animation: `staggerFadeIn 0.4s ease ${index * 0.07}s both`,
         transition: "all 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
-        transform: hovered ? "translateY(-4px)" : "translateY(0)",
+        transform: hovered ? "translateY(-2px)" : "translateY(0)",
         boxShadow: hovered
-          ? `0 16px 32px rgba(0,0,0,0.08), 0 0 0 1px ${sevColor}10`
+          ? `0 8px 24px rgba(0,0,0,0.06), 0 0 0 1px ${sevColor}10`
           : "0 1px 3px rgba(0,0,0,0.03)",
         cursor: "pointer",
         position: "relative",
