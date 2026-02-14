@@ -13,7 +13,7 @@ export default function LibraryPage() {
           marginBottom: 8,
         }}
       >
-        Workflow Library
+        Operations Dashboard
       </h1>
       <p
         style={{
@@ -23,7 +23,7 @@ export default function LibraryPage() {
           marginBottom: 24,
         }}
       >
-        All your decomposed workflows, saved and searchable.
+        Sort, filter, and diagnose across all your analyzed workflows.
       </p>
       <WorkflowLibrary />
     </div>
