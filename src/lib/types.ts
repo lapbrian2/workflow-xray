@@ -58,6 +58,8 @@ export interface Workflow {
   description: string; // original input text
   createdAt: string;
   updatedAt: string;
+  parentId?: string;     // links to the original workflow (for versioning)
+  version?: number;      // 1, 2, 3, etc.
 }
 
 export interface StageInput {

@@ -185,12 +185,35 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
         >
           <span
             style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              color: "var(--color-muted)",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
             }}
           >
-            {formatDate(workflow.createdAt)}
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                color: "var(--color-muted)",
+              }}
+            >
+              {formatDate(workflow.createdAt)}
+            </span>
+            {workflow.version && workflow.version > 1 && (
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 9,
+                  background: "var(--color-accent)",
+                  color: "#fff",
+                  padding: "1px 6px",
+                  borderRadius: 3,
+                  fontWeight: 600,
+                }}
+              >
+                v{workflow.version}
+              </span>
+            )}
           </span>
           <div style={{ display: "flex", gap: 8 }}>
             <Link

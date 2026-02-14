@@ -1,23 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Workflow } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import XRayViz from "@/components/xray-viz";
 import GapAnalysis from "@/components/gap-analysis";
 import HealthCard from "@/components/health-card";
+import VersionTimeline from "@/components/version-timeline";
 import { exportToPdf } from "@/lib/pdf-export";
 
 export default function XRayPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params.id as string;
   const { activeTab, setActiveTab } = useStore();
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [versionSiblings, setVersionSiblings] = useState<Workflow[]>([]);
 
   const handleExportPdf = async () => {
     if (!workflow) return;
@@ -31,14 +34,39 @@ export default function XRayPage() {
     }
   };
 
+  const handleReanalyze = () => {
+    if (!workflow) return;
+    const parentId = workflow.parentId || workflow.id;
+    router.push(`/?reanalyze=${parentId}`);
+  };
+
   const load = async () => {
     setError(null);
     setLoading(true);
     try {
       const res = await fetch(`/api/workflows?id=${id}`);
       if (!res.ok) throw new Error("Workflow not found");
-      const data = await res.json();
+      const data: Workflow = await res.json();
       setWorkflow(data);
+
+      // Fetch version siblings if this workflow has a parentId or is itself a parent
+      const rootId = data.parentId || data.id;
+      try {
+        const allRes = await fetch("/api/workflows");
+        if (allRes.ok) {
+          const allData = await allRes.json();
+          const siblings = (allData.workflows as Workflow[]).filter(
+            (w) => w.id === rootId || w.parentId === rootId
+          );
+          if (siblings.length > 1) {
+            setVersionSiblings(siblings);
+          } else {
+            setVersionSiblings([]);
+          }
+        }
+      } catch {
+        // Silently ignore version fetch errors
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
@@ -231,17 +259,31 @@ export default function XRayPage() {
         >
           &larr; New X-Ray
         </Link>
-        <h1
-          style={{
-            fontSize: 32,
-            fontWeight: 900,
-            fontFamily: "var(--font-display)",
-            color: "var(--color-dark)",
-            letterSpacing: "-0.02em",
-          }}
-        >
-          {decomposition.title}
-        </h1>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+          <h1
+            style={{
+              fontSize: 32,
+              fontWeight: 900,
+              fontFamily: "var(--font-display)",
+              color: "var(--color-dark)",
+              letterSpacing: "-0.02em",
+            }}
+          >
+            {decomposition.title}
+          </h1>
+          {workflow.version && workflow.version > 1 && (
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 13,
+                fontWeight: 700,
+                color: "var(--color-accent)",
+              }}
+            >
+              v{workflow.version}
+            </span>
+          )}
+        </div>
         <div
           style={{
             display: "flex",
@@ -294,6 +336,26 @@ export default function XRayPage() {
               "Download PDF"
             )}
           </button>
+          <button
+            onClick={handleReanalyze}
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              color: "var(--color-dark)",
+              padding: "4px 12px",
+              borderRadius: 4,
+              border: "1px solid var(--color-border)",
+              background: "var(--color-surface)",
+              cursor: "pointer",
+              transition: "all 0.2s",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontWeight: 600,
+            }}
+          >
+            Re-analyze
+          </button>
           <Link
             href="/library"
             style={{
@@ -312,6 +374,15 @@ export default function XRayPage() {
           </Link>
         </div>
       </div>
+
+      {/* Version Timeline */}
+      {versionSiblings.length > 1 && (
+        <VersionTimeline
+          versions={versionSiblings}
+          currentId={workflow.id}
+          onSelectVersion={(vId) => router.push(`/xray/${vId}`)}
+        />
+      )}
 
       {/* Tabs */}
       <div

@@ -3,6 +3,7 @@ import { callClaude } from "./claude";
 import { computeHealth } from "./scoring";
 import type { Decomposition, DecomposeRequest } from "./types";
 import { generateId } from "./utils";
+import { buildOrgContext, formatOrgContextForPrompt } from "./org-context";
 
 const StepSchema = z.object({
   id: z.string(),
@@ -39,7 +40,7 @@ const DecompositionResponseSchema = z.object({
   gaps: z.array(GapSchema),
 });
 
-function buildPrompt(request: DecomposeRequest): string {
+function buildPrompt(request: DecomposeRequest, orgContext?: string): string {
   let prompt = `Analyze and decompose this workflow:\n\n${request.description}`;
 
   if (request.stages && request.stages.length > 0) {
@@ -62,13 +63,29 @@ function buildPrompt(request: DecomposeRequest): string {
     }
   }
 
+  // Inject organizational memory context
+  if (orgContext) {
+    prompt += `\n\n${orgContext}`;
+  }
+
   return prompt;
 }
 
 export async function decomposeWorkflow(
   request: DecomposeRequest
 ): Promise<Decomposition> {
-  const prompt = buildPrompt(request);
+  // Build organizational context from saved library
+  let orgContextStr: string | undefined;
+  try {
+    const orgCtx = await buildOrgContext(request.description);
+    if (orgCtx) {
+      orgContextStr = formatOrgContextForPrompt(orgCtx);
+    }
+  } catch {
+    // Non-critical — proceed without org context
+  }
+
+  const prompt = buildPrompt(request, orgContextStr);
   const raw = await callClaude(prompt);
 
   // Extract JSON from Claude's response (it might wrap in markdown code blocks)
