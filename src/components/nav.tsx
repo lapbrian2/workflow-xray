@@ -1,10 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function Nav() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  // Hide nav on login page
+  if (pathname === "/login") return null;
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await fetch("/api/auth", { method: "DELETE" });
+      router.push("/login");
+      router.refresh();
+    } catch {
+      setLoggingOut(false);
+    }
+  };
 
   const links = [
     { href: "/", label: "X-Ray" },
@@ -87,7 +105,7 @@ export default function Nav() {
         </span>
       </Link>
 
-      <div style={{ display: "flex", gap: 4 }}>
+      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
         {links.map((link) => {
           const isActive =
             link.href === "/"
@@ -117,6 +135,26 @@ export default function Nav() {
             </Link>
           );
         })}
+        <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.08)", marginLeft: 4, marginRight: 4 }} />
+        <button
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className="nav-link"
+          style={{
+            padding: "8px 12px",
+            borderRadius: 6,
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            fontWeight: 400,
+            color: "#6B7A8D",
+            background: "transparent",
+            border: "none",
+            cursor: loggingOut ? "wait" : "pointer",
+            opacity: loggingOut ? 0.5 : 1,
+          }}
+        >
+          {loggingOut ? "..." : "Logout"}
+        </button>
       </div>
     </nav>
   );
