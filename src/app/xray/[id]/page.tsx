@@ -231,13 +231,32 @@ export default function XRayPage() {
         <div
           style={{
             display: "flex",
+            alignItems: "center",
             gap: 8,
             marginTop: 8,
+            flexWrap: "wrap",
           }}
         >
           <Tag label={`${decomposition.steps.length} steps`} />
           <Tag label={`${decomposition.gaps.length} gaps`} />
           <Tag label={`${decomposition.health.automationPotential}% automatable`} />
+          <span style={{ flex: 1 }} />
+          <Link
+            href="/library"
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              color: "var(--color-muted)",
+              textDecoration: "none",
+              padding: "4px 8px",
+              borderRadius: 4,
+              border: "1px solid var(--color-border)",
+              background: "var(--color-surface)",
+              transition: "all 0.2s",
+            }}
+          >
+            View in Library &rarr;
+          </Link>
         </div>
       </div>
 

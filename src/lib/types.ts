@@ -9,7 +9,10 @@ export type GapType =
   | "bottleneck"
   | "context_loss"
   | "single_dependency"
-  | "manual_overhead";
+  | "manual_overhead"
+  | "missing_feedback"
+  | "missing_fallback"
+  | "scope_ambiguity";
 
 export type Severity = "low" | "medium" | "high";
 
@@ -108,6 +111,9 @@ export const GAP_LABELS: Record<GapType, string> = {
   context_loss: "Context Loss",
   single_dependency: "Single-Person Dependency",
   manual_overhead: "Manual Overhead",
+  missing_feedback: "Missing Feedback",
+  missing_fallback: "Missing Fallback",
+  scope_ambiguity: "Scope Ambiguity",
 };
 
 export const SEVERITY_COLORS: Record<Severity, string> = {
