@@ -72,7 +72,12 @@ export default function XRayPage() {
         }),
       });
       if (!res.ok) {
-        const err = await res.json();
+        let err;
+        try {
+          err = await res.json();
+        } catch {
+          err = { error: `Sync failed with status ${res.status}` };
+        }
         // If page was deleted (404), fall back to creating a new one
         if (res.status === 404 && notionPageId) {
           setNotionPageId(null);
@@ -166,7 +171,7 @@ export default function XRayPage() {
   /* ── Loading State ── */
   if (loading) {
     return (
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "40px 32px" }}>
+      <div style={{ maxWidth: 960, margin: "0 auto", padding: "clamp(20px, 4vw, 32px) clamp(16px, 4vw, 32px)" }}>
         {/* Back link skeleton */}
         <div
           style={{
@@ -236,7 +241,7 @@ export default function XRayPage() {
   /* ── Error State ── */
   if (error || !workflow) {
     return (
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "40px 32px" }}>
+      <div style={{ maxWidth: 960, margin: "0 auto", padding: "clamp(20px, 4vw, 32px) clamp(16px, 4vw, 32px)" }}>
         <div
           style={{
             textAlign: "center",
@@ -427,7 +432,7 @@ export default function XRayPage() {
               padding: "6px 14px",
               borderRadius: "var(--radius-sm)",
               border: "none",
-              background: "linear-gradient(135deg, #17A589 0%, #1ABC9C 100%)",
+              background: "linear-gradient(135deg, var(--color-success) 0%, #1ABC9C 100%)",
               cursor: "pointer",
               transition: "all var(--duration-normal) var(--ease-default)",
               display: "flex",
@@ -467,12 +472,12 @@ export default function XRayPage() {
             style={{
               fontFamily: "var(--font-mono)",
               fontSize: 11,
-              color: synced ? "#17A589" : "var(--color-dark)",
+              color: synced ? "var(--color-success)" : "var(--color-dark)",
               padding: "6px 14px",
               borderRadius: "var(--radius-sm)",
-              border: `1.5px solid ${synced ? "#17A58940" : "var(--color-border)"}`,
+              border: `1.5px solid ${synced ? "rgba(23,165,137,0.25)" : "var(--color-border)"}`,
               background: synced
-                ? "#17A58910"
+                ? "var(--success-bg-light)"
                 : "var(--color-surface)",
               cursor: syncing ? "default" : "pointer",
               transition: "all 0.2s",
@@ -521,7 +526,7 @@ export default function XRayPage() {
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
                     style={{
-                      color: "#17A589",
+                      color: "var(--color-success)",
                       textDecoration: "underline",
                       fontSize: 10,
                     }}

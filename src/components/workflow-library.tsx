@@ -7,6 +7,7 @@ import { GAP_LABELS } from "@/lib/types";
 import { listWorkflowsLocal, mergeWithServer, deleteWorkflowLocal } from "@/lib/client-db";
 import WorkflowCard from "./workflow-card";
 import ConfirmModal from "./confirm-modal";
+import { useToast } from "./toast";
 
 type SortKey = "date" | "gaps" | "automation" | "fragility" | "complexity" | "steps";
 type SortDir = "asc" | "desc";
@@ -28,6 +29,7 @@ export default function WorkflowLibrary() {
     total: number;
     errors: string[];
   } | null>(null);
+  const { addToast } = useToast();
 
   const fetchWorkflows = async () => {
     setError(null);
@@ -57,9 +59,11 @@ export default function WorkflowLibrary() {
         throw new Error("Failed to load workflows");
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : "Something went wrong";
       if (workflows.length === 0) {
-        setError(err instanceof Error ? err.message : "Something went wrong");
+        setError(msg);
       }
+      addToast("error", msg);
     } finally {
       setLoading(false);
     }
@@ -92,11 +96,16 @@ export default function WorkflowLibrary() {
 
   const handleDeleteConfirm = useCallback(async () => {
     if (!deleteTarget) return;
-    deleteWorkflowLocal(deleteTarget.id);
-    await fetch(`/api/workflows?id=${deleteTarget.id}`, { method: "DELETE" }).catch(() => {});
-    setWorkflows((w) => w.filter((wf) => wf.id !== deleteTarget.id));
+    try {
+      await fetch(`/api/workflows?id=${deleteTarget.id}`, { method: "DELETE" }).catch(() => {});
+      deleteWorkflowLocal(deleteTarget.id);
+      setWorkflows((w) => w.filter((wf) => wf.id !== deleteTarget.id));
+      addToast("success", `"${deleteTarget.title}" deleted`);
+    } catch {
+      addToast("error", "Failed to delete workflow");
+    }
     setDeleteTarget(null);
-  }, [deleteTarget]);
+  }, [deleteTarget, addToast]);
 
   const bulkSyncLock = useRef(false);
   const handleBulkSync = async () => {
@@ -129,6 +138,12 @@ export default function WorkflowLibrary() {
 
     setBulkSyncing(false);
     bulkSyncLock.current = false;
+
+    if (errors.length === 0) {
+      addToast("success", `All ${workflows.length} workflows synced to Notion`);
+    } else {
+      addToast("error", `${errors.length} of ${workflows.length} workflows failed to sync`);
+    }
   };
 
   const handleSort = (key: SortKey) => {
@@ -265,20 +280,20 @@ export default function WorkflowLibrary() {
         >
           {[
             { label: "Workflows", value: String(workflows.length), color: undefined, sub: undefined, delay: 0 },
-            { label: "Avg Automation", value: `${quickStats.avgAutomation}%`, color: "#17A589", sub: undefined, delay: 1 },
-            { label: "Avg Fragility", value: `${quickStats.avgFragility}%`, color: "#E8553A", sub: undefined, delay: 2 },
+            { label: "Avg Automation", value: `${quickStats.avgAutomation}%`, color: "var(--color-success)", sub: undefined, delay: 1 },
+            { label: "Avg Fragility", value: `${quickStats.avgFragility}%`, color: "var(--color-accent)", sub: undefined, delay: 2 },
             {
               label: "Top Gap",
               value: quickStats.topGap ? GAP_LABELS[quickStats.topGap[0] as GapType] || quickStats.topGap[0] : "\u2014",
               sub: quickStats.topGap ? `${quickStats.topGap[1]}\u00d7` : undefined,
-              color: "#D4A017",
+              color: "var(--color-warning)",
               delay: 3,
             },
             {
               label: "Busiest Owner",
               value: quickStats.topOwner ? quickStats.topOwner[0] : "\u2014",
               sub: quickStats.topOwner ? `${quickStats.topOwner[1]} steps` : undefined,
-              color: "#8E44AD",
+              color: "var(--color-memory)",
               delay: 4,
             },
           ].map((stat, i) => (
@@ -454,17 +469,17 @@ export default function WorkflowLibrary() {
             animation: "fadeIn 0.3s ease",
             background:
               bulkSyncProgress.errors.length > 0
-                ? "#FDF0EE"
-                : "#E8F8F5",
+                ? "var(--accent-bg-light)"
+                : "var(--success-bg-light)",
             border: `1px solid ${
               bulkSyncProgress.errors.length > 0
-                ? "#E8553A30"
-                : "#17A58930"
+                ? "rgba(232, 85, 58, 0.18)"
+                : "rgba(23, 165, 137, 0.18)"
             }`,
             color:
               bulkSyncProgress.errors.length > 0
-                ? "#C0392B"
-                : "#17A589",
+                ? "var(--color-danger)"
+                : "var(--color-success)",
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -734,20 +749,20 @@ export default function WorkflowLibrary() {
               width: 56,
               height: 56,
               borderRadius: "50%",
-              background: "linear-gradient(135deg, #FDF0EE, #fce8e4)",
+              background: "linear-gradient(135deg, var(--accent-bg-light), rgba(252, 232, 228, 0.6))",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               margin: "0 auto 16px",
               fontSize: 22,
               fontWeight: 700,
-              color: "#E8553A",
+              color: "var(--color-accent)",
               boxShadow: "0 4px 16px rgba(232, 85, 58, 0.15)",
             }}
           >
             !
           </div>
-          <div style={{ fontSize: 15, color: "#C0392B", fontFamily: "var(--font-body)", marginBottom: 8 }}>
+          <div style={{ fontSize: 15, color: "var(--color-danger)", fontFamily: "var(--font-body)", marginBottom: 8 }}>
             {error}
           </div>
           <button

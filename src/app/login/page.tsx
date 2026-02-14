@@ -189,7 +189,24 @@ function LoginForm() {
                 animation: shake ? "shakeX 0.5s ease" : "none",
               }}
             >
+              <label
+                htmlFor="password-input"
+                style={{
+                  position: "absolute",
+                  width: 1,
+                  height: 1,
+                  padding: 0,
+                  margin: -1,
+                  overflow: "hidden",
+                  clip: "rect(0, 0, 0, 0)",
+                  whiteSpace: "nowrap",
+                  borderWidth: 0,
+                }}
+              >
+                Password
+              </label>
               <input
+                id="password-input"
                 ref={inputRef}
                 type="password"
                 value={password}
@@ -198,6 +215,7 @@ function LoginForm() {
                 autoFocus
                 autoComplete="current-password"
                 disabled={loading}
+                aria-describedby={error ? "login-error" : undefined}
                 style={{
                   width: "100%",
                   padding: "14px 18px",
@@ -245,6 +263,8 @@ function LoginForm() {
             {/* Error message */}
             {error && (
               <div
+                id="login-error"
+                role="alert"
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: 11,

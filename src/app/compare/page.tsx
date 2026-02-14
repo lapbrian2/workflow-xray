@@ -6,6 +6,7 @@ import type { Workflow, CompareResult } from "@/lib/types";
 import { listWorkflowsLocal, mergeWithServer } from "@/lib/client-db";
 import CompareView from "@/components/compare-view";
 import { useToast } from "@/components/toast";
+import Breadcrumb from "@/components/breadcrumb";
 
 export default function ComparePage() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
@@ -123,24 +124,7 @@ export default function ComparePage() {
     <div style={{ maxWidth: 960, margin: "0 auto", padding: "clamp(20px, 4vw, 32px) clamp(16px, 4vw, 32px) 64px" }}>
       {/* Page Header */}
       <div style={{ marginBottom: 28, animation: "fadeInUp 0.4s var(--ease-spring) both" }}>
-        <Link
-          href="/library"
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            color: "var(--color-muted)",
-            textDecoration: "none",
-            marginBottom: 8,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            padding: "4px 8px",
-            borderRadius: "var(--radius-xs)",
-            transition: "all var(--duration-fast) var(--ease-default)",
-          }}
-        >
-          &larr; Library
-        </Link>
+        <Breadcrumb items={[{ label: "Library", href: "/library" }, { label: "Compare" }]} />
         <h1
           style={{
             fontSize: "clamp(28px, 5vw, 36px)",
@@ -185,15 +169,15 @@ export default function ComparePage() {
             minWidth: 200,
             padding: 12,
             borderRadius: "var(--radius-sm)",
-            border: `2px solid ${before ? "#2D7DD2" : "var(--color-border)"}`,
-            background: before ? "#2D7DD208" : "var(--color-surface)",
+            border: `2px solid ${before ? "var(--color-info)" : "var(--color-border)"}`,
+            background: before ? "var(--chart-blue-light)" : "var(--color-surface)",
           }}
         >
           <div
             style={{
               fontFamily: "var(--font-mono)",
               fontSize: 9,
-              color: "#2D7DD2",
+              color: "var(--color-info)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
               marginBottom: 4,
@@ -229,15 +213,15 @@ export default function ComparePage() {
             minWidth: 200,
             padding: 12,
             borderRadius: "var(--radius-sm)",
-            border: `2px solid ${after ? "#17A589" : "var(--color-border)"}`,
-            background: after ? "#17A58908" : "var(--color-surface)",
+            border: `2px solid ${after ? "var(--color-success)" : "var(--color-border)"}`,
+            background: after ? "var(--chart-green-light)" : "var(--color-surface)",
           }}
         >
           <div
             style={{
               fontFamily: "var(--font-mono)",
               fontSize: 9,
-              color: "#17A589",
+              color: "var(--color-success)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
               marginBottom: 4,
@@ -401,15 +385,15 @@ export default function ComparePage() {
                       borderRadius: "var(--radius-lg)",
                       border: `2px solid ${
                         isFirst
-                          ? "#2D7DD2"
+                          ? "var(--color-info)"
                           : isSecond
-                            ? "#17A589"
+                            ? "var(--color-success)"
                             : "var(--color-border)"
                       }`,
                       background: isSelected
                         ? isFirst
-                          ? "linear-gradient(135deg, #2D7DD208 0%, #2D7DD204 100%)"
-                          : "linear-gradient(135deg, #17A58908 0%, #17A58904 100%)"
+                          ? "linear-gradient(135deg, var(--chart-blue-light) 0%, transparent 100%)"
+                          : "linear-gradient(135deg, var(--chart-green-light) 0%, transparent 100%)"
                         : "var(--color-surface)",
                       cursor: "pointer",
                       textAlign: "left",
@@ -440,8 +424,8 @@ export default function ComparePage() {
                             fontFamily: "var(--font-mono)",
                             fontSize: 9,
                             fontWeight: 700,
-                            color: isFirst ? "#2D7DD2" : "#17A589",
-                            background: isFirst ? "#2D7DD215" : "#17A58915",
+                            color: isFirst ? "var(--color-info)" : "var(--color-success)",
+                            background: isFirst ? "var(--info-bg-light)" : "var(--success-bg-light)",
                             padding: "2px 6px",
                             borderRadius: 3,
                           }}
@@ -514,7 +498,7 @@ export default function ComparePage() {
               justifyContent: "center",
               fontSize: 13,
               fontWeight: 700,
-              color: "#C0392B",
+              color: "var(--color-danger)",
               flexShrink: 0,
             }}
           >
@@ -524,7 +508,7 @@ export default function ComparePage() {
             style={{
               fontFamily: "var(--font-body)",
               fontSize: 13,
-              color: "#C0392B",
+              color: "var(--color-danger)",
               lineHeight: 1.5,
             }}
           >
@@ -536,7 +520,7 @@ export default function ComparePage() {
               background: "none",
               border: "none",
               fontSize: 16,
-              color: "#C0392B",
+              color: "var(--color-danger)",
               cursor: "pointer",
               padding: "2px 6px",
               opacity: 0.6,

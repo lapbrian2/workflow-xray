@@ -37,7 +37,7 @@ export default function LibraryPage() {
             right: 0,
             height: 2,
             background:
-              "linear-gradient(90deg, transparent 0%, var(--color-accent) 20%, #2D7DD2 50%, #8E44AD 80%, transparent 100%)",
+              "linear-gradient(90deg, transparent 0%, var(--color-accent) 20%, var(--color-info) 50%, var(--color-memory) 80%, transparent 100%)",
             opacity: 0.3,
             borderRadius: 2,
             zIndex: 1,

@@ -75,6 +75,20 @@
   --severity-medium: var(--color-warning);
   --severity-low: var(--color-success);
 
+  /* Chart / data viz colors */
+  --chart-blue: #2d7dd2;
+  --chart-blue-area: rgba(45, 125, 210, 0.08);
+  --chart-blue-light: rgba(45, 125, 210, 0.04);
+  --chart-green-light: rgba(23, 165, 137, 0.04);
+
+  /* Surface alt for subtle card bg */
+  --color-surface-alt: #fafbfc;
+
+  /* Accent badge colors (light background tint) */
+  --accent-bg-light: rgba(232, 85, 58, 0.06);
+  --info-bg-light: rgba(45, 125, 210, 0.06);
+  --success-bg-light: rgba(23, 165, 137, 0.06);
+
   /* Disabled state */
   --disabled-opacity: 0.5;
   --disabled-cursor: not-allowed;

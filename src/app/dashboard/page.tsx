@@ -6,6 +6,7 @@ import type { Workflow, GapType, Step } from "@/lib/types";
 import { GAP_LABELS, LAYER_COLORS, SEVERITY_COLORS } from "@/lib/types";
 import { listWorkflowsLocal, mergeWithServer } from "@/lib/client-db";
 import ScoreRing from "@/components/score-ring";
+import Breadcrumb from "@/components/breadcrumb";
 
 export default function DashboardPage() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
@@ -159,7 +160,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "40px 32px" }}>
+      <div style={{ maxWidth: 960, margin: "0 auto", padding: "clamp(20px, 4vw, 32px) clamp(16px, 4vw, 32px)" }}>
         <div
           style={{
             height: 32,
@@ -195,53 +196,31 @@ export default function DashboardPage() {
 
   if (workflows.length === 0) {
     return (
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "40px 32px" }}>
+      <div style={{ maxWidth: 960, margin: "0 auto", padding: "clamp(20px, 4vw, 32px) clamp(16px, 4vw, 32px)" }}>
         <h1
+          className="text-gradient"
           style={{
-            fontSize: 32,
+            fontSize: "clamp(24px, 5vw, 32px)",
             fontWeight: 900,
             fontFamily: "var(--font-display)",
-            color: "var(--color-dark)",
             letterSpacing: "-0.02em",
             marginBottom: 8,
           }}
         >
           Team Dashboard
         </h1>
-        <div style={{ textAlign: "center", padding: "80px 24px" }}>
-          <div
-            style={{
-              fontSize: 16,
-              color: "var(--color-text)",
-              fontFamily: "var(--font-body)",
-              marginBottom: 8,
-            }}
-          >
-            No data yet
-          </div>
-          <div
-            style={{
-              fontSize: 13,
-              color: "var(--color-muted)",
-              fontFamily: "var(--font-body)",
-              marginBottom: 16,
-            }}
-          >
+        <div className="empty-state">
+          <div className="empty-state-icon">&#x1F4CA;</div>
+          <div className="empty-state-title">No data yet</div>
+          <div className="empty-state-desc">
             Decompose some workflows to see aggregated team insights.
           </div>
           <Link
             href="/"
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 13,
-              color: "#fff",
-              background: "var(--color-accent)",
-              padding: "8px 24px",
-              borderRadius: "var(--radius-sm)",
-              textDecoration: "none",
-            }}
+            className="btn-primary"
+            style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8 }}
           >
-            Create a Workflow
+            Create a Workflow &rarr;
           </Link>
         </div>
       </div>
@@ -253,24 +232,7 @@ export default function DashboardPage() {
 
   return (
     <div style={{ maxWidth: 960, margin: "0 auto", padding: "clamp(20px, 4vw, 32px) clamp(16px, 4vw, 32px) 64px" }}>
-      <Link
-        href="/library"
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          color: "var(--color-muted)",
-          textDecoration: "none",
-          marginBottom: 8,
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 4,
-          padding: "4px 8px",
-          borderRadius: "var(--radius-xs)",
-          transition: "all var(--duration-fast) var(--ease-default)",
-        }}
-      >
-        &larr; Library
-      </Link>
+      <Breadcrumb items={[{ label: "Library", href: "/library" }, { label: "Dashboard" }]} />
       <h1
         style={{
           fontSize: "clamp(24px, 5vw, 32px)",
@@ -307,10 +269,10 @@ export default function DashboardPage() {
           animation: "fadeIn 0.3s ease",
         }}
       >
-        <HealthStat label="Avg Automation" value={healthAvg.automationPotential} color="#17A589" />
-        <HealthStat label="Avg Fragility" value={healthAvg.fragility} color="#E8553A" invertColor />
-        <HealthStat label="Avg Complexity" value={healthAvg.complexity} color="#2D7DD2" />
-        <HealthStat label="Team Balance" value={healthAvg.teamLoadBalance} color="#8E44AD" />
+        <HealthStat label="Avg Automation" value={healthAvg.automationPotential} color="var(--color-success)" />
+        <HealthStat label="Avg Fragility" value={healthAvg.fragility} color="var(--color-accent)" invertColor />
+        <HealthStat label="Avg Complexity" value={healthAvg.complexity} color="var(--color-info)" />
+        <HealthStat label="Team Balance" value={healthAvg.teamLoadBalance} color="var(--color-memory)" />
       </div>
 
       {/* ── Two-column grid ── */}
@@ -365,10 +327,10 @@ export default function DashboardPage() {
                     height: "100%",
                     background:
                       o.minAutomation >= 60
-                        ? "#17A589"
+                        ? "var(--color-success)"
                         : o.minAutomation >= 40
-                          ? "#D4A017"
-                          : "#E8553A",
+                          ? "var(--color-warning)"
+                          : "var(--color-accent)",
                     borderRadius: 4,
                     transition: "width 0.5s ease",
                   }}
@@ -440,7 +402,7 @@ export default function DashboardPage() {
                   style={{
                     width: `${(t.count / maxToolCount) * 100}%`,
                     height: "100%",
-                    background: "#2D7DD2",
+                    background: "var(--color-info)",
                     borderRadius: 4,
                     transition: "width 0.5s ease",
                   }}
@@ -479,7 +441,7 @@ export default function DashboardPage() {
                   padding: 10,
                   borderRadius: "var(--radius-sm)",
                   border: "1px solid var(--color-border)",
-                  background: "#fafbfc",
+                  background: "var(--color-surface-alt)",
                 }}
               >
                 <div
@@ -573,7 +535,7 @@ export default function DashboardPage() {
           subtitle={`${allSteps.length} steps across ${layerDist.length} layers`}
         >
           {layerDist.map((l) => {
-            const color = LAYER_COLORS[l.layer as keyof typeof LAYER_COLORS] || "#888";
+            const color = LAYER_COLORS[l.layer as keyof typeof LAYER_COLORS] || "var(--color-muted)";
             const pct = allSteps.length > 0 ? Math.round((l.count / allSteps.length) * 100) : 0;
             return (
               <div
@@ -676,10 +638,10 @@ export default function DashboardPage() {
                   padding: 12,
                   borderRadius: "var(--radius-sm)",
                   border: "1px solid var(--color-border)",
-                  background: "#fff",
+                  background: "var(--color-surface)",
                   textDecoration: "none",
                   display: "block",
-                  transition: "border-color 0.15s",
+                  transition: "all var(--duration-normal) var(--ease-default)",
                 }}
               >
                 <div
@@ -705,8 +667,8 @@ export default function DashboardPage() {
                       fontFamily: "var(--font-mono)",
                       fontSize: 10,
                       fontWeight: 700,
-                      color: "#E8553A",
-                      background: "#FDF0EE",
+                      color: "var(--color-accent)",
+                      background: "var(--accent-bg-light)",
                       padding: "2px 6px",
                       borderRadius: 3,
                     }}
@@ -755,7 +717,7 @@ function HealthStat({
   color: string;
   invertColor?: boolean;
 }) {
-  const displayColor = invertColor ? (value > 60 ? "#E8553A" : value > 30 ? "#D4A017" : "#17A589") : color;
+  const displayColor = invertColor ? (value > 60 ? "var(--color-accent)" : value > 30 ? "var(--color-warning)" : "var(--color-success)") : color;
   return (
     <div
       style={{
@@ -871,12 +833,12 @@ function SimpleAreaChart({ data }: { data: { date: string; count: number }[] }) 
         />
       ))}
       {/* Area */}
-      <path d={areaPath} fill="#2D7DD215" />
+      <path d={areaPath} fill="var(--chart-blue-area)" />
       {/* Line */}
-      <path d={linePath} fill="none" stroke="#2D7DD2" strokeWidth={2} />
+      <path d={linePath} fill="none" stroke="var(--chart-blue)" strokeWidth={2} />
       {/* Dots */}
       {points.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r={3} fill="#2D7DD2" />
+        <circle key={i} cx={p.x} cy={p.y} r={3} fill="var(--chart-blue)" />
       ))}
       {/* X labels */}
       {data.map((d, i) => {

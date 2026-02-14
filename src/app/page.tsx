@@ -27,6 +27,7 @@ function FloatingDots() {
 
   return (
     <div
+      aria-hidden="true"
       style={{
         position: "absolute",
         inset: 0,
@@ -83,7 +84,7 @@ function FloatingDots() {
               dot.id % 3 === 0
                 ? "var(--color-accent)"
                 : dot.id % 3 === 1
-                ? "#2D7DD2"
+                ? "var(--color-info)"
                 : "var(--color-muted)",
             opacity: dot.opacity,
             animation: `dotFloat ${dot.duration}s ease-in-out ${dot.delay}s infinite`,
@@ -188,10 +189,18 @@ function HomeContent() {
       setElapsed(0);
       timerRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
     } else {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
       setElapsed(0);
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
   }, [isDecomposing]);
 
   const loadingMessage = useMemo(() => {
@@ -295,7 +304,7 @@ function HomeContent() {
               width: 6,
               height: 6,
               borderRadius: "50%",
-              background: "linear-gradient(135deg, #2D7DD2, #5BA0E0)",
+              background: "linear-gradient(135deg, var(--color-info), #5BA0E0)",
               boxShadow: "0 0 6px rgba(45,125,210,0.4)",
             }}
           />
@@ -419,7 +428,7 @@ function HomeContent() {
                   width: 6,
                   height: 6,
                   borderRadius: "50%",
-                  background: "#2D7DD2",
+                  background: "var(--color-info)",
                   opacity: 0.4,
                   animation: "pulse-slow 1.5s ease-in-out infinite",
                 }}
@@ -430,7 +439,7 @@ function HomeContent() {
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: 12,
-                  color: "#2D7DD2",
+                  color: "var(--color-info)",
                   fontWeight: 600,
                   marginBottom: 3,
                 }}
@@ -486,7 +495,7 @@ function HomeContent() {
               marginTop: 1,
               fontSize: 12,
               fontWeight: 700,
-              color: "#C0392B",
+              color: "var(--color-danger)",
             }}
           >
             !
@@ -496,7 +505,7 @@ function HomeContent() {
               style={{
                 fontFamily: "var(--font-mono)",
                 fontSize: 12,
-                color: "#C0392B",
+                color: "var(--color-danger)",
                 fontWeight: 600,
                 marginBottom: 4,
               }}
@@ -507,7 +516,7 @@ function HomeContent() {
               style={{
                 fontFamily: "var(--font-body)",
                 fontSize: 12,
-                color: "#C0392B",
+                color: "var(--color-danger)",
                 opacity: 0.8,
                 lineHeight: 1.5,
               }}
@@ -521,7 +530,7 @@ function HomeContent() {
               background: "none",
               border: "none",
               fontSize: 16,
-              color: "#C0392B",
+              color: "var(--color-danger)",
               cursor: "pointer",
               padding: "2px 6px",
               borderRadius: 4,

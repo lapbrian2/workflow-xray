@@ -76,8 +76,10 @@ export default function GapCard({ gap, index }: GapCardProps) {
       )}
 
       {/* Header - always visible, click to toggle */}
-      <div
+      <button
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        aria-controls={`gap-content-${index}`}
         style={{
           display: "flex",
           alignItems: "center",
@@ -85,6 +87,14 @@ export default function GapCard({ gap, index }: GapCardProps) {
           padding: "14px 16px",
           borderBottom: expanded ? `1px solid ${sevColor}12` : "none",
           transition: "border-bottom 0.2s ease",
+          width: "100%",
+          background: "transparent",
+          border: "none",
+          borderBottomStyle: expanded ? "solid" : "none",
+          borderBottomWidth: expanded ? 1 : 0,
+          borderBottomColor: expanded ? `${sevColor}12` : "transparent",
+          cursor: "pointer",
+          textAlign: "left",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -137,6 +147,7 @@ export default function GapCard({ gap, index }: GapCardProps) {
           </span>
           {/* Expand/collapse chevron */}
           <span
+            aria-hidden="true"
             style={{
               fontSize: 12,
               color: "var(--color-muted)",
@@ -149,10 +160,13 @@ export default function GapCard({ gap, index }: GapCardProps) {
             &#9660;
           </span>
         </div>
-      </div>
+      </button>
 
       {/* Collapsible body */}
       <div
+        id={`gap-content-${index}`}
+        role="region"
+        aria-label={`${GAP_LABELS[gap.type]} details`}
         style={{
           overflow: "hidden",
           maxHeight: expanded ? 500 : 0,
