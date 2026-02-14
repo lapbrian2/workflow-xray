@@ -3,32 +3,23 @@ import { Client } from "@notionhq/client";
 
 /**
  * Extract page ID from a Notion URL or raw ID string.
- * Supports formats:
- *   - https://www.notion.so/Page-Title-abc123def456
- *   - https://www.notion.so/workspace/Page-Title-abc123def456
- *   - abc123def456 (raw 32-char hex)
- *   - abc123de-f456-7890-abcd-ef1234567890 (UUID)
  */
 function extractPageId(input: string): string | null {
-  // Already a UUID with dashes
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (uuidRegex.test(input)) return input;
 
-  // 32-char hex without dashes
   const hexRegex = /^[0-9a-f]{32}$/i;
   if (hexRegex.test(input)) {
-    // Convert to UUID format
     return `${input.slice(0, 8)}-${input.slice(8, 12)}-${input.slice(12, 16)}-${input.slice(16, 20)}-${input.slice(20)}`;
   }
 
-  // Notion URL — extract the last 32 hex characters
   const urlMatch = input.match(/([0-9a-f]{32})\s*$/i);
   if (urlMatch) {
     const hex = urlMatch[1];
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   }
 
-  // Try extracting UUID from URL path
   const uuidInUrl = input.match(
     /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i
   );
@@ -37,76 +28,219 @@ function extractPageId(input: string): string | null {
   return null;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type NotionBlock = any;
+
 /**
- * Recursively extract text content from Notion block children.
+ * Get rich text content from a block's rich_text array.
  */
-function extractTextFromBlocks(blocks: Array<{ type: string; [key: string]: unknown }>): string {
-  const lines: string[] = [];
+function getRichText(block: NotionBlock, blockType: string): string {
+  const data = block[blockType];
+  if (!data) return "";
+  const richText = data.rich_text || data.text;
+  if (!richText || !Array.isArray(richText)) return "";
+  return richText.map((t: { plain_text: string }) => t.plain_text).join("");
+}
 
-  for (const block of blocks) {
-    const blockType = block.type as string;
-    const blockData = block[blockType] as {
-      rich_text?: Array<{ plain_text: string }>;
-      text?: Array<{ plain_text: string }>;
-    } | undefined;
+/**
+ * Recursively fetch ALL blocks (including nested children) from a Notion page.
+ */
+async function fetchAllBlocks(
+  notion: Client,
+  blockId: string,
+  depth = 0,
+  maxDepth = 6
+): Promise<NotionBlock[]> {
+  if (depth > maxDepth) return [];
 
-    if (!blockData) continue;
+  const blocks: NotionBlock[] = [];
+  let cursor: string | undefined = undefined;
+  let hasMore = true;
 
-    const richText = blockData.rich_text || blockData.text;
-    if (richText && Array.isArray(richText)) {
-      const text = richText.map((t) => t.plain_text).join("");
+  while (hasMore) {
+    const response = await notion.blocks.children.list({
+      block_id: blockId,
+      start_cursor: cursor,
+      page_size: 100,
+    });
 
-      // Add formatting based on block type
-      switch (blockType) {
-        case "heading_1":
-          lines.push(`\n# ${text}`);
-          break;
-        case "heading_2":
-          lines.push(`\n## ${text}`);
-          break;
-        case "heading_3":
-          lines.push(`\n### ${text}`);
-          break;
-        case "bulleted_list_item":
-          lines.push(`- ${text}`);
-          break;
-        case "numbered_list_item":
-          lines.push(`• ${text}`);
-          break;
-        case "to_do": {
-          const checked = (block[blockType] as { checked?: boolean })?.checked;
-          lines.push(`${checked ? "[x]" : "[ ]"} ${text}`);
-          break;
-        }
-        case "toggle":
-          lines.push(`> ${text}`);
-          break;
-        case "quote":
-          lines.push(`> ${text}`);
-          break;
-        case "callout":
-          lines.push(`> ${text}`);
-          break;
-        case "code":
-          lines.push(`\`\`\`\n${text}\n\`\`\``);
-          break;
-        case "divider":
-          lines.push("---");
-          break;
-        default:
-          if (text.trim()) {
-            lines.push(text);
-          }
+    for (const block of response.results) {
+      blocks.push(block);
+
+      // Recursively fetch children for blocks that have them
+      const b = block as NotionBlock;
+      if (b.has_children) {
+        const children = await fetchAllBlocks(
+          notion,
+          b.id,
+          depth + 1,
+          maxDepth
+        );
+        // Attach children to the block for indented rendering
+        b._children = children;
       }
     }
 
-    // Handle divider blocks
-    if (blockType === "divider") {
-      lines.push("---");
+    hasMore = response.has_more;
+    cursor = response.next_cursor ?? undefined;
+  }
+
+  return blocks;
+}
+
+/**
+ * Convert blocks tree into readable text, preserving structure with indentation.
+ */
+function blocksToText(blocks: NotionBlock[], indent = 0): string {
+  const lines: string[] = [];
+  const prefix = "  ".repeat(indent);
+  let numberedCounter = 0;
+
+  for (const block of blocks) {
+    const blockType = block.type as string;
+    const text = getRichText(block, blockType);
+
+    // Reset numbered list counter when block isn't a numbered item
+    if (blockType !== "numbered_list_item") {
+      numberedCounter = 0;
+    }
+
+    switch (blockType) {
+      case "heading_1":
+        lines.push(`\n${prefix}# ${text}`);
+        break;
+      case "heading_2":
+        lines.push(`\n${prefix}## ${text}`);
+        break;
+      case "heading_3":
+        lines.push(`\n${prefix}### ${text}`);
+        break;
+      case "paragraph":
+        if (text.trim()) {
+          lines.push(`${prefix}${text}`);
+        } else {
+          lines.push(""); // preserve blank lines
+        }
+        break;
+      case "bulleted_list_item":
+        lines.push(`${prefix}- ${text}`);
+        break;
+      case "numbered_list_item":
+        numberedCounter++;
+        lines.push(`${prefix}${numberedCounter}. ${text}`);
+        break;
+      case "to_do": {
+        const checked = block[blockType]?.checked;
+        lines.push(`${prefix}${checked ? "[x]" : "[ ]"} ${text}`);
+        break;
+      }
+      case "toggle":
+        lines.push(`${prefix}▸ ${text}`);
+        break;
+      case "quote":
+        lines.push(`${prefix}> ${text}`);
+        break;
+      case "callout": {
+        const icon = block[blockType]?.icon?.emoji || "💡";
+        lines.push(`${prefix}${icon} ${text}`);
+        break;
+      }
+      case "code": {
+        const lang = block[blockType]?.language || "";
+        lines.push(`${prefix}\`\`\`${lang}\n${prefix}${text}\n${prefix}\`\`\``);
+        break;
+      }
+      case "divider":
+        lines.push(`${prefix}---`);
+        break;
+      case "table_row": {
+        const cells = block[blockType]?.cells;
+        if (cells && Array.isArray(cells)) {
+          const row = cells
+            .map((cell: Array<{ plain_text: string }>) =>
+              cell.map((t) => t.plain_text).join("")
+            )
+            .join(" | ");
+          lines.push(`${prefix}| ${row} |`);
+        }
+        break;
+      }
+      case "child_page":
+        lines.push(`${prefix}📄 ${block[blockType]?.title || "Untitled page"}`);
+        break;
+      case "child_database":
+        lines.push(
+          `${prefix}🗂️ ${block[blockType]?.title || "Untitled database"}`
+        );
+        break;
+      case "bookmark":
+        lines.push(`${prefix}🔗 ${block[blockType]?.url || ""}`);
+        break;
+      case "embed":
+        lines.push(`${prefix}📎 ${block[blockType]?.url || ""}`);
+        break;
+      case "image": {
+        const caption =
+          block[blockType]?.caption
+            ?.map((c: { plain_text: string }) => c.plain_text)
+            .join("") || "";
+        lines.push(`${prefix}[Image${caption ? `: ${caption}` : ""}]`);
+        break;
+      }
+      case "video":
+        lines.push(`${prefix}[Video]`);
+        break;
+      case "file":
+        lines.push(
+          `${prefix}[File: ${block[blockType]?.name || "attachment"}]`
+        );
+        break;
+      case "pdf":
+        lines.push(`${prefix}[PDF]`);
+        break;
+      case "equation":
+        lines.push(`${prefix}$${block[blockType]?.expression || ""}$`);
+        break;
+      case "column_list":
+        // Columns — children will be processed below
+        break;
+      case "column":
+        // Individual column — children processed below
+        break;
+      case "synced_block":
+        // Synced block — children processed below
+        break;
+      case "table":
+        // Table — children (table_row) processed below
+        break;
+      case "link_to_page":
+        lines.push(`${prefix}→ [Linked page]`);
+        break;
+      case "table_of_contents":
+        lines.push(`${prefix}[Table of Contents]`);
+        break;
+      case "breadcrumb":
+        break; // skip breadcrumbs
+      default:
+        if (text.trim()) {
+          lines.push(`${prefix}${text}`);
+        }
+    }
+
+    // Process nested children (toggles, columns, synced blocks, tables, etc.)
+    if (block._children && block._children.length > 0) {
+      const childIndent =
+        blockType === "column_list" || blockType === "column"
+          ? indent
+          : indent + 1;
+      const childText = blocksToText(block._children, childIndent);
+      if (childText.trim()) {
+        lines.push(childText);
+      }
     }
   }
 
-  return lines.join("\n").trim();
+  return lines.join("\n");
 }
 
 export async function POST(request: NextRequest) {
@@ -116,7 +250,8 @@ export async function POST(request: NextRequest) {
     if (!notionKey) {
       return NextResponse.json(
         {
-          error: "Notion integration not configured. Add NOTION_API_KEY to your environment variables.",
+          error:
+            "Notion integration not configured. Add NOTION_API_KEY to your environment variables.",
         },
         { status: 503 }
       );
@@ -135,7 +270,10 @@ export async function POST(request: NextRequest) {
     const pageId = extractPageId(pageUrl.trim());
     if (!pageId) {
       return NextResponse.json(
-        { error: "Could not extract a valid Notion page ID from the provided URL" },
+        {
+          error:
+            "Could not extract a valid Notion page ID from the provided URL",
+        },
         { status: 400 }
       );
     }
@@ -146,9 +284,15 @@ export async function POST(request: NextRequest) {
     const page = await notion.pages.retrieve({ page_id: pageId });
 
     let title = "Imported from Notion";
-    const pageProps = (page as { properties?: Record<string, { title?: Array<{ plain_text: string }> }> }).properties;
+    const pageProps = (
+      page as {
+        properties?: Record<
+          string,
+          { title?: Array<{ plain_text: string }> }
+        >;
+      }
+    ).properties;
     if (pageProps) {
-      // Find the title property
       for (const val of Object.values(pageProps)) {
         if (val.title && Array.isArray(val.title)) {
           title = val.title.map((t) => t.plain_text).join("");
@@ -157,30 +301,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Fetch all child blocks (paginated)
-    const allBlocks: Array<{ type: string; [key: string]: unknown }> = [];
-    let cursor: string | undefined = undefined;
-    let hasMore = true;
+    // Recursively fetch ALL blocks including nested children
+    const allBlocks = await fetchAllBlocks(notion, pageId);
 
-    while (hasMore) {
-      const response = await notion.blocks.children.list({
-        block_id: pageId,
-        start_cursor: cursor,
-        page_size: 100,
-      });
+    // Convert to readable text
+    const content = blocksToText(allBlocks).trim();
 
-      allBlocks.push(
-        ...response.results as Array<{ type: string; [key: string]: unknown }>
-      );
-      hasMore = response.has_more;
-      cursor = response.next_cursor ?? undefined;
+    // Count total blocks including nested
+    let totalBlocks = 0;
+    function countBlocks(blocks: NotionBlock[]) {
+      for (const b of blocks) {
+        totalBlocks++;
+        if (b._children) countBlocks(b._children);
+      }
     }
+    countBlocks(allBlocks);
 
-    const content = extractTextFromBlocks(allBlocks);
-
-    if (!content.trim()) {
+    if (!content) {
       return NextResponse.json(
-        { error: "The Notion page appears to be empty or contains only unsupported block types." },
+        {
+          error:
+            "The Notion page appears to be empty or contains only unsupported block types.",
+        },
         { status: 422 }
       );
     }
@@ -189,12 +331,11 @@ export async function POST(request: NextRequest) {
       title,
       content: `${title}\n\n${content}`,
       pageId,
-      blockCount: allBlocks.length,
+      blockCount: totalBlocks,
     });
   } catch (error) {
     console.error("Notion import error:", error);
 
-    // Handle specific Notion API errors
     const notionError = error as { code?: string; status?: number };
     if (notionError.code === "object_not_found") {
       return NextResponse.json(
@@ -208,7 +349,10 @@ export async function POST(request: NextRequest) {
 
     if (notionError.status === 401) {
       return NextResponse.json(
-        { error: "Notion API key is invalid or expired. Check your NOTION_API_KEY." },
+        {
+          error:
+            "Notion API key is invalid or expired. Check your NOTION_API_KEY.",
+        },
         { status: 401 }
       );
     }
