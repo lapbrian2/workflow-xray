@@ -1,10 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { decomposeWorkflow } from "@/lib/decompose";
 import { saveWorkflow, listWorkflows } from "@/lib/db";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import type { DecomposeRequest, Workflow } from "@/lib/types";
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 10 decompositions per minute per IP
+    const ip = getClientIp(request);
+    const rl = rateLimit(`decompose:${ip}`, 10, 60);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        {
+          error: `Rate limit exceeded. Try again in ${rl.resetInSeconds} seconds.`,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rl.resetInSeconds),
+            "X-RateLimit-Remaining": "0",
+          },
+        }
+      );
+    }
+
     const body = await request.json();
     const decomposeRequest: DecomposeRequest = {
       description: body.description,
@@ -22,7 +41,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const decomposition = await decomposeWorkflow(decomposeRequest);
+    const result = await decomposeWorkflow(decomposeRequest);
+
+    // Separate metadata from decomposition
+    const { _meta, ...decomposition } = result;
 
     // Determine version info
     const parentId: string | undefined = body.parentId;
@@ -46,7 +68,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Build the workflow object
+    // Build the workflow object with prompt versioning & token tracking
     const workflow: Workflow = {
       id: decomposition.id,
       decomposition,
@@ -55,6 +77,12 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date().toISOString(),
       ...(parentId ? { parentId, version } : { version: 1 }),
       ...(body.costContext ? { costContext: body.costContext } : {}),
+      promptVersion: _meta.promptVersion,
+      modelUsed: _meta.modelUsed,
+      tokenUsage: {
+        inputTokens: _meta.inputTokens,
+        outputTokens: _meta.outputTokens,
+      },
     };
 
     await saveWorkflow(workflow);

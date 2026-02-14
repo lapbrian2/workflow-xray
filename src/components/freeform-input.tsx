@@ -115,6 +115,8 @@ export default function FreeformInput({
     content: string;
     blockCount: number;
     pageId: string;
+    truncated?: boolean;
+    originalLength?: number;
   } | null>(null);
 
   const handleNotionFetch = useCallback(async () => {
@@ -450,7 +452,7 @@ export default function FreeformInput({
                   style={{
                     display: "flex",
                     gap: 12,
-                    marginBottom: 10,
+                    marginBottom: importPreview.truncated ? 6 : 10,
                     fontFamily: "var(--font-mono)",
                     fontSize: 10,
                     color: "var(--color-muted)",
@@ -462,6 +464,26 @@ export default function FreeformInput({
                     {importPreview.content.split("\n").filter((l) => l.trim()).length} lines
                   </span>
                 </div>
+
+                {importPreview.truncated && (
+                  <div
+                    style={{
+                      marginBottom: 10,
+                      padding: "6px 10px",
+                      background: "#FDF0EE",
+                      border: "1px solid #E8553A30",
+                      borderRadius: 6,
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 10,
+                      color: "#C0392B",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Large page detected ({importPreview.originalLength?.toLocaleString()} chars).
+                    Content was truncated to 30,000 characters for effective analysis.
+                    Consider importing a specific section instead.
+                  </div>
+                )}
 
                 {/* Content snippet preview */}
                 <div

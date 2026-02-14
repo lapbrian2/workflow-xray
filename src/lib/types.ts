@@ -69,6 +69,12 @@ export interface Workflow {
   parentId?: string;     // links to the original workflow (for versioning)
   version?: number;      // 1, 2, 3, etc.
   costContext?: CostContext; // optional cost data for ROI estimation
+  promptVersion?: string;  // hash of system prompt used for this analysis
+  modelUsed?: string;      // Claude model used (e.g. "claude-sonnet-4-20250514")
+  tokenUsage?: {           // token counts for cost monitoring
+    inputTokens: number;
+    outputTokens: number;
+  };
 }
 
 export interface StageInput {

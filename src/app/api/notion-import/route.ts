@@ -327,11 +327,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Content size check — truncate if too large for effective analysis
+    const MAX_CHARS = 30_000; // ~7,500 words — safe for Claude analysis
+    const fullContent = `${title}\n\n${content}`;
+    const truncated = fullContent.length > MAX_CHARS;
+    const safeContent = truncated
+      ? fullContent.slice(0, MAX_CHARS) +
+        "\n\n[... Content truncated. The original page has " +
+        fullContent.length.toLocaleString() +
+        " characters. Only the first " +
+        MAX_CHARS.toLocaleString() +
+        " characters were imported for analysis.]"
+      : fullContent;
+
     return NextResponse.json({
       title,
-      content: `${title}\n\n${content}`,
+      content: safeContent,
       pageId,
       blockCount: totalBlocks,
+      truncated,
+      originalLength: fullContent.length,
     });
   } catch (error) {
     console.error("Notion import error:", error);

@@ -1,9 +1,16 @@
 import { z } from "zod";
-import { callClaude } from "./claude";
+import { callClaude, getPromptVersion, getModelId } from "./claude";
 import { computeHealth } from "./scoring";
 import type { Decomposition, DecomposeRequest } from "./types";
 import { generateId } from "./utils";
 import { buildOrgContext, formatOrgContextForPrompt } from "./org-context";
+
+export interface DecomposeMetadata {
+  promptVersion: string;
+  modelUsed: string;
+  inputTokens: number;
+  outputTokens: number;
+}
 
 const StepSchema = z.object({
   id: z.string(),
@@ -76,7 +83,7 @@ function buildPrompt(request: DecomposeRequest, orgContext?: string): string {
 
 export async function decomposeWorkflow(
   request: DecomposeRequest
-): Promise<Decomposition> {
+): Promise<Decomposition & { _meta: DecomposeMetadata }> {
   // Build organizational context from saved library
   let orgContextStr: string | undefined;
   try {
@@ -89,7 +96,8 @@ export async function decomposeWorkflow(
   }
 
   const prompt = buildPrompt(request, orgContextStr);
-  const raw = await callClaude(prompt);
+  const response = await callClaude(prompt);
+  const raw = response.text;
 
   // Extract JSON from Claude's response (it might wrap in markdown code blocks)
   let jsonStr = raw;
@@ -116,13 +124,72 @@ export async function decomposeWorkflow(
     );
   }
 
-  const health = computeHealth(validated.steps, validated.gaps);
+  // ── Referential integrity checks ──
+  const validStepIds = new Set(validated.steps.map((s) => s.id));
+
+  // Fix invalid dependency references (remove non-existent IDs)
+  for (const step of validated.steps) {
+    step.dependencies = step.dependencies.filter((depId) =>
+      validStepIds.has(depId)
+    );
+  }
+
+  // Fix invalid gap stepIds (remove non-existent IDs)
+  for (const gap of validated.gaps) {
+    gap.stepIds = gap.stepIds.filter((sid) => validStepIds.has(sid));
+  }
+
+  // Remove gaps that ended up with zero stepIds after cleanup
+  const cleanGaps = validated.gaps.filter((g) => g.stepIds.length > 0);
+
+  // Detect circular dependencies — if found, break the cycle
+  const visited = new Set<string>();
+  const inStack = new Set<string>();
+  const stepMap = new Map(validated.steps.map((s) => [s.id, s]));
+
+  function hasCycle(stepId: string): boolean {
+    if (inStack.has(stepId)) return true;
+    if (visited.has(stepId)) return false;
+    visited.add(stepId);
+    inStack.add(stepId);
+    const step = stepMap.get(stepId);
+    if (step) {
+      for (const dep of step.dependencies) {
+        if (hasCycle(dep)) {
+          // Break cycle by removing this dependency
+          step.dependencies = step.dependencies.filter((d) => d !== dep);
+          return false; // cycle broken, continue
+        }
+      }
+    }
+    inStack.delete(stepId);
+    return false;
+  }
+
+  for (const step of validated.steps) {
+    visited.clear();
+    inStack.clear();
+    hasCycle(step.id);
+  }
+
+  // Clamp automation scores to valid range (defense-in-depth)
+  for (const step of validated.steps) {
+    step.automationScore = Math.max(0, Math.min(100, Math.round(step.automationScore)));
+  }
+
+  const health = computeHealth(validated.steps, cleanGaps);
 
   return {
     id: generateId(),
     title: validated.title,
     steps: validated.steps,
-    gaps: validated.gaps,
+    gaps: cleanGaps,
     health,
+    _meta: {
+      promptVersion: getPromptVersion(),
+      modelUsed: getModelId(),
+      inputTokens: response.inputTokens,
+      outputTokens: response.outputTokens,
+    },
   };
 }

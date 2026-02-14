@@ -1,8 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { createHash } from "crypto";
 import { readFileSync } from "fs";
 import { join } from "path";
 
 let systemPrompt: string | null = null;
+let systemPromptHash: string | null = null;
+
+const CLAUDE_MODEL = "claude-sonnet-4-20250514";
 
 function getSystemPrompt(): string {
   if (systemPrompt) return systemPrompt;
@@ -16,6 +20,10 @@ function getSystemPrompt(): string {
   for (const p of paths) {
     try {
       systemPrompt = readFileSync(p, "utf-8");
+      systemPromptHash = createHash("sha256")
+        .update(systemPrompt)
+        .digest("hex")
+        .slice(0, 12);
       return systemPrompt;
     } catch {
       // Try next path
@@ -27,13 +35,30 @@ function getSystemPrompt(): string {
   );
 }
 
+/** Returns the short hash of the current system prompt. */
+export function getPromptVersion(): string {
+  getSystemPrompt(); // ensure loaded
+  return systemPromptHash || "unknown";
+}
+
+/** Returns the model identifier being used. */
+export function getModelId(): string {
+  return CLAUDE_MODEL;
+}
+
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-export async function callClaude(userMessage: string): Promise<string> {
+export interface ClaudeResponse {
+  text: string;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+export async function callClaude(userMessage: string): Promise<ClaudeResponse> {
   const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: CLAUDE_MODEL,
     max_tokens: 4096,
     system: getSystemPrompt(),
     messages: [{ role: "user", content: userMessage }],
@@ -43,5 +68,18 @@ export async function callClaude(userMessage: string): Promise<string> {
   if (!textBlock || textBlock.type !== "text") {
     throw new Error("No text response from Claude");
   }
-  return textBlock.text;
+
+  const inputTokens = response.usage?.input_tokens ?? 0;
+  const outputTokens = response.usage?.output_tokens ?? 0;
+
+  // Log token usage for cost monitoring
+  console.log(
+    `[Claude] model=${CLAUDE_MODEL} prompt=${getPromptVersion()} in=${inputTokens} out=${outputTokens} total=${inputTokens + outputTokens}`
+  );
+
+  return {
+    text: textBlock.text,
+    inputTokens,
+    outputTokens,
+  };
 }
