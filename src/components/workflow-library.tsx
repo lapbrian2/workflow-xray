@@ -19,6 +19,12 @@ export default function WorkflowLibrary() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [gapFilter, setGapFilter] = useState<GapType | "all">("all");
   const [searchFocused, setSearchFocused] = useState(false);
+  const [bulkSyncing, setBulkSyncing] = useState(false);
+  const [bulkSyncProgress, setBulkSyncProgress] = useState<{
+    done: number;
+    total: number;
+    errors: string[];
+  } | null>(null);
 
   const fetchWorkflows = async () => {
     setError(null);
@@ -71,6 +77,36 @@ export default function WorkflowLibrary() {
     deleteWorkflowLocal(id);
     await fetch(`/api/workflows?id=${id}`, { method: "DELETE" }).catch(() => {});
     setWorkflows((w) => w.filter((wf) => wf.id !== id));
+  };
+
+  const handleBulkSync = async () => {
+    if (bulkSyncing || workflows.length === 0) return;
+    setBulkSyncing(true);
+    const errors: string[] = [];
+    setBulkSyncProgress({ done: 0, total: workflows.length, errors: [] });
+
+    for (let i = 0; i < workflows.length; i++) {
+      const w = workflows[i];
+      try {
+        const res = await fetch("/api/notion-sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            workflow: w,
+            appUrl: `${window.location.origin}/xray/${w.id}`,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          errors.push(`${w.decomposition.title}: ${err.error || "failed"}`);
+        }
+      } catch {
+        errors.push(`${w.decomposition.title}: network error`);
+      }
+      setBulkSyncProgress({ done: i + 1, total: workflows.length, errors: [...errors] });
+    }
+
+    setBulkSyncing(false);
   };
 
   const handleSort = (key: SortKey) => {
@@ -315,7 +351,119 @@ export default function WorkflowLibrary() {
         >
           Compare
         </Link>
+        <button
+          onClick={handleBulkSync}
+          disabled={bulkSyncing || workflows.length === 0}
+          style={{
+            padding: "10px 24px",
+            borderRadius: "var(--radius-sm)",
+            border: "1.5px solid var(--color-border)",
+            background: bulkSyncing ? "var(--color-border)" : "var(--color-surface)",
+            color: bulkSyncing ? "var(--color-muted)" : "var(--color-dark)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: bulkSyncing ? "default" : "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            transition: "all 0.2s ease",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+            opacity: bulkSyncing ? 0.7 : 1,
+          }}
+        >
+          {bulkSyncing ? (
+            <>
+              <span
+                style={{
+                  width: 12,
+                  height: 12,
+                  border: "2px solid rgba(0,0,0,0.1)",
+                  borderTop: "2px solid var(--color-dark)",
+                  borderRadius: "50%",
+                  animation: "spin 0.8s linear infinite",
+                  display: "inline-block",
+                }}
+              />
+              {bulkSyncProgress
+                ? `${bulkSyncProgress.done}/${bulkSyncProgress.total}`
+                : "Syncing..."}
+            </>
+          ) : (
+            <>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 100 100"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M6.017 4.313l55.333 -4.087c6.797 -0.583 8.543 -0.19 12.817 2.917l17.663 12.443c2.913 2.14 3.883 2.723 3.883 5.053v68.243c0 4.277 -1.553 6.807 -6.99 7.193L24.467 99.967c-4.08 0.193 -6.023 -0.39 -8.16 -3.113L3.3 79.94c-2.333 -3.113 -3.3 -5.443 -3.3 -8.167V11.113c0 -3.497 1.553 -6.413 6.017 -6.8z"
+                  fill="currentColor"
+                  opacity="0.4"
+                />
+              </svg>
+              Sync All to Notion
+            </>
+          )}
+        </button>
       </div>
+
+      {/* Bulk sync result banner */}
+      {bulkSyncProgress && !bulkSyncing && (
+        <div
+          style={{
+            padding: "10px 16px",
+            borderRadius: "var(--radius-sm)",
+            marginBottom: 12,
+            fontFamily: "var(--font-mono)",
+            fontSize: 12,
+            animation: "fadeIn 0.3s ease",
+            background:
+              bulkSyncProgress.errors.length > 0
+                ? "#FDF0EE"
+                : "#E8F8F5",
+            border: `1px solid ${
+              bulkSyncProgress.errors.length > 0
+                ? "#E8553A30"
+                : "#17A58930"
+            }`,
+            color:
+              bulkSyncProgress.errors.length > 0
+                ? "#C0392B"
+                : "#17A589",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>
+              {bulkSyncProgress.errors.length === 0
+                ? `All ${bulkSyncProgress.total} workflows synced to Notion`
+                : `${bulkSyncProgress.total - bulkSyncProgress.errors.length} of ${bulkSyncProgress.total} synced (${bulkSyncProgress.errors.length} failed)`}
+            </span>
+            <button
+              onClick={() => setBulkSyncProgress(null)}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                fontSize: 14,
+                color: "inherit",
+                padding: "2px 6px",
+              }}
+            >
+              &times;
+            </button>
+          </div>
+          {bulkSyncProgress.errors.length > 0 && (
+            <div style={{ marginTop: 6, fontSize: 10, opacity: 0.8 }}>
+              {bulkSyncProgress.errors.map((e, i) => (
+                <div key={i}>{e}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Sort + Filter bar */}
       {!loading && !error && workflows.length > 0 && (

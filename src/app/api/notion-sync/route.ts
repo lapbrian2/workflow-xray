@@ -148,51 +148,231 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // Build page content — a summary of the X-Ray results
-    const stepsContent = steps
-      .map(
-        (s, i) =>
-          `${i + 1}. **${s.name}** — ${s.description.slice(0, 100)}${s.description.length > 100 ? "..." : ""} (${s.automationScore}% automatable${s.owner ? `, owner: ${s.owner}` : ""})`
-      )
-      .join("\n");
+    // Build page content as proper Notion blocks
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const children: any[] = [];
 
-    const gapsContent =
-      gaps.length > 0
-        ? gaps
-            .map(
-              (g) =>
-                `- **${GAP_LABELS[g.type]}** (${g.severity}): ${g.description.slice(0, 100)}${g.description.length > 100 ? "..." : ""}`
-            )
-            .join("\n")
-        : "No gaps detected.";
+    // ── Workflow Steps section ──
+    children.push({
+      object: "block",
+      type: "heading_2",
+      heading_2: {
+        rich_text: [{ type: "text", text: { content: "Workflow Steps" } }],
+      },
+    });
 
-    const pageContent = `## Workflow Steps\n${stepsContent}\n\n## Gaps Identified\n${gapsContent}\n\n## Health Scores\n- Complexity: ${health.complexity}/100\n- Fragility: ${health.fragility}/100\n- Automation Potential: ${health.automationPotential}%\n- Team Load Balance: ${health.teamLoadBalance}/100\n\n---\n*Synced from Workflow X-Ray on ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}*`;
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i];
+      const desc = s.description.length > 120
+        ? s.description.slice(0, 120) + "..."
+        : s.description;
+      const meta = [
+        `${s.automationScore}% automatable`,
+        s.owner ? `owner: ${s.owner}` : null,
+        s.layer ? `layer: ${s.layer}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
 
-    const response = await notion.pages.create({
-      parent: { database_id: databaseId },
-      properties: properties as Record<string, never>,
-      children: [
-        {
+      children.push({
+        object: "block",
+        type: "numbered_list_item",
+        numbered_list_item: {
+          rich_text: [
+            { type: "text", text: { content: s.name }, annotations: { bold: true } },
+            { type: "text", text: { content: ` — ${desc}` } },
+            { type: "text", text: { content: `\n${meta}` }, annotations: { italic: true, color: "gray" } },
+          ],
+        },
+      });
+    }
+
+    // ── Gaps section ──
+    children.push({
+      object: "block",
+      type: "heading_2",
+      heading_2: {
+        rich_text: [{ type: "text", text: { content: "Gaps Identified" } }],
+      },
+    });
+
+    if (gaps.length > 0) {
+      for (const g of gaps) {
+        const desc = g.description.length > 140
+          ? g.description.slice(0, 140) + "..."
+          : g.description;
+        const severityEmoji = g.severity === "high" ? "🔴" : g.severity === "medium" ? "🟡" : "🟢";
+
+        children.push({
           object: "block",
-          type: "paragraph",
-          paragraph: {
+          type: "bulleted_list_item",
+          bulleted_list_item: {
             rich_text: [
-              {
-                type: "text",
-                text: {
-                  content: pageContent,
-                },
-              },
+              { type: "text", text: { content: `${severityEmoji} ${GAP_LABELS[g.type]}` }, annotations: { bold: true } },
+              { type: "text", text: { content: ` (${g.severity})` }, annotations: { italic: true } },
+              { type: "text", text: { content: ` — ${desc}` } },
             ],
           },
+        });
+
+        // Add suggestion as a nested child if available
+        if (g.suggestion) {
+          const suggText = g.suggestion.length > 200
+            ? g.suggestion.slice(0, 200) + "..."
+            : g.suggestion;
+          children.push({
+            object: "block",
+            type: "paragraph",
+            paragraph: {
+              rich_text: [
+                { type: "text", text: { content: "💡 " } },
+                { type: "text", text: { content: suggText }, annotations: { italic: true, color: "gray" } },
+              ],
+            },
+          });
+        }
+      }
+    } else {
+      children.push({
+        object: "block",
+        type: "paragraph",
+        paragraph: {
+          rich_text: [
+            { type: "text", text: { content: "No gaps detected." }, annotations: { italic: true, color: "gray" } },
+          ],
         },
-      ],
+      });
+    }
+
+    // ── Health Scores section ──
+    children.push({
+      object: "block",
+      type: "heading_2",
+      heading_2: {
+        rich_text: [{ type: "text", text: { content: "Health Scores" } }],
+      },
     });
+
+    const healthItems = [
+      { label: "Complexity", value: health.complexity, suffix: "/100" },
+      { label: "Fragility", value: health.fragility, suffix: "/100" },
+      { label: "Automation Potential", value: health.automationPotential, suffix: "%" },
+      { label: "Team Load Balance", value: health.teamLoadBalance, suffix: "/100" },
+    ];
+
+    for (const item of healthItems) {
+      const bar = "█".repeat(Math.round(item.value / 10)) + "░".repeat(10 - Math.round(item.value / 10));
+      children.push({
+        object: "block",
+        type: "bulleted_list_item",
+        bulleted_list_item: {
+          rich_text: [
+            { type: "text", text: { content: `${item.label}: ` }, annotations: { bold: true } },
+            { type: "text", text: { content: `${item.value}${item.suffix}` } },
+            { type: "text", text: { content: `  ${bar}` }, annotations: { code: true } },
+          ],
+        },
+      });
+    }
+
+    // ── ROI Summary ──
+    const roiSummary = estimateROISummary(gaps, costContext);
+    if (roiSummary !== "Low waste detected") {
+      children.push({
+        object: "block",
+        type: "callout",
+        callout: {
+          rich_text: [
+            { type: "text", text: { content: `ROI Estimate: ${roiSummary}` }, annotations: { bold: true } },
+          ],
+          icon: { type: "emoji", emoji: "💰" },
+          color: "yellow_background",
+        },
+      });
+    }
+
+    // ── Divider + timestamp ──
+    children.push({
+      object: "block",
+      type: "divider",
+      divider: {},
+    });
+
+    children.push({
+      object: "block",
+      type: "paragraph",
+      paragraph: {
+        rich_text: [
+          {
+            type: "text",
+            text: {
+              content: `Synced from Workflow X-Ray on ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`,
+            },
+            annotations: { italic: true, color: "gray" },
+          },
+          { type: "text", text: { content: "  " } },
+          {
+            type: "text",
+            text: { content: "Open in X-Ray →", link: { url: appUrl } },
+            annotations: { color: "blue" },
+          },
+        ],
+      },
+    });
+
+    // If notionPageId is provided, update the existing page instead of creating new
+    const existingPageId = body.notionPageId;
+
+    let responsePageId: string;
+
+    if (existingPageId) {
+      // Update existing page properties
+      await notion.pages.update({
+        page_id: existingPageId,
+        properties: properties as Record<string, never>,
+      });
+
+      // Delete existing children blocks and replace with new ones
+      // First, get existing children
+      const existingBlocks = await notion.blocks.children.list({
+        block_id: existingPageId,
+        page_size: 100,
+      });
+
+      // Delete old blocks
+      for (const block of existingBlocks.results) {
+        try {
+          await notion.blocks.delete({ block_id: (block as { id: string }).id });
+        } catch {
+          // Some blocks may not be deletable — skip
+        }
+      }
+
+      // Append new children
+      // Notion allows max 100 children per append call
+      for (let i = 0; i < children.length; i += 100) {
+        await notion.blocks.children.append({
+          block_id: existingPageId,
+          children: children.slice(i, i + 100),
+        });
+      }
+
+      responsePageId = existingPageId;
+    } else {
+      // Create a new page
+      const response = await notion.pages.create({
+        parent: { database_id: databaseId },
+        properties: properties as Record<string, never>,
+        children,
+      });
+      responsePageId = (response as { id: string }).id;
+    }
 
     return NextResponse.json({
       success: true,
-      notionUrl: `https://notion.so/${(response as { id: string }).id.replace(/-/g, "")}`,
-      pageId: (response as { id: string }).id,
+      notionUrl: `https://notion.so/${responsePageId.replace(/-/g, "")}`,
+      pageId: responsePageId,
+      updated: !!existingPageId,
     });
   } catch (error) {
     console.error("Notion sync error:", error);

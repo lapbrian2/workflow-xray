@@ -110,11 +110,18 @@ export default function FreeformInput({
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [importPreview, setImportPreview] = useState<{
+    title: string;
+    content: string;
+    blockCount: number;
+    pageId: string;
+  } | null>(null);
 
-  const handleNotionImport = useCallback(async () => {
+  const handleNotionFetch = useCallback(async () => {
     if (!notionUrl.trim() || importing) return;
     setImporting(true);
     setImportError(null);
+    setImportPreview(null);
     try {
       const res = await fetch("/api/notion-import", {
         method: "POST",
@@ -126,9 +133,7 @@ export default function FreeformInput({
         throw new Error(err.error || "Import failed");
       }
       const data = await res.json();
-      onChange(data.content);
-      setNotionUrl("");
-      setShowImport(false);
+      setImportPreview(data);
     } catch (err) {
       setImportError(
         err instanceof Error ? err.message : "Failed to import from Notion"
@@ -136,7 +141,19 @@ export default function FreeformInput({
     } finally {
       setImporting(false);
     }
-  }, [notionUrl, importing, onChange]);
+  }, [notionUrl, importing]);
+
+  const handleInsertImport = useCallback(() => {
+    if (!importPreview) return;
+    onChange(importPreview.content);
+    setImportPreview(null);
+    setNotionUrl("");
+    setShowImport(false);
+  }, [importPreview, onChange]);
+
+  const handleCancelPreview = useCallback(() => {
+    setImportPreview(null);
+  }, []);
 
   const filtered =
     activeCategory === "All"
@@ -326,81 +343,203 @@ export default function FreeformInput({
               Make sure the &ldquo;Workflow X-Ray&rdquo; integration is connected
               to the page.
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                type="text"
-                value={notionUrl}
-                onChange={(e) => {
-                  setNotionUrl(e.target.value);
-                  setImportError(null);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleNotionImport();
-                  }
-                }}
-                placeholder="https://www.notion.so/your-page-id"
-                disabled={importing || disabled}
+
+            {/* URL input row */}
+            {!importPreview && (
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="text"
+                  value={notionUrl}
+                  onChange={(e) => {
+                    setNotionUrl(e.target.value);
+                    setImportError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleNotionFetch();
+                    }
+                  }}
+                  placeholder="https://www.notion.so/your-page-id"
+                  disabled={importing || disabled}
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    borderRadius: 6,
+                    border: `1px solid ${importError ? "#E8553A40" : "var(--color-border)"}`,
+                    background: "#fff",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 12,
+                    color: "var(--color-dark)",
+                    outline: "none",
+                  }}
+                />
+                <button
+                  onClick={handleNotionFetch}
+                  disabled={importing || !notionUrl.trim() || disabled}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: 6,
+                    border: "none",
+                    background:
+                      importing || !notionUrl.trim()
+                        ? "var(--color-border)"
+                        : "var(--color-dark)",
+                    color:
+                      importing || !notionUrl.trim()
+                        ? "var(--color-muted)"
+                        : "#fff",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor:
+                      importing || !notionUrl.trim() ? "not-allowed" : "pointer",
+                    transition: "all 0.2s",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {importing ? (
+                    <>
+                      <span
+                        style={{
+                          width: 12,
+                          height: 12,
+                          border: "2px solid rgba(255,255,255,0.3)",
+                          borderTop: "2px solid #fff",
+                          borderRadius: "50%",
+                          animation: "spin 0.8s linear infinite",
+                          display: "inline-block",
+                        }}
+                      />
+                      Fetching...
+                    </>
+                  ) : (
+                    "Fetch Page"
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* Preview card */}
+            {importPreview && (
+              <div
                 style={{
-                  flex: 1,
-                  padding: "8px 12px",
-                  borderRadius: 6,
-                  border: `1px solid ${importError ? "#E8553A40" : "var(--color-border)"}`,
-                  background: "#fff",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 12,
-                  color: "var(--color-dark)",
-                  outline: "none",
-                }}
-              />
-              <button
-                onClick={handleNotionImport}
-                disabled={importing || !notionUrl.trim() || disabled}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: 6,
-                  border: "none",
-                  background:
-                    importing || !notionUrl.trim()
-                      ? "var(--color-border)"
-                      : "var(--color-dark)",
-                  color:
-                    importing || !notionUrl.trim()
-                      ? "var(--color-muted)"
-                      : "#fff",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor:
-                    importing || !notionUrl.trim() ? "not-allowed" : "pointer",
-                  transition: "all 0.2s",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  whiteSpace: "nowrap",
+                  marginTop: 4,
+                  padding: "12px 14px",
+                  background: "#f8faf9",
+                  border: "1px solid #17A58930",
+                  borderRadius: 8,
+                  animation: "fadeIn 0.25s ease",
                 }}
               >
-                {importing ? (
-                  <>
-                    <span
-                      style={{
-                        width: 12,
-                        height: 12,
-                        border: "2px solid rgba(255,255,255,0.3)",
-                        borderTop: "2px solid #fff",
-                        borderRadius: "50%",
-                        animation: "spin 0.8s linear infinite",
-                        display: "inline-block",
-                      }}
-                    />
-                    Importing...
-                  </>
-                ) : (
-                  "Import"
-                )}
-              </button>
-            </div>
+                <div
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: "var(--color-dark)",
+                    marginBottom: 6,
+                  }}
+                >
+                  {importPreview.title}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    marginBottom: 10,
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 10,
+                    color: "var(--color-muted)",
+                  }}
+                >
+                  <span>{importPreview.blockCount} blocks</span>
+                  <span>{importPreview.content.length.toLocaleString()} chars</span>
+                  <span>
+                    {importPreview.content.split("\n").filter((l) => l.trim()).length} lines
+                  </span>
+                </div>
+
+                {/* Content snippet preview */}
+                <div
+                  style={{
+                    maxHeight: 100,
+                    overflow: "hidden",
+                    position: "relative",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    lineHeight: 1.6,
+                    color: "var(--color-text)",
+                    padding: "8px 10px",
+                    background: "#fff",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 6,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                    marginBottom: 10,
+                  }}
+                >
+                  {importPreview.content.slice(0, 500)}
+                  {importPreview.content.length > 500 && "..."}
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: 32,
+                      background:
+                        "linear-gradient(transparent, #fff)",
+                      pointerEvents: "none",
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={handleInsertImport}
+                    style={{
+                      padding: "8px 20px",
+                      borderRadius: 6,
+                      border: "none",
+                      background: "#17A589",
+                      color: "#fff",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    &#x2713; Use This Content
+                  </button>
+                  <button
+                    onClick={handleCancelPreview}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: 6,
+                      border: "1px solid var(--color-border)",
+                      background: "var(--color-surface)",
+                      color: "var(--color-text)",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
             {importError && (
               <div
                 style={{
