@@ -11,12 +11,15 @@ import GapAnalysis from "@/components/gap-analysis";
 import HealthCard from "@/components/health-card";
 import VersionTimeline from "@/components/version-timeline";
 import { exportToPdf } from "@/lib/pdf-export";
+import Breadcrumb from "@/components/breadcrumb";
+import { useToast } from "@/components/toast";
 
 export default function XRayPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
   const { activeTab, setActiveTab } = useStore();
+  const { addToast } = useToast();
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,11 +38,12 @@ export default function XRayPage() {
     setExporting(true);
     try {
       await exportToPdf(workflow.decomposition, workflow.costContext);
+      addToast("success", "PDF downloaded successfully");
     } catch (err) {
       console.error("PDF export failed:", err);
-      setError(
-        err instanceof Error ? err.message : "PDF export failed. Please try again."
-      );
+      const msg = err instanceof Error ? err.message : "PDF export failed. Please try again.";
+      setError(msg);
+      addToast("error", msg);
     } finally {
       setExporting(false);
       exportLock.current = false;
@@ -82,10 +86,11 @@ export default function XRayPage() {
       setSynced(true);
       setNotionUrl(data.notionUrl);
       setNotionPageId(data.pageId);
+      addToast("success", "Synced to Notion successfully");
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to sync to Notion"
-      );
+      const msg = err instanceof Error ? err.message : "Failed to sync to Notion";
+      setError(msg);
+      addToast("error", msg);
     } finally {
       setSyncing(false);
       syncLock.current = false;
@@ -243,13 +248,13 @@ export default function XRayPage() {
               width: 56,
               height: 56,
               borderRadius: "50%",
-              background: "#FDF0EE",
+              background: "rgba(232, 85, 58, 0.06)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               margin: "0 auto 16px",
               fontSize: 24,
-              color: "#E8553A",
+              color: "var(--color-accent)",
               fontWeight: 700,
             }}
           >
@@ -258,7 +263,7 @@ export default function XRayPage() {
           <div
             style={{
               fontSize: 16,
-              color: "#C0392B",
+              color: "var(--color-danger)",
               fontFamily: "var(--font-body)",
               marginBottom: 8,
             }}
@@ -323,26 +328,16 @@ export default function XRayPage() {
 
   return (
     <div style={{ maxWidth: 960, margin: "0 auto", padding: "clamp(20px, 4vw, 32px) clamp(16px, 4vw, 32px) 64px" }}>
+      {/* Breadcrumb */}
+      <Breadcrumb
+        items={[
+          { label: "X-Ray", href: "/" },
+          { label: decomposition.title },
+        ]}
+      />
+
       {/* Header */}
       <div style={{ marginBottom: 28, animation: "fadeInUp 0.4s var(--ease-spring) both" }}>
-        <Link
-          href="/"
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            color: "var(--color-muted)",
-            textDecoration: "none",
-            marginBottom: 8,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            padding: "4px 8px",
-            borderRadius: "var(--radius-xs)",
-            transition: "all var(--duration-fast) var(--ease-default)",
-          }}
-        >
-          &larr; New X-Ray
-        </Link>
         <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
           <h1
             style={{

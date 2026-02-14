@@ -17,11 +17,15 @@ import {
 } from "@/lib/types";
 import { getWorkflowLocal } from "@/lib/client-db";
 import { exportRemediationPdf } from "@/lib/pdf-remediation-export";
+import Breadcrumb from "@/components/breadcrumb";
+import ConfirmModal from "@/components/confirm-modal";
+import { useToast } from "@/components/toast";
 
 export default function RemediationPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
+  const { addToast } = useToast();
 
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [plan, setPlan] = useState<RemediationPlan | null>(null);
@@ -35,6 +39,7 @@ export default function RemediationPage() {
   const [notionUrl, setNotionUrl] = useState<string | null>(null);
   const [activePhase, setActivePhase] = useState<string | null>(null);
   const [showTeamContext, setShowTeamContext] = useState(false);
+  const [showRegenConfirm, setShowRegenConfirm] = useState(false);
   const [teamContext, setTeamContext] = useState({
     teamSize: "",
     budget: "",
@@ -166,8 +171,11 @@ export default function RemediationPage() {
       setPlan(data.plan);
       setActivePhase(data.plan.phases[0]?.id || null);
       setShowTeamContext(false);
+      addToast("success", "Remediation plan generated successfully");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate remediation plan");
+      const msg = err instanceof Error ? err.message : "Failed to generate remediation plan";
+      setError(msg);
+      addToast("error", msg);
     } finally {
       setGenerating(false);
       generateLock.current = false;
@@ -180,8 +188,11 @@ export default function RemediationPage() {
     setExporting(true);
     try {
       await exportRemediationPdf(plan, workflow.decomposition);
+      addToast("success", "PDF downloaded successfully");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "PDF export failed");
+      const msg = err instanceof Error ? err.message : "PDF export failed";
+      setError(msg);
+      addToast("error", msg);
     } finally {
       setExporting(false);
       exportLock.current = false;
@@ -209,20 +220,33 @@ export default function RemediationPage() {
       const data = await res.json();
       setSynced(true);
       setNotionUrl(data.notionUrl);
+      addToast("success", "Synced to Notion successfully");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to sync to Notion");
+      const msg = err instanceof Error ? err.message : "Failed to sync to Notion";
+      setError(msg);
+      addToast("error", msg);
     } finally {
       setSyncing(false);
       syncLock.current = false;
     }
   };
 
+  const handleRegenerate = () => {
+    setShowRegenConfirm(true);
+  };
+
+  const confirmRegenerate = () => {
+    setShowRegenConfirm(false);
+    setPlan(null);
+    setShowTeamContext(true);
+  };
+
   // ── Loading State ──
   if (loading) {
     return (
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "40px 32px" }}>
+      <div style={{ maxWidth: 960, margin: "0 auto", padding: "clamp(24px, 4vw, 40px) clamp(16px, 4vw, 32px)" }}>
         <div style={{ height: 12, width: 120, background: "var(--color-border)", borderRadius: 4, marginBottom: 8, animation: "pulse-slow 1.5s ease infinite" }} />
-        <div style={{ height: 32, width: 400, background: "var(--color-border)", borderRadius: "var(--radius-sm)", marginBottom: 24, animation: "pulse-slow 1.5s ease 0.1s infinite" }} />
+        <div style={{ height: 32, width: 400, maxWidth: "100%", background: "var(--color-border)", borderRadius: "var(--radius-sm)", marginBottom: 24, animation: "pulse-slow 1.5s ease 0.1s infinite" }} />
         <div style={{ height: 200, background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)", animation: "pulse-slow 1.5s ease 0.2s infinite" }} />
       </div>
     );
@@ -231,10 +255,13 @@ export default function RemediationPage() {
   // ── Error State (no workflow) ──
   if (!workflow) {
     return (
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "40px 32px", textAlign: "center" }}>
-        <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#FDF0EE", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontSize: 24, color: "#E8553A", fontWeight: 700 }}>!</div>
-        <div style={{ fontSize: 16, color: "#C0392B", fontFamily: "var(--font-body)", marginBottom: 8 }}>{error || "Workflow not found"}</div>
-        <Link href="/" style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--color-accent)", textDecoration: "none" }}>Back to Home</Link>
+      <div className="empty-state" style={{ maxWidth: 960, margin: "0 auto", padding: "clamp(24px, 4vw, 40px) clamp(16px, 4vw, 32px)" }}>
+        <div className="empty-state-icon" style={{ background: "linear-gradient(135deg, #FDF0EE, #FFE6E1)", color: "var(--color-accent)" }}>!</div>
+        <div className="empty-state-title" style={{ color: "var(--color-danger)" }}>{error || "Workflow not found"}</div>
+        <div className="empty-state-desc">The workflow you&apos;re looking for doesn&apos;t exist or couldn&apos;t be loaded.</div>
+        <Link href="/" className="btn-primary" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8 }}>
+          Back to Home
+        </Link>
       </div>
     );
   }
@@ -243,56 +270,67 @@ export default function RemediationPage() {
   const currentPhase = plan?.phases.find((p) => p.id === activePhase);
 
   return (
-    <div style={{ maxWidth: 960, margin: "0 auto", padding: "32px 32px 64px" }}>
+    <div style={{ maxWidth: 960, margin: "0 auto", padding: "clamp(20px, 4vw, 32px) clamp(16px, 4vw, 32px) 64px" }}>
+      {/* Breadcrumb */}
+      <Breadcrumb
+        items={[
+          { label: "X-Ray", href: "/" },
+          { label: workflow.decomposition.title, href: `/xray/${id}` },
+          { label: "Remediation" },
+        ]}
+      />
+
       {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <Link
-          href={`/xray/${id}`}
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            color: "var(--color-muted)",
-            textDecoration: "none",
-            marginBottom: 8,
-            display: "inline-block",
-          }}
-        >
-          &larr; Back to X-Ray
-        </Link>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+      <div style={{ marginBottom: 24, animation: "fadeInUp 0.4s var(--ease-spring) both" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
           <h1
+            className="text-gradient"
             style={{
-              fontSize: 28,
+              fontSize: "clamp(24px, 5vw, 32px)",
               fontWeight: 900,
               fontFamily: "var(--font-display)",
-              color: "var(--color-dark)",
               letterSpacing: "-0.02em",
             }}
           >
             Remediation Plan
           </h1>
           {plan && (
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--color-muted)" }}>
-              {totalTasks} tasks across {plan.phases.length} phases
+            <span style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 12,
+              color: "var(--color-muted)",
+              background: "var(--color-border)",
+              padding: "2px 10px",
+              borderRadius: "var(--radius-full)",
+            }}>
+              {totalTasks} tasks &middot; {plan.phases.length} phases
             </span>
           )}
         </div>
-        <div style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--color-text)", marginTop: 4 }}>
+        <div style={{
+          fontFamily: "var(--font-body)",
+          fontSize: 14,
+          color: "var(--color-text)",
+          marginTop: 6,
+        }}>
           {workflow.decomposition.title}
         </div>
 
         {/* Action buttons */}
         {plan && (
-          <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
             <button
               onClick={handleExportPdf}
               disabled={exporting}
+              className="btn-primary"
               style={{
-                fontFamily: "var(--font-mono)", fontSize: 11, color: "#fff",
-                padding: "4px 12px", borderRadius: 4, border: "none",
-                background: "var(--color-accent)", cursor: exporting ? "wait" : "pointer",
-                opacity: exporting ? 0.7 : 1, fontWeight: 600,
-                display: "flex", alignItems: "center", gap: 6,
+                fontSize: 12,
+                padding: "8px 20px",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                opacity: exporting ? 0.7 : 1,
+                cursor: exporting ? "wait" : "pointer",
               }}
             >
               {exporting ? "Exporting..." : "Download PDF"}
@@ -300,15 +338,17 @@ export default function RemediationPage() {
             <button
               onClick={handleNotionSync}
               disabled={syncing}
+              className="btn-secondary"
               style={{
-                fontFamily: "var(--font-mono)", fontSize: 11,
-                color: synced ? "#17A589" : "var(--color-dark)",
-                padding: "4px 12px", borderRadius: 4,
-                border: `1px solid ${synced ? "#17A58940" : "var(--color-border)"}`,
-                background: synced ? "#17A58910" : "var(--color-surface)",
-                cursor: syncing ? "default" : "pointer",
-                fontWeight: 600, opacity: syncing ? 0.7 : 1,
-                display: "flex", alignItems: "center", gap: 6,
+                fontSize: 12,
+                padding: "8px 20px",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                opacity: syncing ? 0.7 : 1,
+                borderColor: synced ? "rgba(23, 165, 137, 0.3)" : undefined,
+                background: synced ? "rgba(23, 165, 137, 0.06)" : undefined,
+                color: synced ? "var(--color-success)" : undefined,
               }}
             >
               {syncing ? "Syncing..." : synced ? (
@@ -320,7 +360,7 @@ export default function RemediationPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      style={{ color: "#17A589", textDecoration: "underline", fontSize: 10 }}
+                      style={{ color: "var(--color-success)", textDecoration: "underline", fontSize: 10 }}
                     >
                       Open
                     </a>
@@ -329,13 +369,9 @@ export default function RemediationPage() {
               ) : "Sync to Notion"}
             </button>
             <button
-              onClick={() => { setPlan(null); setShowTeamContext(true); }}
-              style={{
-                fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-dark)",
-                padding: "4px 12px", borderRadius: 4,
-                border: "1px solid var(--color-border)", background: "var(--color-surface)",
-                cursor: "pointer", fontWeight: 600,
-              }}
+              onClick={handleRegenerate}
+              className="btn-ghost"
+              style={{ fontSize: 12 }}
             >
               Regenerate
             </button>
@@ -345,12 +381,55 @@ export default function RemediationPage() {
 
       {/* Error banner */}
       {error && (
-        <div style={{
-          padding: "10px 16px", borderRadius: "var(--radius-sm)", marginBottom: 16,
-          background: "#FDF0EE", border: "1px solid #E8553A30", color: "#C0392B",
-          fontFamily: "var(--font-mono)", fontSize: 12,
-        }}>
-          {error}
+        <div
+          style={{
+            padding: "14px 20px",
+            background: "linear-gradient(135deg, rgba(253,240,238,0.95) 0%, rgba(255,230,225,0.9) 100%)",
+            borderRadius: "var(--radius-lg)",
+            border: "1px solid rgba(232,85,58,0.12)",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            marginBottom: 24,
+            animation: "fadeInUpSm 0.35s var(--ease-default)",
+            boxShadow: "0 2px 12px rgba(232,85,58,0.06)",
+          }}
+        >
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              background: "rgba(232,85,58,0.1)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 13,
+              fontWeight: 700,
+              color: "var(--color-danger)",
+              flexShrink: 0,
+            }}
+          >
+            !
+          </div>
+          <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-danger)", lineHeight: 1.5, flex: 1 }}>
+            {error}
+          </div>
+          <button
+            onClick={() => setError(null)}
+            style={{
+              background: "none",
+              border: "none",
+              fontSize: 16,
+              color: "var(--color-danger)",
+              cursor: "pointer",
+              padding: "2px 6px",
+              opacity: 0.6,
+              flexShrink: 0,
+            }}
+          >
+            &times;
+          </button>
         </div>
       )}
 
@@ -358,10 +437,11 @@ export default function RemediationPage() {
       {!plan && !generating && (
         <div style={{
           background: "var(--color-surface)", border: "1px solid var(--color-border)",
-          borderRadius: "var(--radius-lg)", padding: 32, textAlign: "center",
+          borderRadius: "var(--radius-lg)", padding: "clamp(24px, 4vw, 40px)", textAlign: "center",
+          animation: "fadeInUp 0.4s var(--ease-spring) both",
         }}>
           <div style={{ fontSize: 40, marginBottom: 16 }}>🔧</div>
-          <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700, color: "var(--color-dark)", marginBottom: 8 }}>
+          <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(18px, 4vw, 22px)", fontWeight: 700, color: "var(--color-dark)", marginBottom: 8 }}>
             Generate Remediation Plan
           </h2>
 
@@ -373,106 +453,105 @@ export default function RemediationPage() {
               </p>
               <Link
                 href={`/xray/${id}`}
-                style={{
-                  fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--color-accent)",
-                  textDecoration: "none", fontWeight: 600,
-                }}
+                className="btn-secondary"
+                style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
               >
                 &larr; Back to X-Ray
               </Link>
             </div>
           ) : (
             <>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--color-text)", marginBottom: 24, maxWidth: 500, margin: "0 auto 24px" }}>
-            Create a phased action plan to address the {workflow.decomposition.gaps.length} gaps identified in the diagnostic. Each task includes priority, owner, tools, and success metrics.
-          </p>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--color-text)", marginBottom: 24, maxWidth: 500, margin: "0 auto 24px" }}>
+                Create a phased action plan to address the {workflow.decomposition.gaps.length} gaps identified in the diagnostic. Each task includes priority, owner, tools, and success metrics.
+              </p>
 
-          {/* Team Context Toggle */}
-          <button
-            onClick={() => setShowTeamContext(!showTeamContext)}
-            style={{
-              fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-muted)",
-              background: "none", border: "none", cursor: "pointer",
-              textDecoration: "underline", marginBottom: 16, display: "block",
-              margin: "0 auto 16px",
-            }}
-          >
-            {showTeamContext ? "Hide team context" : "+ Add team context (optional)"}
-          </button>
+              {/* Team Context Toggle */}
+              <button
+                onClick={() => setShowTeamContext(!showTeamContext)}
+                className="btn-ghost"
+                style={{
+                  margin: "0 auto 16px",
+                  display: "block",
+                  fontSize: 11,
+                }}
+              >
+                {showTeamContext ? "Hide team context" : "+ Add team context (optional)"}
+              </button>
 
-          {showTeamContext && (
-            <div style={{
-              display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10,
-              maxWidth: 500, margin: "0 auto 24px", textAlign: "left",
-            }}>
-              <div>
-                <label style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--color-muted)", display: "block", marginBottom: 4 }}>Team Size</label>
-                <input
-                  type="number"
-                  value={teamContext.teamSize}
-                  onChange={(e) => setTeamContext((c) => ({ ...c, teamSize: e.target.value }))}
-                  placeholder="e.g., 8"
-                  style={{
-                    width: "100%", padding: "8px 12px", borderRadius: "var(--radius-sm)",
-                    border: "1px solid var(--color-border)", fontFamily: "var(--font-body)",
-                    fontSize: 13, outline: "none", background: "var(--color-bg)",
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--color-muted)", display: "block", marginBottom: 4 }}>Budget</label>
-                <input
-                  value={teamContext.budget}
-                  onChange={(e) => setTeamContext((c) => ({ ...c, budget: e.target.value }))}
-                  placeholder="e.g., $5K/month"
-                  style={{
-                    width: "100%", padding: "8px 12px", borderRadius: "var(--radius-sm)",
-                    border: "1px solid var(--color-border)", fontFamily: "var(--font-body)",
-                    fontSize: 13, outline: "none", background: "var(--color-bg)",
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--color-muted)", display: "block", marginBottom: 4 }}>Timeline</label>
-                <input
-                  value={teamContext.timeline}
-                  onChange={(e) => setTeamContext((c) => ({ ...c, timeline: e.target.value }))}
-                  placeholder="e.g., 3 months"
-                  style={{
-                    width: "100%", padding: "8px 12px", borderRadius: "var(--radius-sm)",
-                    border: "1px solid var(--color-border)", fontFamily: "var(--font-body)",
-                    fontSize: 13, outline: "none", background: "var(--color-bg)",
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--color-muted)", display: "block", marginBottom: 4 }}>Constraints (comma-separated)</label>
-                <input
-                  value={teamContext.constraints}
-                  onChange={(e) => setTeamContext((c) => ({ ...c, constraints: e.target.value }))}
-                  placeholder="e.g., no new tools, remote-only"
-                  style={{
-                    width: "100%", padding: "8px 12px", borderRadius: "var(--radius-sm)",
-                    border: "1px solid var(--color-border)", fontFamily: "var(--font-body)",
-                    fontSize: 13, outline: "none", background: "var(--color-bg)",
-                  }}
-                />
-              </div>
-            </div>
-          )}
+              {showTeamContext && (
+                <div style={{
+                  display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12,
+                  maxWidth: 500, margin: "0 auto 24px", textAlign: "left",
+                  animation: "fadeInUpSm 0.3s var(--ease-default) both",
+                }}>
+                  <div>
+                    <label style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--color-muted)", display: "block", marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Team Size</label>
+                    <input
+                      type="number"
+                      value={teamContext.teamSize}
+                      onChange={(e) => setTeamContext((c) => ({ ...c, teamSize: e.target.value }))}
+                      placeholder="e.g., 8"
+                      style={{
+                        width: "100%", padding: "10px 14px", borderRadius: "var(--radius-sm)",
+                        border: "1px solid var(--color-border)", fontFamily: "var(--font-body)",
+                        fontSize: 13, outline: "none", background: "var(--color-bg)",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--color-muted)", display: "block", marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Budget</label>
+                    <input
+                      value={teamContext.budget}
+                      onChange={(e) => setTeamContext((c) => ({ ...c, budget: e.target.value }))}
+                      placeholder="e.g., $5K/month"
+                      style={{
+                        width: "100%", padding: "10px 14px", borderRadius: "var(--radius-sm)",
+                        border: "1px solid var(--color-border)", fontFamily: "var(--font-body)",
+                        fontSize: 13, outline: "none", background: "var(--color-bg)",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--color-muted)", display: "block", marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Timeline</label>
+                    <input
+                      value={teamContext.timeline}
+                      onChange={(e) => setTeamContext((c) => ({ ...c, timeline: e.target.value }))}
+                      placeholder="e.g., 3 months"
+                      style={{
+                        width: "100%", padding: "10px 14px", borderRadius: "var(--radius-sm)",
+                        border: "1px solid var(--color-border)", fontFamily: "var(--font-body)",
+                        fontSize: 13, outline: "none", background: "var(--color-bg)",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--color-muted)", display: "block", marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Constraints</label>
+                    <input
+                      value={teamContext.constraints}
+                      onChange={(e) => setTeamContext((c) => ({ ...c, constraints: e.target.value }))}
+                      placeholder="e.g., no new tools, remote-only"
+                      style={{
+                        width: "100%", padding: "10px 14px", borderRadius: "var(--radius-sm)",
+                        border: "1px solid var(--color-border)", fontFamily: "var(--font-body)",
+                        fontSize: 13, outline: "none", background: "var(--color-bg)",
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
 
-          <button
-            onClick={handleGenerate}
-            style={{
-              padding: "12px 36px", borderRadius: "var(--radius-sm)", border: "none",
-              background: "linear-gradient(135deg, var(--color-accent) 0%, #F09060 100%)",
-              color: "#fff", fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 700,
-              cursor: "pointer", boxShadow: "0 4px 16px rgba(232, 85, 58, 0.3)",
-              transition: "all 0.2s",
-            }}
-          >
-            Generate Plan
-          </button>
+              <button
+                onClick={handleGenerate}
+                className="btn-primary"
+                style={{
+                  padding: "12px 36px",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  boxShadow: "var(--shadow-accent-lg)",
+                }}
+              >
+                Generate Plan
+              </button>
             </>
           )}
         </div>
@@ -482,7 +561,8 @@ export default function RemediationPage() {
       {generating && (
         <div style={{
           background: "var(--color-surface)", border: "1px solid var(--color-border)",
-          borderRadius: "var(--radius-lg)", padding: 48, textAlign: "center",
+          borderRadius: "var(--radius-lg)", padding: "clamp(32px, 4vw, 48px)", textAlign: "center",
+          animation: "fadeIn 0.4s ease",
         }}>
           <div style={{
             width: 48, height: 48, border: "3px solid var(--color-border)",
@@ -495,6 +575,7 @@ export default function RemediationPage() {
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-muted)" }}>
             {elapsed}s elapsed
           </div>
+          <div className="progress-bar" style={{ maxWidth: 300, margin: "16px auto 0" }} />
         </div>
       )}
 
@@ -504,8 +585,9 @@ export default function RemediationPage() {
           {/* Executive Summary */}
           <div style={{
             background: "linear-gradient(135deg, #1C2536 0%, #2a3a52 100%)",
-            borderRadius: "var(--radius-lg)", padding: 24, marginBottom: 20,
+            borderRadius: "var(--radius-lg)", padding: "clamp(18px, 3vw, 28px)", marginBottom: 20,
             color: "#F0F2F5",
+            boxShadow: "var(--shadow-lg)",
           }}>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
               Executive Summary
@@ -519,19 +601,13 @@ export default function RemediationPage() {
           <div style={{
             display: "flex", gap: 2, marginBottom: 20,
             background: "var(--color-border)", borderRadius: "var(--radius-sm)",
-            padding: 4, width: "fit-content",
+            padding: 4, width: "fit-content", maxWidth: "100%", overflowX: "auto",
           }}>
             {plan.phases.map((phase) => (
               <button
                 key={phase.id}
                 onClick={() => setActivePhase(phase.id)}
-                style={{
-                  padding: "8px 16px", borderRadius: 6, border: "none",
-                  background: activePhase === phase.id ? "var(--color-surface)" : "transparent",
-                  fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: activePhase === phase.id ? 600 : 400,
-                  color: activePhase === phase.id ? "var(--color-dark)" : "var(--color-muted)",
-                  cursor: "pointer", transition: "all 0.2s",
-                }}
+                className={`tab-pill${activePhase === phase.id ? " tab-active" : ""}`}
               >
                 {phase.name}
                 <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.6 }}>
@@ -541,13 +617,7 @@ export default function RemediationPage() {
             ))}
             <button
               onClick={() => setActivePhase("impact")}
-              style={{
-                padding: "8px 16px", borderRadius: 6, border: "none",
-                background: activePhase === "impact" ? "var(--color-surface)" : "transparent",
-                fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: activePhase === "impact" ? 600 : 400,
-                color: activePhase === "impact" ? "var(--color-dark)" : "var(--color-muted)",
-                cursor: "pointer", transition: "all 0.2s",
-              }}
+              className={`tab-pill${activePhase === "impact" ? " tab-active" : ""}`}
             >
               Impact
             </button>
@@ -555,22 +625,22 @@ export default function RemediationPage() {
 
           {/* Phase content */}
           {currentPhase && activePhase !== "impact" && (
-            <div>
+            <div style={{ animation: "fadeInUpSm 0.3s var(--ease-default) both" }}>
               {/* Phase header */}
               <div style={{ marginBottom: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                  <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: "var(--color-dark)", margin: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
+                  <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(18px, 4vw, 22px)", fontWeight: 700, color: "var(--color-dark)", margin: 0 }}>
                     {currentPhase.name}
                   </h2>
-                  <span style={{
-                    fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 600,
-                    padding: "2px 8px", borderRadius: 4,
-                    background: "var(--color-accent)", color: "#fff",
+                  <span className="badge" style={{
+                    background: "var(--color-accent)",
+                    color: "#fff",
+                    fontSize: 10,
                   }}>
                     {currentPhase.timeframe}
                   </span>
                 </div>
-                <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-text)", margin: 0 }}>
+                <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-text)", margin: 0, lineHeight: 1.6 }}>
                   {currentPhase.description}
                 </p>
               </div>
@@ -591,8 +661,8 @@ export default function RemediationPage() {
 
           {/* Impact view */}
           {activePhase === "impact" && plan.projectedImpact.length > 0 && (
-            <div>
-              <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: "var(--color-dark)", marginBottom: 16 }}>
+            <div style={{ animation: "fadeInUpSm 0.3s var(--ease-default) both" }}>
+              <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(18px, 4vw, 22px)", fontWeight: 700, color: "var(--color-dark)", marginBottom: 16 }}>
                 Projected Impact
               </h2>
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -604,6 +674,17 @@ export default function RemediationPage() {
           )}
         </div>
       )}
+
+      {/* Regenerate confirmation modal */}
+      <ConfirmModal
+        open={showRegenConfirm}
+        title="Regenerate Plan?"
+        message="This will discard the current remediation plan and generate a new one. You can optionally update team context before regenerating."
+        confirmLabel="Regenerate"
+        variant="warning"
+        onConfirm={confirmRegenerate}
+        onCancel={() => setShowRegenConfirm(false)}
+      />
     </div>
   );
 }
@@ -624,25 +705,25 @@ function TaskCard({
 
   return (
     <div
+      className="card-interactive"
       style={{
-        background: "var(--color-surface)",
-        border: "1px solid var(--color-border)",
         borderLeft: `3px solid ${priorityColor}`,
         borderRadius: "var(--radius-sm)",
         padding: "16px 20px",
         cursor: "pointer",
-        transition: "all 0.2s",
-        animation: `fadeInUp 0.3s ease ${index * 0.05}s both`,
+        animation: `fadeInUpSm 0.3s ease ${index * 0.05}s both`,
       }}
       onClick={() => setExpanded(!expanded)}
+      role="button"
+      aria-expanded={expanded}
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpanded(!expanded); } }}
     >
       {/* Header row */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: expanded ? 12 : 0 }}>
-        <span style={{
-          fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700,
-          padding: "2px 6px", borderRadius: 3,
-          background: priorityColor + "18", color: priorityColor,
-          textTransform: "uppercase",
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: expanded ? 12 : 0, transition: "margin 0.2s ease" }}>
+        <span className="badge" style={{
+          background: priorityColor + "18",
+          color: priorityColor,
         }}>
           {TASK_PRIORITY_LABELS[task.priority]}
         </span>
@@ -658,19 +739,24 @@ function TaskCard({
         }}>
           {TASK_EFFORT_LABELS[task.effort]}
         </span>
-        <span style={{ fontSize: 12, color: "var(--color-muted)", transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "rotate(0)" }}>
+        <span style={{
+          fontSize: 12, color: "var(--color-muted)",
+          transition: "transform 0.2s ease",
+          transform: expanded ? "rotate(180deg)" : "rotate(0)",
+          flexShrink: 0,
+        }}>
           ▾
         </span>
       </div>
 
       {/* Expanded content */}
       {expanded && (
-        <div style={{ animation: "fadeIn 0.2s ease" }}>
+        <div style={{ animation: "fadeInUpSm 0.25s ease both" }}>
           <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-text)", lineHeight: 1.6, margin: "0 0 12px" }}>
             {task.description}
           </p>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
             {task.owner && (
               <MetaField label="Owner" value={task.owner} />
             )}
@@ -687,20 +773,27 @@ function TaskCard({
 
           {/* Addressed gaps */}
           {task.gapIds.length > 0 && (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--color-muted)", fontWeight: 600, textTransform: "uppercase", alignSelf: "center" }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--color-muted)", fontWeight: 600, textTransform: "uppercase" }}>
                 Addresses:
               </span>
               {task.gapIds.map((gapIdx) => {
                 const gap = gaps[gapIdx];
                 if (!gap) return null;
+                const severityColor =
+                  gap.severity === "high" ? "var(--color-danger)" :
+                  gap.severity === "medium" ? "var(--color-warning)" :
+                  "var(--color-success)";
                 return (
                   <span
                     key={gapIdx}
+                    className="badge"
                     style={{
-                      fontFamily: "var(--font-mono)", fontSize: 9,
-                      padding: "2px 6px", borderRadius: 3,
-                      background: "var(--color-border)", color: "var(--color-text)",
+                      background: "var(--color-border)",
+                      color: "var(--color-text)",
+                      fontSize: 9,
+                      borderLeft: `2px solid ${severityColor}`,
+                      borderRadius: "var(--radius-xs)",
                     }}
                   >
                     {GAP_LABELS[gap.type as keyof typeof GAP_LABELS] || gap.type} ({gap.severity})
@@ -717,11 +810,16 @@ function TaskCard({
 
 function MetaField({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, fontWeight: 600, color: "var(--color-muted)", textTransform: "uppercase", marginBottom: 2 }}>
+    <div style={{
+      padding: "8px 12px",
+      background: "var(--color-bg)",
+      borderRadius: "var(--radius-xs)",
+      border: "1px solid var(--color-border)",
+    }}>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, fontWeight: 600, color: "var(--color-muted)", textTransform: "uppercase", marginBottom: 3, letterSpacing: "0.04em" }}>
         {label}
       </div>
-      <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--color-text)" }}>
+      <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--color-text)", lineHeight: 1.4 }}>
         {value}
       </div>
     </div>
@@ -731,49 +829,46 @@ function MetaField({ label, value }: { label: string; value: string }) {
 // ── Impact Card Component ──
 
 function ImpactCard({ impact }: { impact: ProjectedImpact }) {
-  const confidenceColors = {
-    high: "#17A589",
-    medium: "#D4A017",
-    low: "#E8553A",
-  };
-
   return (
-    <div style={{
-      background: "var(--color-surface)", border: "1px solid var(--color-border)",
-      borderRadius: "var(--radius-sm)", padding: "16px 20px",
+    <div className="card-interactive" style={{
+      borderRadius: "var(--radius-sm)",
+      padding: "18px 22px",
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
         <span style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600, color: "var(--color-dark)", flex: 1 }}>
           {impact.metricName}
         </span>
-        <span style={{
-          fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 600,
-          padding: "2px 6px", borderRadius: 3,
-          background: confidenceColors[impact.confidence] + "18",
-          color: confidenceColors[impact.confidence],
-        }}>
+        <span className={`badge ${
+          impact.confidence === "high" ? "status-success" :
+          impact.confidence === "medium" ? "status-warning" :
+          "status-danger"
+        }`}>
           {impact.confidence} confidence
         </span>
       </div>
 
       {/* Before → After */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 10 }}>
         <div style={{
-          fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 700,
+          fontFamily: "var(--font-mono)", fontSize: 20, fontWeight: 700,
           color: "var(--color-muted)",
         }}>
           {impact.currentValue}
         </div>
-        <span style={{ fontSize: 16, color: "var(--color-accent)" }}>→</span>
+        <span style={{
+          fontSize: 16,
+          color: "var(--color-accent)",
+          fontWeight: 700,
+        }}>→</span>
         <div style={{
-          fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 700,
-          color: "#17A589",
+          fontFamily: "var(--font-mono)", fontSize: 20, fontWeight: 700,
+          color: "var(--color-success)",
         }}>
           {impact.projectedValue}
         </div>
       </div>
 
-      <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--color-muted)", fontStyle: "italic" }}>
+      <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--color-muted)", fontStyle: "italic", lineHeight: 1.5 }}>
         {impact.assumption}
       </div>
     </div>

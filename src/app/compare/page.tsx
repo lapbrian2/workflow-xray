@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Workflow, CompareResult } from "@/lib/types";
 import { listWorkflowsLocal, mergeWithServer } from "@/lib/client-db";
 import CompareView from "@/components/compare-view";
+import { useToast } from "@/components/toast";
 
 export default function ComparePage() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
@@ -17,6 +18,7 @@ export default function ComparePage() {
   const [result, setResult] = useState<CompareResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const { addToast } = useToast();
 
   useEffect(() => {
     // Load from localStorage first (instant)
@@ -79,8 +81,11 @@ export default function ComparePage() {
       if (!res.ok) throw new Error("Comparison failed");
       const data = await res.json();
       setResult(data);
+      addToast("success", "Comparison complete");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      const msg = err instanceof Error ? err.message : "Something went wrong";
+      setError(msg);
+      addToast("error", msg);
     } finally {
       setComparing(false);
     }
@@ -96,8 +101,10 @@ export default function ComparePage() {
     try {
       const { exportComparePdf } = await import("@/lib/pdf-compare-export");
       await exportComparePdf(w1.decomposition, w2.decomposition, result);
+      addToast("success", "Compare PDF downloaded");
     } catch {
       console.error("Compare PDF export failed");
+      addToast("error", "PDF export failed");
     } finally {
       setExporting(false);
     }

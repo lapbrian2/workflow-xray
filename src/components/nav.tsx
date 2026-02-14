@@ -37,7 +37,7 @@ export default function Nav() {
       aria-label="Main navigation"
       style={{
         background:
-          "linear-gradient(180deg, rgba(28, 37, 54, 0.98) 0%, rgba(28, 37, 54, 0.95) 100%)",
+          "linear-gradient(180deg, var(--nav-bg) 0%, rgba(28, 37, 54, 0.95) 100%)",
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         padding: "0 clamp(16px, 4vw, 32px)",
@@ -48,7 +48,7 @@ export default function Nav() {
         position: "sticky",
         top: 0,
         zIndex: 50,
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        borderBottom: `1px solid var(--nav-divider)`,
       }}
     >
       {/* Subtle bottom glow line */}
@@ -82,7 +82,7 @@ export default function Nav() {
             height: 8,
             borderRadius: "50%",
             background:
-              "linear-gradient(135deg, #E8553A 0%, #F09060 100%)",
+              "linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-light) 100%)",
             boxShadow: "0 0 8px rgba(232, 85, 58, 0.4)",
             animation: "pulseGlow 3s ease-in-out infinite",
           }}
@@ -95,7 +95,7 @@ export default function Nav() {
             fontWeight: 900,
             letterSpacing: "-0.02em",
             background:
-              "linear-gradient(135deg, #F0F2F5 0%, #E8553A 60%, #F09060 100%)",
+              "linear-gradient(135deg, var(--nav-text-active) 0%, var(--color-accent) 60%, var(--color-accent-light) 100%)",
             backgroundSize: "200% auto",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
@@ -125,10 +125,10 @@ export default function Nav() {
                 fontFamily: "var(--font-mono)",
                 fontSize: 12,
                 fontWeight: isActive ? 600 : 400,
-                color: isActive ? "#F0F2F5" : "#6B7A8D",
+                color: isActive ? "var(--nav-text-active)" : "var(--nav-text)",
                 textDecoration: "none",
                 background: isActive
-                  ? "rgba(255,255,255,0.08)"
+                  ? "var(--nav-active-bg)"
                   : "transparent",
                 position: "relative",
                 overflow: "hidden",
@@ -138,7 +138,7 @@ export default function Nav() {
             </Link>
           );
         })}
-        <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.08)", marginLeft: 4, marginRight: 4 }} />
+        <div style={{ width: 1, height: 20, background: "var(--nav-active-bg)", marginLeft: 4, marginRight: 4 }} />
         <button
           onClick={handleLogout}
           disabled={loggingOut}
@@ -149,7 +149,7 @@ export default function Nav() {
             fontFamily: "var(--font-mono)",
             fontSize: 11,
             fontWeight: 400,
-            color: "#6B7A8D",
+            color: "var(--nav-text)",
             background: "transparent",
             border: "none",
             cursor: loggingOut ? "wait" : "pointer",
