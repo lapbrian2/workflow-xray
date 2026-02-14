@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, useMemo } from "react";
+import { Suspense, useEffect, useState, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import WorkflowInput from "@/components/workflow-input";
 import { useStore } from "@/lib/store";
@@ -178,6 +178,36 @@ function HomeContent() {
   const { error, isDecomposing, setError } = useStore();
   const searchParams = useSearchParams();
   const reanalyzeId = searchParams.get("reanalyze");
+
+  // Progressive loading messages
+  const [elapsed, setElapsed] = useState(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (isDecomposing) {
+      setElapsed(0);
+      timerRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+      setElapsed(0);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [isDecomposing]);
+
+  const loadingMessage = useMemo(() => {
+    if (elapsed < 5) return "Analyzing workflow structure...";
+    if (elapsed < 12) return "Mapping dependencies and layers...";
+    if (elapsed < 25) return "Identifying gaps and scoring health...";
+    if (elapsed < 45) return "Almost there — finalizing analysis...";
+    if (elapsed < 90) return "This is taking longer than usual. Hang tight...";
+    return "Still working — complex workflows take longer. Please wait...";
+  }, [elapsed]);
+
+  const loadingSubtext = useMemo(() => {
+    if (elapsed < 8) return "This usually takes 5\u201315 seconds.";
+    if (elapsed < 30) return `${elapsed}s elapsed`;
+    return `${elapsed}s elapsed \u2014 large workflows may take up to 2 minutes.`;
+  }, [elapsed]);
 
   const [reanalyzeWorkflow, setReanalyzeWorkflow] = useState<Workflow | null>(
     null
@@ -406,7 +436,7 @@ function HomeContent() {
                 marginBottom: 3,
               }}
             >
-              Claude is analyzing your workflow...
+              {loadingMessage}
             </div>
             <div
               style={{
@@ -416,7 +446,7 @@ function HomeContent() {
                 opacity: 0.7,
               }}
             >
-              This usually takes 3-8 seconds.
+              {loadingSubtext}
             </div>
           </div>
         </div>

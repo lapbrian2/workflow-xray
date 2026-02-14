@@ -127,10 +127,22 @@ export async function decomposeWorkflow(
   // ── Referential integrity checks ──
   const validStepIds = new Set(validated.steps.map((s) => s.id));
 
-  // Fix invalid dependency references (remove non-existent IDs)
+  // Deduplicate step IDs — keep first occurrence if Claude duplicates
+  const seenStepIds = new Set<string>();
+  const deduped = validated.steps.filter((s) => {
+    if (seenStepIds.has(s.id)) return false;
+    seenStepIds.add(s.id);
+    return true;
+  });
+  if (deduped.length < validated.steps.length) {
+    validated.steps.length = 0;
+    validated.steps.push(...deduped);
+  }
+
+  // Fix invalid dependency references (remove non-existent IDs + self-refs)
   for (const step of validated.steps) {
-    step.dependencies = step.dependencies.filter((depId) =>
-      validStepIds.has(depId)
+    step.dependencies = step.dependencies.filter(
+      (depId) => validStepIds.has(depId) && depId !== step.id
     );
   }
 
@@ -139,37 +151,50 @@ export async function decomposeWorkflow(
     gap.stepIds = gap.stepIds.filter((sid) => validStepIds.has(sid));
   }
 
-  // Remove gaps that ended up with zero stepIds after cleanup
-  const cleanGaps = validated.gaps.filter((g) => g.stepIds.length > 0);
+  // Keep gaps with stepIds OR system-level gaps (some gap types are global)
+  const SYSTEM_GAP_TYPES = new Set(["scope_ambiguity", "missing_fallback"]);
+  const cleanGaps = validated.gaps.filter(
+    (g) => g.stepIds.length > 0 || SYSTEM_GAP_TYPES.has(g.type)
+  );
 
-  // Detect circular dependencies — if found, break the cycle
+  // Detect and break circular dependencies via proper DFS
+  const stepMap = new Map(validated.steps.map((s) => [s.id, s]));
   const visited = new Set<string>();
   const inStack = new Set<string>();
-  const stepMap = new Map(validated.steps.map((s) => [s.id, s]));
+  const edgesToRemove: { stepId: string; depId: string }[] = [];
 
-  function hasCycle(stepId: string): boolean {
-    if (inStack.has(stepId)) return true;
-    if (visited.has(stepId)) return false;
+  function detectCycles(stepId: string): void {
+    if (visited.has(stepId)) return;
     visited.add(stepId);
     inStack.add(stepId);
     const step = stepMap.get(stepId);
     if (step) {
-      for (const dep of step.dependencies) {
-        if (hasCycle(dep)) {
-          // Break cycle by removing this dependency
-          step.dependencies = step.dependencies.filter((d) => d !== dep);
-          return false; // cycle broken, continue
+      // Iterate over a stable copy — never mutate during traversal
+      for (const dep of [...step.dependencies]) {
+        if (inStack.has(dep)) {
+          // Back-edge found → mark for removal
+          edgesToRemove.push({ stepId, depId: dep });
+        } else if (!visited.has(dep)) {
+          detectCycles(dep);
         }
       }
     }
     inStack.delete(stepId);
-    return false;
   }
 
+  // Single pass — don't clear visited/inStack between start nodes
   for (const step of validated.steps) {
-    visited.clear();
-    inStack.clear();
-    hasCycle(step.id);
+    if (!visited.has(step.id)) {
+      detectCycles(step.id);
+    }
+  }
+
+  // Apply cycle-breaking removals after full traversal
+  for (const { stepId, depId } of edgesToRemove) {
+    const step = stepMap.get(stepId);
+    if (step) {
+      step.dependencies = step.dependencies.filter((d) => d !== depId);
+    }
   }
 
   // Clamp automation scores to valid range (defense-in-depth)

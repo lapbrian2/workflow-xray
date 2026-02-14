@@ -20,8 +20,10 @@ function getSystemPrompt(): string {
   for (const p of paths) {
     try {
       systemPrompt = readFileSync(p, "utf-8");
+      // Normalize line endings for deterministic hashing across OS
+      const normalized = systemPrompt.replace(/\r\n/g, "\n").trim();
       systemPromptHash = createHash("sha256")
-        .update(systemPrompt)
+        .update(normalized)
         .digest("hex")
         .slice(0, 12);
       return systemPrompt;

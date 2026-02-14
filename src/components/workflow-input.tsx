@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { saveWorkflowLocal } from "@/lib/client-db";
@@ -29,8 +29,11 @@ export default function WorkflowInput({
   ]);
   const [showCostContext, setShowCostContext] = useState(false);
   const [costContext, setCostContext] = useState<CostContext>({});
+  const submitLock = useRef(false);
 
   const handleSubmit = async () => {
+    if (submitLock.current) return; // Prevent double-click
+    submitLock.current = true;
     setIsDecomposing(true);
     setError(null);
 
@@ -76,6 +79,7 @@ export default function WorkflowInput({
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setIsDecomposing(false);
+      submitLock.current = false;
     }
   };
 

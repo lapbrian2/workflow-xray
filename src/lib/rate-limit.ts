@@ -81,13 +81,39 @@ export function rateLimit(
 
 /**
  * Extract client IP from request headers (works on Vercel).
+ *
+ * Priority:
+ * 1. x-real-ip — set by Vercel's edge, cannot be spoofed
+ * 2. x-forwarded-for LAST entry — the rightmost IP is added by the
+ *    trusted reverse proxy (Vercel), while clients can prepend fake IPs
+ * 3. Fallback to a request-specific fingerprint so "unknown" clients
+ *    don't all share one rate-limit bucket
  */
 export function getClientIp(request: Request): string {
+  // Prefer x-real-ip (Vercel-set, trustworthy)
+  const real = request.headers.get("x-real-ip");
+  if (real) return real.trim();
+
+  // Fallback: take LAST entry from x-forwarded-for (proxy-appended)
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {
-    return forwarded.split(",")[0].trim();
+    const parts = forwarded.split(",").map((s) => s.trim()).filter(Boolean);
+    if (parts.length > 0) {
+      return parts[parts.length - 1];
+    }
   }
-  const real = request.headers.get("x-real-ip");
-  if (real) return real;
-  return "unknown";
+
+  // Last resort: fingerprint from user-agent + accept-language
+  const ua = request.headers.get("user-agent") || "";
+  const lang = request.headers.get("accept-language") || "";
+  return `anon:${simpleHash(ua + lang)}`;
+}
+
+/** Simple string hash for fingerprinting — NOT cryptographic */
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash).toString(36);
 }

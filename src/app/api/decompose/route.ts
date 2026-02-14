@@ -90,11 +90,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(workflow);
   } catch (error) {
     console.error("Decompose error:", error);
+
+    // User-friendly error messages — don't expose raw Claude output or JSON
+    let userMessage = "Decomposition failed. Please try again.";
+    if (error instanceof Error) {
+      if (error.message.includes("invalid JSON")) {
+        userMessage = "Claude returned an unexpected format. Try simplifying your workflow description.";
+      } else if (error.message.includes("schema validation")) {
+        userMessage = "Analysis produced incomplete results. Try rephrasing your workflow.";
+      } else if (error.message.includes("timed out") || error.message.includes("timeout")) {
+        userMessage = "Request timed out. Try a shorter workflow description or try again.";
+      } else if (error.message.includes("rate limit") || error.message.includes("429")) {
+        userMessage = "Too many requests. Please wait a moment and try again.";
+      } else if (error.message.includes("System prompt file not found")) {
+        userMessage = "Server configuration error. Please contact support.";
+      } else {
+        userMessage = "Decomposition failed. Please try again.";
+      }
+    }
+
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Decomposition failed",
-      },
+      { error: userMessage },
       { status: 500 }
     );
   }

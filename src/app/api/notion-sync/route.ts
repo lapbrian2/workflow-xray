@@ -379,29 +379,43 @@ export async function POST(request: NextRequest) {
         properties: properties as Record<string, never>,
       });
 
-      // Delete existing children blocks and replace with new ones
-      // First, get existing children
-      const existingBlocks = await notion.blocks.children.list({
-        block_id: existingPageId,
-        page_size: 100,
-      });
+      // SAFE UPDATE: Append new blocks FIRST, then delete old ones.
+      // This way if the append fails, the page still has its old content.
 
-      // Delete old blocks
-      for (const block of existingBlocks.results) {
-        try {
-          await notion.blocks.delete({ block_id: (block as { id: string }).id });
-        } catch {
-          // Some blocks may not be deletable — skip
-        }
-      }
-
-      // Append new children
-      // Notion allows max 100 children per append call
+      // 1) Append new children (Notion allows max 100 per call)
       for (let i = 0; i < children.length; i += 100) {
         await notion.blocks.children.append({
           block_id: existingPageId,
           children: children.slice(i, i + 100),
         });
+      }
+
+      // 2) Collect ALL old block IDs (paginate past 100-block limit)
+      const oldBlockIds: string[] = [];
+      let cursor: string | undefined = undefined;
+      let hasMore = true;
+      while (hasMore) {
+        const page = await notion.blocks.children.list({
+          block_id: existingPageId,
+          start_cursor: cursor,
+          page_size: 100,
+        });
+        for (const block of page.results) {
+          oldBlockIds.push((block as { id: string }).id);
+        }
+        hasMore = page.has_more;
+        cursor = page.next_cursor ?? undefined;
+      }
+
+      // 3) Delete old blocks (everything except our freshly appended ones)
+      // Our new blocks are the last `children.length` blocks
+      const toDelete = oldBlockIds.slice(0, oldBlockIds.length - children.length);
+      for (const blockId of toDelete) {
+        try {
+          await notion.blocks.delete({ block_id: blockId });
+        } catch {
+          // Some blocks may not be deletable — skip
+        }
       }
 
       responsePageId = existingPageId;
@@ -423,13 +437,30 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Notion sync error:", error);
+
+    // User-friendly error messages — don't leak internal details
+    const notionError = error as { code?: string; status?: number };
+    if (notionError.code === "object_not_found" || notionError.status === 404) {
+      return NextResponse.json(
+        { error: "Notion page or database not found. It may have been deleted. Try syncing as a new page." },
+        { status: 404 }
+      );
+    }
+    if (notionError.status === 401) {
+      return NextResponse.json(
+        { error: "Notion connection expired. Ask your admin to reconnect the Workflow X-Ray integration." },
+        { status: 401 }
+      );
+    }
+    if (notionError.status === 403) {
+      return NextResponse.json(
+        { error: "The Workflow X-Ray integration doesn't have access to this Notion database." },
+        { status: 403 }
+      );
+    }
+
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to sync to Notion",
-      },
+      { error: "Failed to sync to Notion. Please try again." },
       { status: 500 }
     );
   }

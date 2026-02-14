@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import type { Workflow, GapType } from "@/lib/types";
 import { GAP_LABELS } from "@/lib/types";
@@ -73,14 +73,21 @@ export default function WorkflowLibrary() {
   };
 
   const handleDelete = async (id: string) => {
+    // Confirmation dialog to prevent accidental deletion
+    const workflow = workflows.find((w) => w.id === id);
+    const title = workflow?.decomposition?.title || "this workflow";
+    if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return;
+
     // Delete from both server and localStorage
     deleteWorkflowLocal(id);
     await fetch(`/api/workflows?id=${id}`, { method: "DELETE" }).catch(() => {});
     setWorkflows((w) => w.filter((wf) => wf.id !== id));
   };
 
+  const bulkSyncLock = useRef(false);
   const handleBulkSync = async () => {
-    if (bulkSyncing || workflows.length === 0) return;
+    if (bulkSyncing || bulkSyncLock.current || workflows.length === 0) return;
+    bulkSyncLock.current = true;
     setBulkSyncing(true);
     const errors: string[] = [];
     setBulkSyncProgress({ done: 0, total: workflows.length, errors: [] });
@@ -107,6 +114,7 @@ export default function WorkflowLibrary() {
     }
 
     setBulkSyncing(false);
+    bulkSyncLock.current = false;
   };
 
   const handleSort = (key: SortKey) => {

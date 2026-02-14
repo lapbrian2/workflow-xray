@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Workflow } from "@/lib/types";
@@ -26,9 +26,12 @@ export default function XRayPage() {
   const [synced, setSynced] = useState(false);
   const [notionUrl, setNotionUrl] = useState<string | null>(null);
   const [notionPageId, setNotionPageId] = useState<string | null>(null);
+  const exportLock = useRef(false);
+  const syncLock = useRef(false);
 
   const handleExportPdf = async () => {
-    if (!workflow) return;
+    if (!workflow || exportLock.current) return;
+    exportLock.current = true;
     setExporting(true);
     try {
       await exportToPdf(workflow.decomposition, workflow.costContext);
@@ -39,6 +42,7 @@ export default function XRayPage() {
       );
     } finally {
       setExporting(false);
+      exportLock.current = false;
     }
   };
 
@@ -49,7 +53,8 @@ export default function XRayPage() {
   };
 
   const handleNotionSync = async () => {
-    if (!workflow || syncing) return;
+    if (!workflow || syncing || syncLock.current) return;
+    syncLock.current = true;
     setSyncing(true);
     setError(null);
     try {
@@ -64,6 +69,13 @@ export default function XRayPage() {
       });
       if (!res.ok) {
         const err = await res.json();
+        // If page was deleted (404), fall back to creating a new one
+        if (res.status === 404 && notionPageId) {
+          setNotionPageId(null);
+          setSynced(false);
+          setNotionUrl(null);
+          throw new Error("Notion page was deleted. Click Sync again to create a new one.");
+        }
         throw new Error(err.error || "Sync failed");
       }
       const data = await res.json();
@@ -76,6 +88,7 @@ export default function XRayPage() {
       );
     } finally {
       setSyncing(false);
+      syncLock.current = false;
     }
   };
 
