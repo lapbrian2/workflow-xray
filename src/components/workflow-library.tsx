@@ -232,9 +232,10 @@ export default function WorkflowLibrary() {
       {/* Quick Stats Bar */}
       {!loading && !error && quickStats && workflows.length > 0 && (
         <div
+          className="grid-stats-5"
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(5, 1fr)",
+            gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
             gap: 10,
             marginBottom: 28,
           }}

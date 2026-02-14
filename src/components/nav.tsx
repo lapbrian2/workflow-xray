@@ -33,17 +33,20 @@ export default function Nav() {
 
   return (
     <nav
+      role="navigation"
+      aria-label="Main navigation"
       style={{
         background:
           "linear-gradient(180deg, rgba(28, 37, 54, 0.98) 0%, rgba(28, 37, 54, 0.95) 100%)",
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
-        padding: "0 32px",
+        padding: "0 clamp(16px, 4vw, 32px)",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
         height: 56,
-        position: "relative",
+        position: "sticky",
+        top: 0,
         zIndex: 50,
         borderBottom: "1px solid rgba(255,255,255,0.06)",
       }}

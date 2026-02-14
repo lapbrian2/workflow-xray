@@ -13,9 +13,9 @@ export default function ScoreRing({
   value,
   label,
   color,
-  size = 100,
+  size = 120,
 }: ScoreRingProps) {
-  const strokeWidth = 6;
+  const strokeWidth = 7;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const targetOffset = circumference - (value / 100) * circumference;
@@ -130,11 +130,12 @@ export default function ScoreRing({
           left: "50%",
           transform: "translate(-50%, -50%)",
           fontFamily: "var(--font-mono)",
-          fontSize: 20,
+          fontSize: size >= 100 ? 22 : 18,
           fontWeight: 700,
           color: "var(--color-dark)",
           animation: mounted ? "countUpFade 0.8s ease both" : "none",
           animationDelay: "0.3s",
+          lineHeight: 1,
         }}
       >
         {displayValue}

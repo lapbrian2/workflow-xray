@@ -91,6 +91,7 @@ export default function HealthCard({
     <div style={{ animation: "staggerFadeIn 0.5s ease both" }}>
       {/* Summary stats */}
       <div
+        className="grid-stats-4"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(4, 1fr)",
@@ -116,11 +117,12 @@ export default function HealthCard({
 
       {/* Score rings with interpretive labels */}
       <div
+        className="grid-stats-4"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(4, 1fr)",
           gap: 16,
-          padding: "32px 24px",
+          padding: "clamp(20px, 4vw, 32px) clamp(16px, 3vw, 24px)",
           background: overallHealthBg(health),
           backdropFilter: "blur(8px)",
           borderRadius: "var(--radius-lg)",

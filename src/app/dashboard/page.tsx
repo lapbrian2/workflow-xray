@@ -252,7 +252,7 @@ export default function DashboardPage() {
   const maxOwnerSteps = ownerStats.length > 0 ? ownerStats[0].steps : 1;
 
   return (
-    <div style={{ maxWidth: 960, margin: "0 auto", padding: "32px 32px 64px" }}>
+    <div style={{ maxWidth: 960, margin: "0 auto", padding: "clamp(20px, 4vw, 32px) clamp(16px, 4vw, 32px) 64px" }}>
       <Link
         href="/library"
         style={{
@@ -261,14 +261,19 @@ export default function DashboardPage() {
           color: "var(--color-muted)",
           textDecoration: "none",
           marginBottom: 8,
-          display: "inline-block",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          padding: "4px 8px",
+          borderRadius: "var(--radius-xs)",
+          transition: "all var(--duration-fast) var(--ease-default)",
         }}
       >
         &larr; Library
       </Link>
       <h1
         style={{
-          fontSize: 32,
+          fontSize: "clamp(24px, 5vw, 32px)",
           fontWeight: 900,
           fontFamily: "var(--font-display)",
           color: "var(--color-dark)",
@@ -293,6 +298,7 @@ export default function DashboardPage() {
 
       {/* ── Top-level health scores ── */}
       <div
+        className="grid-stats-4"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(4, 1fr)",
@@ -309,6 +315,7 @@ export default function DashboardPage() {
 
       {/* ── Two-column grid ── */}
       <div
+        className="grid-2col"
         style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",

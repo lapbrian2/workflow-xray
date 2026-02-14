@@ -322,9 +322,9 @@ export default function XRayPage() {
   ];
 
   return (
-    <div style={{ maxWidth: 960, margin: "0 auto", padding: "32px 32px 64px" }}>
+    <div style={{ maxWidth: 960, margin: "0 auto", padding: "clamp(20px, 4vw, 32px) clamp(16px, 4vw, 32px) 64px" }}>
       {/* Header */}
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 28, animation: "fadeInUp 0.4s var(--ease-spring) both" }}>
         <Link
           href="/"
           style={{
@@ -333,15 +333,20 @@ export default function XRayPage() {
             color: "var(--color-muted)",
             textDecoration: "none",
             marginBottom: 8,
-            display: "inline-block",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "4px 8px",
+            borderRadius: "var(--radius-xs)",
+            transition: "all var(--duration-fast) var(--ease-default)",
           }}
         >
           &larr; New X-Ray
         </Link>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
           <h1
             style={{
-              fontSize: 32,
+              fontSize: "clamp(24px, 5vw, 32px)",
               fontWeight: 900,
               fontFamily: "var(--font-display)",
               color: "var(--color-dark)",
@@ -357,6 +362,9 @@ export default function XRayPage() {
                 fontSize: 13,
                 fontWeight: 700,
                 color: "var(--color-accent)",
+                background: "rgba(232, 85, 58, 0.08)",
+                padding: "2px 8px",
+                borderRadius: "var(--radius-xs)",
               }}
             >
               v{workflow.version}
@@ -368,7 +376,7 @@ export default function XRayPage() {
             display: "flex",
             alignItems: "center",
             gap: 8,
-            marginTop: 8,
+            marginTop: 12,
             flexWrap: "wrap",
           }}
         >
@@ -383,17 +391,17 @@ export default function XRayPage() {
               fontFamily: "var(--font-mono)",
               fontSize: 11,
               color: "#fff",
-              padding: "4px 12px",
-              borderRadius: 4,
+              padding: "6px 14px",
+              borderRadius: "var(--radius-sm)",
               border: "none",
-              background: "var(--color-accent)",
+              background: "linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-light) 100%)",
               cursor: exporting ? "wait" : "pointer",
-              opacity: exporting ? 0.7 : 1,
-              transition: "all 0.2s",
+              transition: "all var(--duration-normal) var(--ease-default)",
               display: "flex",
               alignItems: "center",
               gap: 6,
               fontWeight: 600,
+              boxShadow: "var(--shadow-accent)",
             }}
           >
             {exporting ? (
@@ -421,12 +429,12 @@ export default function XRayPage() {
               fontFamily: "var(--font-mono)",
               fontSize: 11,
               color: "#fff",
-              padding: "4px 12px",
-              borderRadius: 4,
+              padding: "6px 14px",
+              borderRadius: "var(--radius-sm)",
               border: "none",
               background: "linear-gradient(135deg, #17A589 0%, #1ABC9C 100%)",
               cursor: "pointer",
-              transition: "all 0.2s",
+              transition: "all var(--duration-normal) var(--ease-default)",
               display: "flex",
               alignItems: "center",
               gap: 6,
@@ -443,16 +451,17 @@ export default function XRayPage() {
               fontFamily: "var(--font-mono)",
               fontSize: 11,
               color: "var(--color-dark)",
-              padding: "4px 12px",
-              borderRadius: 4,
-              border: "1px solid var(--color-border)",
+              padding: "6px 14px",
+              borderRadius: "var(--radius-sm)",
+              border: "1.5px solid var(--color-border)",
               background: "var(--color-surface)",
               cursor: "pointer",
-              transition: "all 0.2s",
+              transition: "all var(--duration-normal) var(--ease-default)",
               display: "flex",
               alignItems: "center",
               gap: 6,
               fontWeight: 600,
+              boxShadow: "var(--shadow-xs)",
             }}
           >
             Re-analyze
@@ -464,9 +473,9 @@ export default function XRayPage() {
               fontFamily: "var(--font-mono)",
               fontSize: 11,
               color: synced ? "#17A589" : "var(--color-dark)",
-              padding: "4px 12px",
-              borderRadius: 4,
-              border: `1px solid ${synced ? "#17A58940" : "var(--color-border)"}`,
+              padding: "6px 14px",
+              borderRadius: "var(--radius-sm)",
+              border: `1.5px solid ${synced ? "#17A58940" : "var(--color-border)"}`,
               background: synced
                 ? "#17A58910"
                 : "var(--color-surface)",
@@ -552,11 +561,12 @@ export default function XRayPage() {
               fontSize: 11,
               color: "var(--color-muted)",
               textDecoration: "none",
-              padding: "4px 8px",
-              borderRadius: 4,
-              border: "1px solid var(--color-border)",
+              padding: "6px 12px",
+              borderRadius: "var(--radius-sm)",
+              border: "1.5px solid var(--color-border)",
               background: "var(--color-surface)",
-              transition: "all 0.2s",
+              transition: "all var(--duration-normal) var(--ease-default)",
+              boxShadow: "var(--shadow-xs)",
             }}
           >
             View in Library &rarr;
@@ -575,36 +585,27 @@ export default function XRayPage() {
 
       {/* Tabs */}
       <div
+        role="tablist"
+        aria-label="X-Ray analysis views"
         style={{
           display: "flex",
           gap: 2,
           marginBottom: 24,
-          background: "var(--color-border)",
+          background: "rgba(0,0,0,0.04)",
           borderRadius: "var(--radius-sm)",
           padding: 4,
           width: "fit-content",
+          animation: "fadeInUp 0.4s var(--ease-spring) 0.1s both",
         }}
       >
         {tabs.map((tab) => (
           <button
             key={tab.key}
+            role="tab"
+            aria-selected={activeTab === tab.key}
+            aria-controls={`tabpanel-${tab.key}`}
             onClick={() => setActiveTab(tab.key)}
-            style={{
-              padding: "8px 16px",
-              borderRadius: 6,
-              border: "none",
-              background:
-                activeTab === tab.key ? "var(--color-surface)" : "transparent",
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              fontWeight: activeTab === tab.key ? 600 : 400,
-              color:
-                activeTab === tab.key
-                  ? "var(--color-dark)"
-                  : "var(--color-muted)",
-              cursor: "pointer",
-              transition: "all 0.2s",
-            }}
+            className={`tab-pill${activeTab === tab.key ? " tab-active" : ""}`}
           >
             {tab.label}
           </button>
@@ -612,7 +613,12 @@ export default function XRayPage() {
       </div>
 
       {/* Content */}
-      <div style={{ animation: "fadeIn 0.3s ease" }}>
+      <div
+        role="tabpanel"
+        id={`tabpanel-${activeTab}`}
+        aria-label={`${activeTab} view`}
+        style={{ animation: "fadeIn 0.3s ease" }}
+      >
         {activeTab === "flow" && (
           <div
             style={{
@@ -648,11 +654,13 @@ function Tag({ label }: { label: string }) {
       style={{
         fontFamily: "var(--font-mono)",
         fontSize: 10,
-        padding: "3px 8px",
-        borderRadius: 4,
-        background: "var(--color-border)",
+        padding: "4px 10px",
+        borderRadius: "var(--radius-full)",
+        background: "rgba(0,0,0,0.04)",
         color: "var(--color-text)",
-        fontWeight: 500,
+        fontWeight: 600,
+        letterSpacing: "0.02em",
+        border: "1px solid rgba(0,0,0,0.06)",
       }}
     >
       {label}

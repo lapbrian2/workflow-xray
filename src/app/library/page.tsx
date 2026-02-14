@@ -2,12 +2,12 @@ import WorkflowLibrary from "@/components/workflow-library";
 
 export default function LibraryPage() {
   return (
-    <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 32px 64px" }}>
+    <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 clamp(16px, 4vw, 32px) 64px" }}>
       {/* Gradient header area */}
       <div
         style={{
           position: "relative",
-          padding: "40px 0 32px",
+          padding: "clamp(24px, 4vw, 40px) 0 32px",
           marginBottom: 8,
           overflow: "hidden",
         }}
@@ -46,7 +46,7 @@ export default function LibraryPage() {
         <div style={{ position: "relative", zIndex: 1 }}>
           <h1
             style={{
-              fontSize: 36,
+              fontSize: "clamp(28px, 5vw, 36px)",
               fontWeight: 900,
               fontFamily: "var(--font-display)",
               letterSpacing: "-0.02em",

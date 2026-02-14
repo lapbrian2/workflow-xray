@@ -252,7 +252,7 @@ function HomeContent() {
       style={{
         maxWidth: 960,
         margin: "0 auto",
-        padding: "64px 32px 96px",
+        padding: "clamp(32px, 6vw, 64px) clamp(16px, 4vw, 32px) 96px",
         position: "relative",
       }}
     >
@@ -305,7 +305,7 @@ function HomeContent() {
         {/* Main heading with gradient text */}
         <h1
           style={{
-            fontSize: 60,
+            fontSize: "clamp(36px, 8vw, 60px)",
             fontWeight: 900,
             fontFamily: "var(--font-display)",
             letterSpacing: "-0.035em",
@@ -368,85 +368,85 @@ function HomeContent() {
       {isDecomposing && (
         <div
           style={{
-            padding: "20px 28px",
             marginBottom: 24,
             background:
               "linear-gradient(135deg, rgba(237,244,252,0.95) 0%, rgba(225,238,255,0.9) 100%)",
             borderRadius: "var(--radius-lg)",
             border: "1px solid rgba(45,125,210,0.12)",
-            display: "flex",
-            alignItems: "center",
-            gap: 16,
-            animation: "fadeInUpSm 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+            animation: "fadeInUpSm 0.4s var(--ease-default)",
             boxShadow:
-              "0 2px 12px rgba(45,125,210,0.08), 0 0 0 1px rgba(45,125,210,0.04)",
+              "var(--shadow-md), 0 0 0 1px rgba(45,125,210,0.04)",
             position: "relative",
             zIndex: 2,
             overflow: "hidden",
           }}
         >
-          {/* Shimmer overlay */}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background:
-                "linear-gradient(90deg, transparent 0%, rgba(45,125,210,0.04) 50%, transparent 100%)",
-              backgroundSize: "200% 100%",
-              animation: "shimmer 2.5s ease-in-out infinite",
-              pointerEvents: "none",
-            }}
-          />
-          {/* Pulsing spinner */}
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              border: "3px solid rgba(45,125,210,0.15)",
-              borderTop: "3px solid #2D7DD2",
-              borderRadius: "50%",
-              animation: "spinnerPulse 1s linear infinite",
-              flexShrink: 0,
-              position: "relative",
-            }}
-          >
-            {/* Inner glow dot */}
+          {/* Progress bar at top */}
+          <div className="progress-bar" style={{ borderRadius: "var(--radius-lg) var(--radius-lg) 0 0" }} />
+
+          <div style={{ padding: "18px 28px", display: "flex", alignItems: "center", gap: 16 }}>
+            {/* Shimmer overlay */}
             <div
               style={{
                 position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                width: 6,
-                height: 6,
-                borderRadius: "50%",
-                background: "#2D7DD2",
-                opacity: 0.4,
-                animation: "pulse-slow 1.5s ease-in-out infinite",
+                inset: 0,
+                background:
+                  "linear-gradient(90deg, transparent 0%, rgba(45,125,210,0.04) 50%, transparent 100%)",
+                backgroundSize: "200% 100%",
+                animation: "shimmer 2.5s ease-in-out infinite",
+                pointerEvents: "none",
               }}
             />
-          </div>
-          <div style={{ position: "relative", zIndex: 1 }}>
+            {/* Pulsing spinner */}
             <div
               style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 12,
-                color: "#2D7DD2",
-                fontWeight: 600,
-                marginBottom: 3,
+                width: 28,
+                height: 28,
+                border: "3px solid rgba(45,125,210,0.15)",
+                borderTop: "3px solid #2D7DD2",
+                borderRadius: "50%",
+                animation: "spinnerPulse 1s linear infinite",
+                flexShrink: 0,
+                position: "relative",
               }}
             >
-              {loadingMessage}
+              <div
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: "#2D7DD2",
+                  opacity: 0.4,
+                  animation: "pulse-slow 1.5s ease-in-out infinite",
+                }}
+              />
             </div>
-            <div
-              style={{
-                fontFamily: "var(--font-body)",
-                fontSize: 11,
-                color: "var(--color-text)",
-                opacity: 0.7,
-              }}
-            >
-              {loadingSubtext}
+            <div style={{ position: "relative", zIndex: 1, flex: 1 }}>
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 12,
+                  color: "#2D7DD2",
+                  fontWeight: 600,
+                  marginBottom: 3,
+                }}
+              >
+                {loadingMessage}
+              </div>
+              <div
+                style={{
+                  fontFamily: "var(--font-body)",
+                  fontSize: 11,
+                  color: "var(--color-text)",
+                  opacity: 0.7,
+                }}
+              >
+                {loadingSubtext}
+              </div>
             </div>
           </div>
         </div>
