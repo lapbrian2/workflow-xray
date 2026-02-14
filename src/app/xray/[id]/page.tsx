@@ -8,6 +8,7 @@ import { useStore } from "@/lib/store";
 import XRayViz from "@/components/xray-viz";
 import GapAnalysis from "@/components/gap-analysis";
 import HealthCard from "@/components/health-card";
+import { exportToPdf } from "@/lib/pdf-export";
 
 export default function XRayPage() {
   const params = useParams();
@@ -16,6 +17,19 @@ export default function XRayPage() {
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportPdf = async () => {
+    if (!workflow) return;
+    setExporting(true);
+    try {
+      await exportToPdf(workflow.decomposition);
+    } catch {
+      console.error("PDF export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const load = async () => {
     setError(null);
@@ -241,6 +255,45 @@ export default function XRayPage() {
           <Tag label={`${decomposition.gaps.length} gaps`} />
           <Tag label={`${decomposition.health.automationPotential}% automatable`} />
           <span style={{ flex: 1 }} />
+          <button
+            onClick={handleExportPdf}
+            disabled={exporting}
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              color: "#fff",
+              padding: "4px 12px",
+              borderRadius: 4,
+              border: "none",
+              background: "var(--color-accent)",
+              cursor: exporting ? "wait" : "pointer",
+              opacity: exporting ? 0.7 : 1,
+              transition: "all 0.2s",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontWeight: 600,
+            }}
+          >
+            {exporting ? (
+              <>
+                <span
+                  style={{
+                    width: 10,
+                    height: 10,
+                    border: "2px solid rgba(255,255,255,0.3)",
+                    borderTop: "2px solid #fff",
+                    borderRadius: "50%",
+                    animation: "spin 0.8s linear infinite",
+                    display: "inline-block",
+                  }}
+                />
+                Exporting...
+              </>
+            ) : (
+              "Download PDF"
+            )}
+          </button>
           <Link
             href="/library"
             style={{
