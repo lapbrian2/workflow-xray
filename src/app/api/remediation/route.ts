@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { callClaudeRemediation, getRemediationPromptVersion, getModelId } from "@/lib/claude";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { getWorkflow, saveWorkflow } from "@/lib/db";
-import type { Workflow, RemediationPlan, RemediationPhase, RemediationTask, ProjectedImpact } from "@/lib/types";
+import type { Workflow, RemediationPlan, RemediationPhase, ProjectedImpact } from "@/lib/types";
 import { z } from "zod";
 
 // ─── Zod schemas for validation ───
@@ -13,7 +13,7 @@ const TaskSchema = z.object({
   description: z.string().min(1),
   priority: z.enum(["critical", "high", "medium", "low"]),
   effort: z.enum(["quick_win", "incremental", "strategic"]),
-  owner: z.string().nullable().optional().default(null),
+  owner: z.string().nullable().default(null),
   gapIds: z.array(z.number()).default([]),
   stepIds: z.array(z.string()).default([]),
   tools: z.array(z.string()).default([]),
@@ -84,6 +84,14 @@ export async function POST(request: NextRequest) {
 
     const { decomposition, costContext } = workflow;
 
+    // Guard: no gaps = no remediation needed
+    if (!decomposition.gaps || decomposition.gaps.length === 0) {
+      return NextResponse.json(
+        { error: "This workflow has no gaps to remediate. A remediation plan requires at least one identified gap." },
+        { status: 400 }
+      );
+    }
+
     // Build the user message with diagnostic data
     const userMessage = buildRemediationPrompt(workflow, teamContext);
 
@@ -142,13 +150,13 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    // Save plan alongside the workflow (attach to workflow object)
-    const updatedWorkflow: Workflow & { remediationPlan?: RemediationPlan } = {
+    // Save plan alongside the workflow
+    const updatedWorkflow: Workflow = {
       ...workflow,
       remediationPlan: plan,
       updatedAt: now,
     };
-    await saveWorkflow(updatedWorkflow as Workflow);
+    await saveWorkflow(updatedWorkflow);
 
     return NextResponse.json({
       success: true,
@@ -209,15 +217,14 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const wf = workflow as Workflow & { remediationPlan?: RemediationPlan };
-  if (!wf.remediationPlan) {
+  if (!workflow.remediationPlan) {
     return NextResponse.json(
       { error: "No remediation plan exists for this workflow." },
       { status: 404 }
     );
   }
 
-  return NextResponse.json({ plan: wf.remediationPlan });
+  return NextResponse.json({ plan: workflow.remediationPlan });
 }
 
 function buildRemediationPrompt(

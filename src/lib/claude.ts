@@ -78,7 +78,13 @@ export async function callClaude(userMessage: string): Promise<ClaudeResponse> {
   const response = await client.messages.create({
     model: CLAUDE_MODEL,
     max_tokens: 4096,
-    system: getSystemPrompt(),
+    system: [
+      {
+        type: "text",
+        text: getSystemPrompt(),
+        cache_control: { type: "ephemeral" },
+      },
+    ],
     messages: [{ role: "user", content: userMessage }],
   });
 
@@ -106,7 +112,13 @@ export async function callClaudeRemediation(userMessage: string): Promise<Claude
   const response = await client.messages.create({
     model: CLAUDE_MODEL,
     max_tokens: 6144,
-    system: getRemediationPrompt(),
+    system: [
+      {
+        type: "text",
+        text: getRemediationPrompt(),
+        cache_control: { type: "ephemeral" },
+      },
+    ],
     messages: [{ role: "user", content: userMessage }],
   });
 

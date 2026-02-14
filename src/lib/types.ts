@@ -75,6 +75,7 @@ export interface Workflow {
     inputTokens: number;
     outputTokens: number;
   };
+  remediationPlan?: RemediationPlan; // attached remediation plan (if generated)
 }
 
 export interface StageInput {

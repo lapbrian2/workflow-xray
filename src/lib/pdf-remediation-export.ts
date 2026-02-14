@@ -83,7 +83,12 @@ export async function exportRemediationPdf(
       y += 6;
     }
 
-    const totalTasks = plan.phases.reduce((sum, p) => sum + p.tasks.length, 0);
+    // Filter out empty phases (no tasks)
+    const validPhases = plan.phases.filter((p) => p.tasks && p.tasks.length > 0);
+    if (validPhases.length === 0) {
+      throw new Error("No phases with tasks found in the remediation plan.");
+    }
+    const totalTasks = validPhases.reduce((sum, p) => sum + p.tasks.length, 0);
 
     // ════════════════════════════════════════════════════════════════
     // PAGE 1: COVER PAGE
@@ -133,7 +138,7 @@ export async function exportRemediationPdf(
     // Stats badges
     const statsY = titleBlockEnd + 12;
     const badges = [
-      { label: `${plan.phases.length} Phases`, color: blue },
+      { label: `${validPhases.length} Phases`, color: blue },
       { label: `${totalTasks} Tasks`, color: accent },
       { label: `${plan.projectedImpact.length} Impact Metrics`, color: green },
     ];
@@ -191,11 +196,11 @@ export async function exportRemediationPdf(
     drawSectionHeader("Plan Overview");
 
     const overviewStats = [
-      { label: "PHASES", value: String(plan.phases.length), color: blue },
+      { label: "PHASES", value: String(validPhases.length), color: blue },
       { label: "TOTAL TASKS", value: String(totalTasks), color: accent },
       {
         label: "CRITICAL",
-        value: String(plan.phases.reduce((s, p) => s + p.tasks.filter((t) => t.priority === "critical").length, 0)),
+        value: String(validPhases.reduce((s, p) => s + p.tasks.filter((t) => t.priority === "critical").length, 0)),
         color: [232, 85, 58] as [number, number, number],
       },
       { label: "IMPACTS", value: String(plan.projectedImpact.length), color: green },
@@ -223,7 +228,7 @@ export async function exportRemediationPdf(
     // ════════════════════════════════════════════════════════════════
     // PHASE DETAILS
     // ════════════════════════════════════════════════════════════════
-    for (const phase of plan.phases) {
+    for (const phase of validPhases) {
       drawHorizontalRule();
 
       // Phase header
@@ -256,7 +261,8 @@ export async function exportRemediationPdf(
 
       // Tasks
       for (const task of phase.tasks) {
-        const descLines = doc.splitTextToSize(task.description, contentWidth - 14);
+        const descText = task.description || "No description provided";
+        const descLines = doc.splitTextToSize(descText, contentWidth - 14);
         const metricLines = task.successMetric
           ? doc.splitTextToSize(`Success: ${task.successMetric}`, contentWidth - 14)
           : [];
@@ -343,8 +349,12 @@ export async function exportRemediationPdf(
       drawHorizontalRule();
       drawSectionHeader("Projected Impact");
 
-      for (const impact of plan.projectedImpact) {
-        const assumptionLines = doc.splitTextToSize(impact.assumption, contentWidth - 14);
+      const validImpacts = plan.projectedImpact.filter(
+        (i) => i.metricName && (i.currentValue || i.projectedValue)
+      );
+      for (const impact of validImpacts) {
+        const assumptionText = impact.assumption || "No assumption provided";
+        const assumptionLines = doc.splitTextToSize(assumptionText, contentWidth - 14);
         const impactHeight = 18 + assumptionLines.length * 3.5;
         checkPageBreak(impactHeight);
 
@@ -370,12 +380,14 @@ export async function exportRemediationPdf(
         doc.text(confLabel, pageWidth - margin - confWidth - 1.5, y + 5.3);
 
         // Before → After
+        const currentVal = impact.currentValue || "N/A";
+        const projectedVal = impact.projectedValue || "N/A";
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(...muted);
-        doc.text(impact.currentValue, margin + 6, y + 12);
+        doc.text(currentVal, margin + 6, y + 12);
 
-        const cvWidth = doc.getTextWidth(impact.currentValue);
+        const cvWidth = doc.getTextWidth(currentVal);
         doc.setFontSize(10);
         doc.setTextColor(...accent);
         doc.text(" → ", margin + 6 + cvWidth, y + 12);
@@ -383,7 +395,7 @@ export async function exportRemediationPdf(
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(...green);
-        doc.text(impact.projectedValue, margin + 6 + cvWidth + doc.getTextWidth(" → "), y + 12);
+        doc.text(projectedVal, margin + 6 + cvWidth + doc.getTextWidth(" → "), y + 12);
 
         // Assumption
         doc.setFontSize(7);

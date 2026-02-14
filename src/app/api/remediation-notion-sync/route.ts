@@ -26,12 +26,11 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const plan: RemediationPlan = body.plan;
-    const parentPageId: string | undefined = body.parentPageId; // X-Ray Notion page ID
-    const gaps: { type: string; severity: string }[] = body.gaps || [];
+    const gaps: { type: string; severity: string }[] = Array.isArray(body.gaps) ? body.gaps : [];
 
-    if (!plan || !plan.phases) {
+    if (!plan || !plan.phases || !Array.isArray(plan.phases) || plan.phases.length === 0) {
       return NextResponse.json(
-        { error: "Invalid remediation plan data." },
+        { error: "Invalid remediation plan data. Plan must have at least one phase." },
         { status: 400 }
       );
     }
@@ -70,7 +69,7 @@ export async function POST(request: NextRequest) {
       type: "paragraph",
       paragraph: {
         rich_text: [
-          { type: "text", text: { content: `${plan.phases.length} phases · ${totalTasks} tasks` }, annotations: { bold: true, color: "gray" } },
+          { type: "text", text: { content: `${plan.phases.length} phases · ${totalTasks} tasks` }, annotations: { bold: true } },
         ],
       },
     });
@@ -82,7 +81,7 @@ export async function POST(request: NextRequest) {
         heading_2: {
           rich_text: [
             { type: "text", text: { content: `${phase.name}` } },
-            { type: "text", text: { content: ` — ${phase.timeframe}` }, annotations: { italic: true, color: "gray" } },
+            { type: "text", text: { content: ` — ${phase.timeframe}` }, annotations: { italic: true } },
           ],
         },
       });
@@ -93,7 +92,7 @@ export async function POST(request: NextRequest) {
           type: "paragraph",
           paragraph: {
             rich_text: [
-              { type: "text", text: { content: phase.description }, annotations: { italic: true, color: "gray" } },
+              { type: "text", text: { content: phase.description }, annotations: { italic: true } },
             ],
           },
         });
@@ -109,7 +108,7 @@ export async function POST(request: NextRequest) {
           to_do: {
             rich_text: [
               { type: "text", text: { content: `${priorityEmoji} ${task.title}` }, annotations: { bold: true } },
-              { type: "text", text: { content: ` [${TASK_PRIORITY_LABELS[task.priority]}]` }, annotations: { color: "gray" } },
+              { type: "text", text: { content: ` [${TASK_PRIORITY_LABELS[task.priority]}]` }, annotations: { } },
             ],
             checked: task.status === "completed",
           },
@@ -140,7 +139,7 @@ export async function POST(request: NextRequest) {
           type: "paragraph",
           paragraph: {
             rich_text: [
-              { type: "text", text: { content: meta.join(" · ") }, annotations: { italic: true, color: "gray" } },
+              { type: "text", text: { content: meta.join(" · ") }, annotations: { italic: true } },
             ],
           },
         });
@@ -153,7 +152,7 @@ export async function POST(request: NextRequest) {
             paragraph: {
               rich_text: [
                 { type: "text", text: { content: "✅ " } },
-                { type: "text", text: { content: task.successMetric }, annotations: { italic: true, color: "green" } },
+                { type: "text", text: { content: task.successMetric }, annotations: { italic: true } },
               ],
             },
           });
@@ -175,7 +174,7 @@ export async function POST(request: NextRequest) {
               type: "paragraph",
               paragraph: {
                 rich_text: [
-                  { type: "text", text: { content: `Addresses: ${gapNames}` }, annotations: { italic: true, color: "gray" } },
+                  { type: "text", text: { content: `Addresses: ${gapNames}` }, annotations: { italic: true } },
                 ],
               },
             });
@@ -202,7 +201,7 @@ export async function POST(request: NextRequest) {
             rich_text: [
               { type: "text", text: { content: impact.metricName }, annotations: { bold: true } },
               { type: "text", text: { content: `: ${impact.currentValue} → ${impact.projectedValue}` } },
-              { type: "text", text: { content: ` (${impact.confidence} confidence)` }, annotations: { italic: true, color: "gray" } },
+              { type: "text", text: { content: ` (${impact.confidence} confidence)` }, annotations: { italic: true } },
             ],
           },
         });
@@ -233,38 +232,40 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Create as child page of the X-Ray Notion page, or as standalone
-    let pageParent: { page_id: string } | { database_id: string };
+    // Create page in the configured Notion database
     const databaseId = process.env.NOTION_XRAY_DATABASE_ID;
-
-    if (parentPageId) {
-      // Create as child page under the X-Ray entry
-      pageParent = { page_id: parentPageId };
-    } else if (databaseId) {
-      // Create as a standalone page in the database
-      // (This is fallback — normally we have the parent page)
-      pageParent = { database_id: databaseId };
-    } else {
+    if (!databaseId) {
       return NextResponse.json(
-        { error: "No Notion parent configured for remediation plan." },
+        { error: "Notion database not configured. Set NOTION_XRAY_DATABASE_ID." },
         { status: 503 }
       );
     }
 
+    // Look up the database to get the title property name
+    let titlePropertyName = "Name"; // sensible default
+    try {
+      const dbInfo = await notion.databases.retrieve({ database_id: databaseId });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const props = (dbInfo as any).properties || {};
+      for (const [key, val] of Object.entries(props)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((val as any).type === "title") {
+          titlePropertyName = key;
+          break;
+        }
+      }
+    } catch {
+      // If we can't retrieve DB info, fall through with default
+    }
+
     // Create the page
     const response = await notion.pages.create({
-      parent: pageParent,
-      properties: parentPageId
-        ? {
-            title: {
-              title: [{ text: { content: plan.title } }],
-            },
-          }
-        : {
-            Workflow: {
-              title: [{ text: { content: plan.title } }],
-            },
-          },
+      parent: { database_id: databaseId },
+      properties: {
+        [titlePropertyName]: {
+          title: [{ text: { content: plan.title } }],
+        },
+      },
       children: children.slice(0, 100), // Notion max 100 blocks per create
       icon: { type: "emoji", emoji: "🔧" },
     });
@@ -273,10 +274,22 @@ export async function POST(request: NextRequest) {
 
     // Append remaining blocks if > 100
     for (let i = 100; i < children.length; i += 100) {
-      await notion.blocks.children.append({
-        block_id: pageId,
-        children: children.slice(i, i + 100),
-      });
+      try {
+        await notion.blocks.children.append({
+          block_id: pageId,
+          children: children.slice(i, i + 100),
+        });
+      } catch (appendError) {
+        console.error(`[Notion] Failed to append blocks ${i}-${i + 100}:`, appendError);
+        // Page was created — return partial success
+        return NextResponse.json({
+          success: true,
+          partial: true,
+          notionUrl: `https://notion.so/${pageId.replace(/-/g, "")}`,
+          pageId,
+          warning: "Page created but some content blocks failed to sync.",
+        });
+      }
     }
 
     return NextResponse.json({

@@ -6,7 +6,6 @@ import Link from "next/link";
 import type {
   Workflow,
   RemediationPlan,
-  RemediationPhase,
   RemediationTask,
   ProjectedImpact,
 } from "@/lib/types";
@@ -110,10 +109,16 @@ export default function RemediationPage() {
         setElapsed((e) => e + 1);
       }, 1000);
     } else {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     }
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     };
   }, [generating]);
 
@@ -133,7 +138,10 @@ export default function RemediationPage() {
 
     try {
       const ctx: Record<string, unknown> = {};
-      if (teamContext.teamSize) ctx.teamSize = parseInt(teamContext.teamSize);
+      if (teamContext.teamSize) {
+        const parsed = parseInt(teamContext.teamSize, 10);
+        if (!isNaN(parsed) && parsed > 0) ctx.teamSize = parsed;
+      }
       if (teamContext.budget) ctx.budget = teamContext.budget;
       if (teamContext.timeline) ctx.timeline = teamContext.timeline;
       if (teamContext.constraints) {
@@ -356,6 +364,25 @@ export default function RemediationPage() {
           <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700, color: "var(--color-dark)", marginBottom: 8 }}>
             Generate Remediation Plan
           </h2>
+
+          {/* Zero-gaps guard */}
+          {workflow.decomposition.gaps.length === 0 ? (
+            <div style={{ maxWidth: 500, margin: "0 auto" }}>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--color-muted)", marginBottom: 16 }}>
+                This workflow has no gaps to remediate. The diagnostic found zero issues — nice work!
+              </p>
+              <Link
+                href={`/xray/${id}`}
+                style={{
+                  fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--color-accent)",
+                  textDecoration: "none", fontWeight: 600,
+                }}
+              >
+                &larr; Back to X-Ray
+              </Link>
+            </div>
+          ) : (
+            <>
           <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--color-text)", marginBottom: 24, maxWidth: 500, margin: "0 auto 24px" }}>
             Create a phased action plan to address the {workflow.decomposition.gaps.length} gaps identified in the diagnostic. Each task includes priority, owner, tools, and success metrics.
           </p>
@@ -446,6 +473,8 @@ export default function RemediationPage() {
           >
             Generate Plan
           </button>
+            </>
+          )}
         </div>
       )}
 

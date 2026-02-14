@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { Workflow, RemediationPlan } from "@/lib/types";
+import type { Workflow } from "@/lib/types";
 import { formatDate, truncate } from "@/lib/utils";
 
 interface WorkflowCardProps {
@@ -261,7 +261,7 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
                 v{workflow.version}
               </span>
             )}
-            {(workflow as Workflow & { remediationPlan?: RemediationPlan }).remediationPlan && (
+            {workflow.remediationPlan && (
               <Link
                 href={`/xray/${workflow.id}/remediation`}
                 onClick={(e) => e.stopPropagation()}
