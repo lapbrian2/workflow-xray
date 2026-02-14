@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 // ---------------------------------------------------------------------------
 // Template system
@@ -106,6 +106,37 @@ export default function FreeformInput({
   const [activeCategory, setActiveCategory] = useState<Category | "All">("All");
   const [hoveredCard, setHoveredCard] = useState<number | null>(null);
   const [hoveredPill, setHoveredPill] = useState<string | null>(null);
+  const [notionUrl, setNotionUrl] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [showImport, setShowImport] = useState(false);
+
+  const handleNotionImport = useCallback(async () => {
+    if (!notionUrl.trim() || importing) return;
+    setImporting(true);
+    setImportError(null);
+    try {
+      const res = await fetch("/api/notion-import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageUrl: notionUrl.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Import failed");
+      }
+      const data = await res.json();
+      onChange(data.content);
+      setNotionUrl("");
+      setShowImport(false);
+    } catch (err) {
+      setImportError(
+        err instanceof Error ? err.message : "Failed to import from Notion"
+      );
+    } finally {
+      setImporting(false);
+    }
+  }, [notionUrl, importing, onChange]);
 
   const filtered =
     activeCategory === "All"
@@ -224,6 +255,167 @@ export default function FreeformInput({
             "Decompose Workflow"
           )}
         </button>
+      </div>
+
+      {/* Import from Notion ----------------------------------------------- */}
+      <div style={{ marginTop: 16, marginBottom: 8 }}>
+        <button
+          onClick={() => setShowImport(!showImport)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            fontWeight: 600,
+            color: "var(--color-muted)",
+            padding: "4px 0",
+            letterSpacing: "0.02em",
+          }}
+        >
+          <span
+            style={{
+              display: "inline-block",
+              transition: "transform 0.2s",
+              transform: showImport ? "rotate(90deg)" : "rotate(0deg)",
+              fontSize: 10,
+            }}
+          >
+            &#9654;
+          </span>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 100 100"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            style={{ opacity: 0.6 }}
+          >
+            <path
+              d="M6.017 4.313l55.333 -4.087c6.797 -0.583 8.543 -0.19 12.817 2.917l17.663 12.443c2.913 2.14 3.883 2.723 3.883 5.053v68.243c0 4.277 -1.553 6.807 -6.99 7.193L24.467 99.967c-4.08 0.193 -6.023 -0.39 -8.16 -3.113L3.3 79.94c-2.333 -3.113 -3.3 -5.443 -3.3 -8.167V11.113c0 -3.497 1.553 -6.413 6.017 -6.8z"
+              fill="currentColor"
+            />
+          </svg>
+          Import from Notion
+        </button>
+
+        {showImport && (
+          <div
+            style={{
+              marginTop: 8,
+              padding: "12px 16px",
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-border)",
+              borderRadius: "var(--radius-sm)",
+              animation: "fadeIn 0.2s ease",
+            }}
+          >
+            <div
+              style={{
+                fontFamily: "var(--font-body)",
+                fontSize: 12,
+                color: "var(--color-text)",
+                marginBottom: 8,
+                lineHeight: 1.5,
+              }}
+            >
+              Paste a Notion page URL to pull its content into the input field.
+              Make sure the &ldquo;Workflow X-Ray&rdquo; integration is connected
+              to the page.
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="text"
+                value={notionUrl}
+                onChange={(e) => {
+                  setNotionUrl(e.target.value);
+                  setImportError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleNotionImport();
+                  }
+                }}
+                placeholder="https://www.notion.so/your-page-id"
+                disabled={importing || disabled}
+                style={{
+                  flex: 1,
+                  padding: "8px 12px",
+                  borderRadius: 6,
+                  border: `1px solid ${importError ? "#E8553A40" : "var(--color-border)"}`,
+                  background: "#fff",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 12,
+                  color: "var(--color-dark)",
+                  outline: "none",
+                }}
+              />
+              <button
+                onClick={handleNotionImport}
+                disabled={importing || !notionUrl.trim() || disabled}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 6,
+                  border: "none",
+                  background:
+                    importing || !notionUrl.trim()
+                      ? "var(--color-border)"
+                      : "var(--color-dark)",
+                  color:
+                    importing || !notionUrl.trim()
+                      ? "var(--color-muted)"
+                      : "#fff",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor:
+                    importing || !notionUrl.trim() ? "not-allowed" : "pointer",
+                  transition: "all 0.2s",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {importing ? (
+                  <>
+                    <span
+                      style={{
+                        width: 12,
+                        height: 12,
+                        border: "2px solid rgba(255,255,255,0.3)",
+                        borderTop: "2px solid #fff",
+                        borderRadius: "50%",
+                        animation: "spin 0.8s linear infinite",
+                        display: "inline-block",
+                      }}
+                    />
+                    Importing...
+                  </>
+                ) : (
+                  "Import"
+                )}
+              </button>
+            </div>
+            {importError && (
+              <div
+                style={{
+                  marginTop: 8,
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  color: "#C0392B",
+                  lineHeight: 1.5,
+                }}
+              >
+                {importError}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* =================================================================

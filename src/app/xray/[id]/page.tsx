@@ -22,6 +22,9 @@ export default function XRayPage() {
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [versionSiblings, setVersionSiblings] = useState<Workflow[]>([]);
+  const [syncing, setSyncing] = useState(false);
+  const [synced, setSynced] = useState(false);
+  const [notionUrl, setNotionUrl] = useState<string | null>(null);
 
   const handleExportPdf = async () => {
     if (!workflow) return;
@@ -42,6 +45,35 @@ export default function XRayPage() {
     if (!workflow) return;
     const parentId = workflow.parentId || workflow.id;
     router.push(`/?reanalyze=${parentId}`);
+  };
+
+  const handleNotionSync = async () => {
+    if (!workflow || syncing) return;
+    setSyncing(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/notion-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workflow,
+          appUrl: `${window.location.origin}/xray/${workflow.id}`,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Sync failed");
+      }
+      const data = await res.json();
+      setSynced(true);
+      setNotionUrl(data.notionUrl);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to sync to Notion"
+      );
+    } finally {
+      setSyncing(false);
+    }
   };
 
   // Retry counter to re-trigger the effect
@@ -386,6 +418,81 @@ export default function XRayPage() {
             }}
           >
             Re-analyze
+          </button>
+          <button
+            onClick={handleNotionSync}
+            disabled={syncing || synced}
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              color: synced ? "#17A589" : "var(--color-dark)",
+              padding: "4px 12px",
+              borderRadius: 4,
+              border: `1px solid ${synced ? "#17A58940" : "var(--color-border)"}`,
+              background: synced
+                ? "#17A58910"
+                : "var(--color-surface)",
+              cursor: syncing || synced ? "default" : "pointer",
+              transition: "all 0.2s",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontWeight: 600,
+              opacity: syncing ? 0.7 : 1,
+            }}
+          >
+            {syncing ? (
+              <>
+                <span
+                  style={{
+                    width: 10,
+                    height: 10,
+                    border: "2px solid rgba(0,0,0,0.1)",
+                    borderTop: "2px solid var(--color-dark)",
+                    borderRadius: "50%",
+                    animation: "spin 0.8s linear infinite",
+                    display: "inline-block",
+                  }}
+                />
+                Syncing...
+              </>
+            ) : synced ? (
+              <>
+                &#x2713; Synced
+                {notionUrl && (
+                  <a
+                    href={notionUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      color: "#17A589",
+                      textDecoration: "underline",
+                      fontSize: 10,
+                    }}
+                  >
+                    Open
+                  </a>
+                )}
+              </>
+            ) : (
+              <>
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 100 100"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M6.017 4.313l55.333 -4.087c6.797 -0.583 8.543 -0.19 12.817 2.917l17.663 12.443c2.913 2.14 3.883 2.723 3.883 5.053v68.243c0 4.277 -1.553 6.807 -6.99 7.193L24.467 99.967c-4.08 0.193 -6.023 -0.39 -8.16 -3.113L3.3 79.94c-2.333 -3.113 -3.3 -5.443 -3.3 -8.167V11.113c0 -3.497 1.553 -6.413 6.017 -6.8z"
+                    fill="currentColor"
+                    opacity="0.4"
+                  />
+                </svg>
+                Sync to Notion
+              </>
+            )}
           </button>
           <Link
             href="/library"
