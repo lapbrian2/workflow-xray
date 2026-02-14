@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       ...(parentId ? { parentId, version } : { version: 1 }),
+      ...(body.costContext ? { costContext: body.costContext } : {}),
     };
 
     await saveWorkflow(workflow);

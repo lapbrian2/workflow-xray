@@ -35,6 +35,9 @@ export interface Gap {
   stepIds: string[];
   description: string;
   suggestion: string;
+  timeWaste?: string;         // e.g. "~6 hrs/week"
+  effortLevel?: "quick_win" | "incremental" | "strategic";  // quick_win=1 week, incremental=1 month, strategic=3+ months
+  impactedRoles?: string[];   // e.g. ["IC", "manager"]
 }
 
 export interface HealthMetrics {
@@ -52,6 +55,11 @@ export interface Decomposition {
   health: HealthMetrics;
 }
 
+export interface CostContext {
+  hourlyRate?: number;     // avg team hourly cost ($)
+  hoursPerStep?: number;   // avg hours spent per workflow step
+}
+
 export interface Workflow {
   id: string;
   decomposition: Decomposition;
@@ -60,6 +68,7 @@ export interface Workflow {
   updatedAt: string;
   parentId?: string;     // links to the original workflow (for versioning)
   version?: number;      // 1, 2, 3, etc.
+  costContext?: CostContext; // optional cost data for ROI estimation
 }
 
 export interface StageInput {

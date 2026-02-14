@@ -10,11 +10,16 @@ interface FlowNodeProps {
     step: Step;
     selected: boolean;
     onClick: (id: string) => void;
+    isCriticalPath?: boolean;
+    gapCount?: number;
   };
 }
 
+const CRITICAL_COLOR = "#DC143C";
+const GAP_COLOR = "#D4A017";
+
 export default function FlowNode({ data }: FlowNodeProps) {
-  const { step, selected, onClick } = data;
+  const { step, selected, onClick, isCriticalPath = false, gapCount = 0 } = data;
   const color = LAYER_COLORS[step.layer];
   const [hovered, setHovered] = useState(false);
 
@@ -23,32 +28,89 @@ export default function FlowNode({ data }: FlowNodeProps) {
       ? step.description.slice(0, 60) + "\u2026"
       : step.description || "";
 
+  const criticalBorder = isCriticalPath
+    ? `2px solid ${CRITICAL_COLOR}`
+    : `2px solid ${selected ? color : color + "40"}`;
+
+  const criticalShadow = isCriticalPath
+    ? selected
+      ? `0 0 0 3px ${CRITICAL_COLOR}30, 0 0 12px ${CRITICAL_COLOR}20`
+      : hovered
+        ? `0 0 12px ${CRITICAL_COLOR}25, 0 4px 12px rgba(0,0,0,0.12)`
+        : `0 0 8px ${CRITICAL_COLOR}18, 0 1px 3px rgba(0,0,0,0.06)`
+    : selected
+      ? `0 0 0 3px ${color}20`
+      : hovered
+        ? `0 4px 12px rgba(0,0,0,0.12)`
+        : "0 1px 3px rgba(0,0,0,0.06)";
+
   return (
     <div
       onClick={() => onClick(step.id)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
+        position: "relative",
         padding: "12px 16px",
         borderRadius: "var(--radius-sm)",
-        background: selected ? `${color}12` : "#fff",
-        border: `2px solid ${selected ? color : color + "40"}`,
+        background: isCriticalPath
+          ? selected
+            ? `${CRITICAL_COLOR}10`
+            : "#fff"
+          : selected
+            ? `${color}12`
+            : "#fff",
+        border: criticalBorder,
         minWidth: 180,
         maxWidth: 240,
         cursor: "pointer",
         transition: "all 0.2s",
         transform: hovered ? "scale(1.02)" : "scale(1)",
-        boxShadow: selected
-          ? `0 0 0 3px ${color}20`
-          : hovered
-            ? `0 4px 12px rgba(0,0,0,0.12)`
-            : "0 1px 3px rgba(0,0,0,0.06)",
+        boxShadow: criticalShadow,
+        animation: isCriticalPath ? "criticalPulse 3s ease-in-out infinite" : undefined,
       }}
     >
+      {/* Injected keyframes for critical path pulse */}
+      {isCriticalPath && (
+        <style>{`
+          @keyframes criticalPulse {
+            0%, 100% { box-shadow: ${criticalShadow}; }
+            50% { box-shadow: 0 0 14px ${CRITICAL_COLOR}30, 0 1px 3px rgba(0,0,0,0.06); }
+          }
+        `}</style>
+      )}
+
+      {/* Gap warning badge */}
+      {gapCount > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            top: -8,
+            right: -8,
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            background: GAP_COLOR,
+            color: "#fff",
+            fontFamily: "var(--font-mono)",
+            fontSize: 9,
+            fontWeight: 700,
+            padding: "2px 6px",
+            borderRadius: 8,
+            boxShadow: `0 1px 4px ${GAP_COLOR}50`,
+            zIndex: 2,
+            lineHeight: 1,
+          }}
+        >
+          <span style={{ fontSize: 10 }}>{"\u26A0"}</span>
+          {gapCount}
+        </div>
+      )}
+
       <Handle
         type="target"
         position={Position.Top}
-        style={{ background: color, width: 8, height: 8, border: "2px solid #fff" }}
+        style={{ background: isCriticalPath ? CRITICAL_COLOR : color, width: 8, height: 8, border: "2px solid #fff" }}
       />
 
       {/* Layer badge */}
@@ -198,10 +260,39 @@ export default function FlowNode({ data }: FlowNodeProps) {
         </span>
       </div>
 
+      {/* Critical path badge */}
+      {isCriticalPath && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginTop: 6,
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 8,
+              fontWeight: 700,
+              color: CRITICAL_COLOR,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              background: `${CRITICAL_COLOR}10`,
+              padding: "2px 8px",
+              borderRadius: 4,
+              border: `1px solid ${CRITICAL_COLOR}30`,
+            }}
+          >
+            CRITICAL PATH
+          </span>
+        </div>
+      )}
+
       <Handle
         type="source"
         position={Position.Bottom}
-        style={{ background: color, width: 8, height: 8, border: "2px solid #fff" }}
+        style={{ background: isCriticalPath ? CRITICAL_COLOR : color, width: 8, height: 8, border: "2px solid #fff" }}
       />
     </div>
   );

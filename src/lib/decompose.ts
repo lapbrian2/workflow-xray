@@ -32,6 +32,9 @@ const GapSchema = z.object({
   stepIds: z.array(z.string()),
   description: z.string(),
   suggestion: z.string(),
+  timeWaste: z.string().optional(),
+  effortLevel: z.enum(["quick_win", "incremental", "strategic"]).optional(),
+  impactedRoles: z.array(z.string()).optional(),
 });
 
 const DecompositionResponseSchema = z.object({

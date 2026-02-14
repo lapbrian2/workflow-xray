@@ -82,6 +82,80 @@ export default function XRayViz({ decomposition }: XRayVizProps) {
     [selectedNodeId, setSelectedNodeId]
   );
 
+  // Compute critical path (longest dependency chain through the DAG)
+  const criticalPathIds = useMemo(() => {
+    const steps = decomposition.steps;
+    const stepMap = new Map(steps.map((s) => [s.id, s]));
+
+    // For each step, compute the longest path ending at that step
+    const longestPath = new Map<string, number>();
+    const pathParent = new Map<string, string | null>();
+
+    function computeLongest(
+      stepId: string,
+      visited = new Set<string>()
+    ): number {
+      if (longestPath.has(stepId)) return longestPath.get(stepId)!;
+      if (visited.has(stepId)) return 0;
+      visited.add(stepId);
+
+      const step = stepMap.get(stepId);
+      if (!step || step.dependencies.length === 0) {
+        longestPath.set(stepId, 1);
+        pathParent.set(stepId, null);
+        return 1;
+      }
+
+      let maxLen = 0;
+      let maxParent: string | null = null;
+      for (const dep of step.dependencies) {
+        const len = computeLongest(dep, new Set(visited));
+        if (len > maxLen) {
+          maxLen = len;
+          maxParent = dep;
+        }
+      }
+
+      const total = maxLen + 1;
+      longestPath.set(stepId, total);
+      pathParent.set(stepId, maxParent);
+      return total;
+    }
+
+    steps.forEach((s) => computeLongest(s.id));
+
+    // Find the end of the critical path (step with longest path)
+    let maxStep = steps[0]?.id;
+    let maxLen = 0;
+    longestPath.forEach((len, id) => {
+      if (len > maxLen) {
+        maxLen = len;
+        maxStep = id;
+      }
+    });
+
+    // Trace back to build the critical path set
+    const pathIds = new Set<string>();
+    let current: string | null | undefined = maxStep;
+    while (current) {
+      pathIds.add(current);
+      current = pathParent.get(current) ?? null;
+    }
+
+    return pathIds;
+  }, [decomposition.steps]);
+
+  // Compute gap counts per step
+  const gapCountByStep = useMemo(() => {
+    const map = new Map<string, number>();
+    decomposition.gaps.forEach((g) => {
+      g.stepIds.forEach((id) => {
+        map.set(id, (map.get(id) || 0) + 1);
+      });
+    });
+    return map;
+  }, [decomposition.gaps]);
+
   const { nodes, edges } = useMemo(() => {
     const steps = decomposition.steps;
 
@@ -138,6 +212,8 @@ export default function XRayViz({ decomposition }: XRayVizProps) {
             step,
             selected: selectedNodeId === step.id,
             onClick: handleNodeClick,
+            isCriticalPath: criticalPathIds.has(step.id),
+            gapCount: gapCountByStep.get(step.id) || 0,
           },
         });
       });
@@ -146,20 +222,34 @@ export default function XRayViz({ decomposition }: XRayVizProps) {
     const edges: Edge[] = [];
     steps.forEach((step) => {
       step.dependencies.forEach((depId) => {
+        const isOnCriticalPath =
+          criticalPathIds.has(depId) && criticalPathIds.has(step.id);
         edges.push({
           id: `${depId}-${step.id}`,
           source: depId,
           target: step.id,
           type: "custom",
+          data: {
+            isCriticalPath: isOnCriticalPath,
+          },
           style: {
-            stroke: LAYER_COLORS[step.layer] + "60",
+            stroke: isOnCriticalPath
+              ? "#DC143C"
+              : LAYER_COLORS[step.layer] + "60",
+            strokeWidth: isOnCriticalPath ? 3 : 1,
           },
         });
       });
     });
 
     return { nodes, edges };
-  }, [decomposition.steps, selectedNodeId, handleNodeClick]);
+  }, [
+    decomposition.steps,
+    selectedNodeId,
+    handleNodeClick,
+    criticalPathIds,
+    gapCountByStep,
+  ]);
 
   const selectedStep = decomposition.steps.find(
     (s) => s.id === selectedNodeId

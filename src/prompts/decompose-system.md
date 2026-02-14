@@ -33,7 +33,10 @@ Schema:
       "severity": "low | medium | high",
       "stepIds": ["affected step IDs"],
       "description": "string — plain-language problem explanation, 2-3 sentences",
-      "suggestion": "string — actionable recommendation, 2-3 sentences"
+      "suggestion": "string — actionable recommendation, 2-3 sentences",
+      "timeWaste": "string — estimated time wasted per week/month (e.g. '~6 hrs/week', '2 days/month')",
+      "effortLevel": "quick_win | incremental | strategic",
+      "impactedRoles": ["IC", "manager", "executive"]
     }
   ]
 }
@@ -90,3 +93,8 @@ Health scores will be computed on the server side. Do not include health scores 
 12. Be specific in step descriptions — avoid vague language.
 13. Every step must have at least one input and one output.
 14. Dependencies should form a directed acyclic graph (no circular references).
+15. For each gap, estimate the time wasted or cost impact. Be specific: "~6 hours/week waiting for approvals" not "some time is wasted."
+16. For each suggestion, classify the implementation effort: "quick_win" (can be done in 1 week, minimal investment), "incremental" (1 month, moderate effort), or "strategic" (3+ months, requires organizational change).
+17. For each gap, tag the roles most impacted: "IC" (individual contributors doing the work), "manager" (team leads coordinating), "executive" (leadership needing visibility).
+18. When suggesting automation, name specific tool categories: "workflow automation (Zapier/Make)", "AI drafting (Claude/GPT)", "CI/CD (GitHub Actions)", "scheduling (Calendly)", etc.
+19. If the workflow description mentions a specific industry or domain, apply domain-specific best practices. For sales workflows, watch for lead leakage and CRM hygiene. For engineering, flag deployment risks and missing rollback procedures. For HR, check compliance gaps.

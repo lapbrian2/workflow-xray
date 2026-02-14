@@ -27,7 +27,7 @@ export default function XRayPage() {
     if (!workflow) return;
     setExporting(true);
     try {
-      await exportToPdf(workflow.decomposition);
+      await exportToPdf(workflow.decomposition, workflow.costContext);
     } catch {
       console.error("PDF export failed");
     } finally {

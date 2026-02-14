@@ -208,6 +208,90 @@ export default function GapCard({ gap, index }: GapCardProps) {
           </div>
         </div>
 
+        {/* ROI metadata: timeWaste, effortLevel, impactedRoles */}
+        {(gap.timeWaste || gap.effortLevel || (gap.impactedRoles && gap.impactedRoles.length > 0)) && (
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              marginTop: 12,
+              marginBottom: 4,
+            }}
+          >
+            {gap.timeWaste && (
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: "#E8553A",
+                  background: "rgba(232,85,58,0.08)",
+                  border: "1px solid rgba(232,85,58,0.15)",
+                  padding: "3px 10px",
+                  borderRadius: 10,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                &#9202; {gap.timeWaste}
+              </span>
+            )}
+            {gap.effortLevel && (
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color:
+                    gap.effortLevel === "quick_win"
+                      ? "#17A589"
+                      : gap.effortLevel === "incremental"
+                        ? "#2D7DD2"
+                        : "#8E44AD",
+                  background:
+                    gap.effortLevel === "quick_win"
+                      ? "rgba(23,165,137,0.08)"
+                      : gap.effortLevel === "incremental"
+                        ? "rgba(45,125,210,0.08)"
+                        : "rgba(142,68,173,0.08)",
+                  border: `1px solid ${
+                    gap.effortLevel === "quick_win"
+                      ? "rgba(23,165,137,0.15)"
+                      : gap.effortLevel === "incremental"
+                        ? "rgba(45,125,210,0.15)"
+                        : "rgba(142,68,173,0.15)"
+                  }`,
+                  padding: "3px 10px",
+                  borderRadius: 10,
+                }}
+              >
+                {gap.effortLevel === "quick_win"
+                  ? "Quick Win"
+                  : gap.effortLevel === "incremental"
+                    ? "Incremental"
+                    : "Strategic"}
+              </span>
+            )}
+            {gap.impactedRoles && gap.impactedRoles.length > 0 && (
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: "var(--color-text)",
+                  background: "var(--color-border)",
+                  padding: "3px 10px",
+                  borderRadius: 10,
+                }}
+              >
+                {gap.impactedRoles.join(", ")}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Affected steps */}
         {gap.stepIds.length > 0 && (
           <div
