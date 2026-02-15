@@ -30,9 +30,10 @@ export default function DashboardPage() {
       })
       .catch((err) => {
         const msg = err instanceof Error ? err.message : "Failed to load workflows";
-        if (workflows.length === 0) {
-          setError(msg);
-        }
+        setWorkflows((current) => {
+          if (current.length === 0) setError(msg);
+          return current;
+        });
         addToast("error", msg);
       })
       .finally(() => setLoading(false));

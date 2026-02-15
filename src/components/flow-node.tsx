@@ -53,7 +53,16 @@ export default function FlowNode({ data }: FlowNodeProps) {
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={`Step: ${step.name}, ${LAYER_LABELS[step.layer]} layer, ${step.automationScore}% automation`}
       onClick={() => onClick(step.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick(step.id);
+        }
+      }}
       onMouseEnter={() => {
         setHovered(true);
         onHoverStart?.(step.id);

@@ -19,6 +19,7 @@ interface AppState {
   setSelectedNodeId: (id: string | null) => void;
   activeTab: "flow" | "gaps" | "health";
   setActiveTab: (tab: "flow" | "gaps" | "health") => void;
+  resetXRayView: () => void;
 
   // Library
   workflows: Workflow[];
@@ -38,6 +39,7 @@ export const useStore = create<AppState>((set) => ({
   setSelectedNodeId: (id) => set({ selectedNodeId: id }),
   activeTab: "flow",
   setActiveTab: (tab) => set({ activeTab: tab }),
+  resetXRayView: () => set({ selectedNodeId: null, activeTab: "flow" }),
 
   workflows: [],
   setWorkflows: (w) => set({ workflows: w }),

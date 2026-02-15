@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useCallback } from "react";
 import type { Step } from "@/lib/types";
 import { LAYER_COLORS, LAYER_LABELS } from "@/lib/types";
 
@@ -9,18 +10,35 @@ interface DetailPanelProps {
 }
 
 export default function DetailPanel({ step, onClose }: DetailPanelProps) {
+  // Keyboard dismiss with Escape
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    },
+    [onClose]
+  );
+
+  useEffect(() => {
+    if (step) {
+      document.addEventListener("keydown", handleKeyDown);
+      return () => document.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [step, handleKeyDown]);
+
   if (!step) return null;
 
   const color = LAYER_COLORS[step.layer];
 
   return (
     <div
+      role="complementary"
+      aria-label={`Details for ${step.name}`}
       style={{
         position: "absolute",
         right: 0,
         top: 0,
         bottom: 0,
-        width: 336,
+        width: "clamp(280px, 85vw, 336px)",
         background: "var(--color-surface)",
         borderLeft: "1px solid var(--color-border)",
         padding: 24,
@@ -64,6 +82,7 @@ export default function DetailPanel({ step, onClose }: DetailPanelProps) {
         </div>
         <button
           onClick={onClose}
+          aria-label="Close detail panel"
           style={{
             background: "none",
             border: "none",

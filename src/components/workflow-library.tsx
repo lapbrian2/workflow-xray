@@ -370,8 +370,8 @@ export default function WorkflowLibrary() {
             padding: "10px 28px",
             borderRadius: "var(--radius-sm)",
             border: "none",
-            background: "linear-gradient(135deg, var(--color-dark) 0%, #2a3a52 100%)",
-            color: "#F0F2F5",
+            background: "linear-gradient(135deg, var(--color-dark) 0%, var(--color-dark-alt) 100%)",
+            color: "var(--color-light)",
             fontFamily: "var(--font-mono)",
             fontSize: 12,
             fontWeight: 600,
@@ -555,9 +555,9 @@ export default function WorkflowLibrary() {
                     borderRadius: 6,
                     border: "none",
                     background: isActive
-                      ? "linear-gradient(135deg, var(--color-dark) 0%, #2a3a52 100%)"
+                      ? "linear-gradient(135deg, var(--color-dark) 0%, var(--color-dark-alt) 100%)"
                       : "var(--color-border)",
-                    color: isActive ? "#F0F2F5" : "var(--color-text)",
+                    color: isActive ? "var(--color-light)" : "var(--color-text)",
                     fontFamily: "var(--font-mono)",
                     fontSize: 10,
                     fontWeight: 600,
@@ -603,9 +603,9 @@ export default function WorkflowLibrary() {
                   borderRadius: 6,
                   border: "none",
                   background: gapFilter === "all"
-                    ? "linear-gradient(135deg, var(--color-dark) 0%, #2a3a52 100%)"
+                    ? "linear-gradient(135deg, var(--color-dark) 0%, var(--color-dark-alt) 100%)"
                     : "var(--color-border)",
-                  color: gapFilter === "all" ? "#F0F2F5" : "var(--color-text)",
+                  color: gapFilter === "all" ? "var(--color-light)" : "var(--color-text)",
                   fontFamily: "var(--font-mono)",
                   fontSize: 10,
                   fontWeight: 600,
@@ -628,9 +628,9 @@ export default function WorkflowLibrary() {
                       borderRadius: 6,
                       border: "none",
                       background: isActive
-                        ? "linear-gradient(135deg, var(--color-accent) 0%, #F09060 100%)"
+                        ? "linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-light) 100%)"
                         : "var(--color-border)",
-                      color: isActive ? "#fff" : "var(--color-text)",
+                      color: isActive ? "var(--color-light)" : "var(--color-text)",
                       fontFamily: "var(--font-mono)",
                       fontSize: 10,
                       fontWeight: 600,
@@ -776,8 +776,8 @@ export default function WorkflowLibrary() {
               padding: "10px 28px",
               borderRadius: "var(--radius-sm)",
               border: "none",
-              background: "linear-gradient(135deg, var(--color-accent) 0%, #F09060 100%)",
-              color: "#fff",
+              background: "linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-light) 100%)",
+              color: "var(--color-light)",
               fontFamily: "var(--font-mono)",
               fontSize: 13,
               fontWeight: 600,

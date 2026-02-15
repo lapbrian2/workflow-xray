@@ -234,6 +234,7 @@ function HomeContent() {
       setReanalyzeWorkflow(null);
       return;
     }
+    let cancelled = false;
     setReanalyzeLoading(true);
 
     // Check localStorage first
@@ -249,11 +250,17 @@ function HomeContent() {
         if (!res.ok) throw new Error("Not found");
         return res.json();
       })
-      .then((data: Workflow) => setReanalyzeWorkflow(data))
-      .catch(() => {
-        if (!local) setReanalyzeWorkflow(null);
+      .then((data: Workflow) => {
+        if (!cancelled) setReanalyzeWorkflow(data);
       })
-      .finally(() => setReanalyzeLoading(false));
+      .catch(() => {
+        if (!cancelled && !local) setReanalyzeWorkflow(null);
+      })
+      .finally(() => {
+        if (!cancelled) setReanalyzeLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, [reanalyzeId]);
 
   return (

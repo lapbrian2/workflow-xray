@@ -15,7 +15,7 @@ interface ConfirmModalProps {
 
 const VARIANT_COLORS = {
   danger: { bg: "var(--danger-bg)", border: "var(--color-accent)", icon: "!", accent: "var(--color-danger)" },
-  warning: { bg: "var(--warning-bg)", border: "var(--color-warning)", icon: "⚠", accent: "#B8860B" },
+  warning: { bg: "var(--warning-bg)", border: "var(--color-warning)", icon: "⚠", accent: "var(--color-warning-dark)" },
   info: { bg: "var(--info-bg)", border: "var(--color-info)", icon: "i", accent: "var(--color-info)" },
 };
 
@@ -198,10 +198,10 @@ export default function ConfirmModal({
                 border: "none",
                 background:
                   variant === "danger"
-                    ? "linear-gradient(135deg, var(--color-danger), #E74C3C)"
+                    ? "linear-gradient(135deg, var(--color-danger), #e74c3c)"
                     : variant === "warning"
-                      ? "linear-gradient(135deg, #B8860B, var(--color-warning))"
-                      : "linear-gradient(135deg, var(--color-info), #5BA0E0)",
+                      ? "linear-gradient(135deg, var(--color-warning-dark), var(--color-warning))"
+                      : "linear-gradient(135deg, var(--color-info), #5ba0e0)",
                 color: "var(--color-light)",
                 fontFamily: "var(--font-mono)",
                 fontSize: 12,

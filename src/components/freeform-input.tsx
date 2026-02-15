@@ -76,7 +76,9 @@ const ALL_CATEGORIES: Category[] = [
   "Support",
 ];
 
-// Distinct muted colors per category for the pill and card accent
+// Category accent colors — hex values required for opacity suffixes in JS.
+// These mirror the CSS vars: --color-accent, --color-info, --color-memory,
+// --color-warning, --color-success, --color-integration in globals.css.
 const CATEGORY_COLORS: Record<Category, string> = {
   Sales: "#e8553a",
   Engineering: "#2d7dd2",
@@ -244,7 +246,7 @@ export default function FreeformInput({
             color:
               disabled || value.trim().length < 20
                 ? "var(--color-muted)"
-                : "#fff",
+                : "var(--color-light)",
             fontFamily: "var(--font-mono)",
             fontSize: 13,
             fontWeight: 600,
@@ -266,8 +268,8 @@ export default function FreeformInput({
                 style={{
                   width: 14,
                   height: 14,
-                  border: "2px solid rgba(255,255,255,0.3)",
-                  borderTop: "2px solid #fff",
+                  border: "2px solid rgba(240,242,245,0.3)",
+                  borderTop: "2px solid var(--color-light)",
                   borderRadius: "50%",
                   animation: "spin 0.8s linear infinite",
                   display: "inline-block",
@@ -373,8 +375,8 @@ export default function FreeformInput({
                     flex: 1,
                     padding: "8px 12px",
                     borderRadius: 6,
-                    border: `1px solid ${importError ? "#E8553A40" : "var(--color-border)"}`,
-                    background: "#fff",
+                    border: `1px solid ${importError ? "rgba(232,85,58,0.25)" : "var(--color-border)"}`,
+                    background: "var(--color-surface)",
                     fontFamily: "var(--font-mono)",
                     fontSize: 12,
                     color: "var(--color-dark)",
@@ -395,7 +397,7 @@ export default function FreeformInput({
                     color:
                       importing || !notionUrl.trim()
                         ? "var(--color-muted)"
-                        : "#fff",
+                        : "var(--color-light)",
                     fontFamily: "var(--font-mono)",
                     fontSize: 12,
                     fontWeight: 600,
@@ -414,8 +416,8 @@ export default function FreeformInput({
                         style={{
                           width: 12,
                           height: 12,
-                          border: "2px solid rgba(255,255,255,0.3)",
-                          borderTop: "2px solid #fff",
+                          border: "2px solid rgba(240,242,245,0.3)",
+                          borderTop: "2px solid var(--color-light)",
                           borderRadius: "50%",
                           animation: "spin 0.8s linear infinite",
                           display: "inline-block",
@@ -436,8 +438,8 @@ export default function FreeformInput({
                 style={{
                   marginTop: 4,
                   padding: "12px 14px",
-                  background: "#f8faf9",
-                  border: "1px solid #17A58930",
+                  background: "var(--success-bg)",
+                  border: "1px solid rgba(23,165,137,0.19)",
                   borderRadius: 8,
                   animation: "fadeIn 0.25s ease",
                 }}
@@ -475,12 +477,12 @@ export default function FreeformInput({
                     style={{
                       marginBottom: 10,
                       padding: "6px 10px",
-                      background: "#FDF0EE",
-                      border: "1px solid #E8553A30",
+                      background: "var(--danger-bg)",
+                      border: "1px solid rgba(232,85,58,0.19)",
                       borderRadius: 6,
                       fontFamily: "var(--font-mono)",
                       fontSize: 10,
-                      color: "#C0392B",
+                      color: "var(--color-danger)",
                       lineHeight: 1.5,
                     }}
                   >
@@ -501,7 +503,7 @@ export default function FreeformInput({
                     lineHeight: 1.6,
                     color: "var(--color-text)",
                     padding: "8px 10px",
-                    background: "#fff",
+                    background: "var(--color-surface)",
                     border: "1px solid var(--color-border)",
                     borderRadius: 6,
                     whiteSpace: "pre-wrap",
@@ -519,7 +521,7 @@ export default function FreeformInput({
                       right: 0,
                       height: 32,
                       background:
-                        "linear-gradient(transparent, #fff)",
+                        "linear-gradient(transparent, var(--color-surface))",
                       pointerEvents: "none",
                     }}
                   />
@@ -532,8 +534,8 @@ export default function FreeformInput({
                       padding: "8px 20px",
                       borderRadius: 6,
                       border: "none",
-                      background: "#17A589",
-                      color: "#fff",
+                      background: "var(--color-success)",
+                      color: "var(--color-light)",
                       fontFamily: "var(--font-mono)",
                       fontSize: 12,
                       fontWeight: 600,
@@ -573,7 +575,7 @@ export default function FreeformInput({
                   marginTop: 8,
                   fontFamily: "var(--font-mono)",
                   fontSize: 11,
-                  color: "#C0392B",
+                  color: "var(--color-danger)",
                   lineHeight: 1.5,
                 }}
               >
@@ -660,7 +662,7 @@ export default function FreeformInput({
                       ? `${accentColor}0D` // ~5% opacity
                       : "var(--color-surface)",
                   color: isActive
-                    ? "#fff"
+                    ? "var(--color-light)"
                     : isHover
                       ? accentColor
                       : "var(--color-text)",

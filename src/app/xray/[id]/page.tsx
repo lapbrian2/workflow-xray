@@ -18,7 +18,7 @@ export default function XRayPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
-  const { activeTab, setActiveTab } = useStore();
+  const { activeTab, setActiveTab, resetXRayView } = useStore();
   const { addToast } = useToast();
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -104,6 +104,11 @@ export default function XRayPage() {
 
   // Retry counter to re-trigger the effect
   const [retryCount, setRetryCount] = useState(0);
+
+  // Reset flow map view state when switching between workflows
+  useEffect(() => {
+    resetXRayView();
+  }, [id, resetXRayView]);
 
   useEffect(() => {
     let cancelled = false;
