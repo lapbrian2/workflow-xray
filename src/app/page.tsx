@@ -383,6 +383,9 @@ function HomeContent() {
       {/* Loading indicator */}
       {isDecomposing && (
         <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
           style={{
             marginBottom: 24,
             background:

@@ -66,7 +66,7 @@
 
   /* Nav colors (dark theme context) */
   --nav-bg: rgba(28, 37, 54, 0.98);
-  --nav-text: #6b7a8d;
+  --nav-text: #8b9aaf;
   --nav-text-active: #f0f2f5;
   --nav-divider: rgba(255, 255, 255, 0.06);
   --nav-hover-bg: rgba(255, 255, 255, 0.06);
@@ -653,6 +653,9 @@ button:disabled {
   font-family: var(--font-mono);
   font-size: 11px;
   white-space: nowrap;
+  max-width: min(240px, 90vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
   pointer-events: none;
   animation: fadeIn 0.15s ease;
   z-index: 100;

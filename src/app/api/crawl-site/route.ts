@@ -87,6 +87,25 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Block private/internal IPs (SSRF protection)
+  const hostname = parsed.hostname.toLowerCase();
+  const isPrivate =
+    hostname === "localhost" ||
+    hostname === "0.0.0.0" ||
+    hostname === "[::]" ||
+    hostname === "[::1]" ||
+    hostname.startsWith("127.") ||
+    hostname.startsWith("10.") ||
+    hostname.startsWith("192.168.") ||
+    hostname.startsWith("169.254.") ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
+  if (isPrivate) {
+    return new Response(
+      JSON.stringify({ error: "Cannot crawl private or internal network addresses." }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   const maxPages = Math.min(Math.max(body.maxPages || 20, 1), 50);
   const MAX_CONTENT_CHARS = 30_000;
 

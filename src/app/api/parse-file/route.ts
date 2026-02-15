@@ -59,24 +59,45 @@ export async function POST(request: NextRequest) {
     const ext = fileName.substring(lastDotIndex).toLowerCase();
 
     let content: string;
+    const buffer = Buffer.from(await file.arrayBuffer());
 
     if (ext === ".pdf") {
+      // Validate PDF magic bytes (%PDF-)
+      if (buffer.length < 5 || buffer.subarray(0, 5).toString("ascii") !== "%PDF-") {
+        return NextResponse.json(
+          { error: "File is not a valid PDF." },
+          { status: 400 }
+        );
+      }
       // pdf-parse uses CJS `module.exports =` — cast for dynamic require
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
-      const buffer = Buffer.from(await file.arrayBuffer());
       const pdfData = await pdfParse(buffer);
       content = pdfData.text;
 
     } else if (ext === ".docx") {
+      // Validate DOCX magic bytes (PK zip header)
+      if (buffer.length < 4 || buffer[0] !== 0x50 || buffer[1] !== 0x4b) {
+        return NextResponse.json(
+          { error: "File is not a valid DOCX document." },
+          { status: 400 }
+        );
+      }
       const mammoth = await import("mammoth");
-      const buffer = Buffer.from(await file.arrayBuffer());
       const result = await mammoth.extractRawText({ buffer });
       content = result.value;
 
     } else if (ext === ".xlsx" || ext === ".xls") {
+      // Validate Excel magic bytes: PK (xlsx) or 0xD0CF (xls OLE2)
+      const isPK = buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4b;
+      const isOLE = buffer.length >= 4 && buffer[0] === 0xd0 && buffer[1] === 0xcf;
+      if (!isPK && !isOLE) {
+        return NextResponse.json(
+          { error: "File is not a valid Excel spreadsheet." },
+          { status: 400 }
+        );
+      }
       const XLSX = await import("xlsx");
-      const buffer = Buffer.from(await file.arrayBuffer());
       const workbook = XLSX.read(buffer, { type: "buffer" });
 
       // Extract text from ALL sheets, labeled by tab name

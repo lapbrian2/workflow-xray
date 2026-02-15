@@ -576,6 +576,8 @@ export default function FreeformInput({
     setImporting(true);
     setImportError(null);
     setImportPreview(null);
+    setExtractionResults(null);
+    setExtractionError(null);
     try {
       const res = await fetch("/api/notion-import", {
         method: "POST",
@@ -583,8 +585,14 @@ export default function FreeformInput({
         body: JSON.stringify({ pageUrl: notionUrl.trim() }),
       });
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Import failed");
+        let errMsg = "Import failed";
+        try {
+          const err = await res.json();
+          errMsg = err.error || errMsg;
+        } catch {
+          errMsg = `Server error (${res.status}): ${res.statusText}`;
+        }
+        throw new Error(errMsg);
       }
       const data = await res.json();
       setImportPreview(data);
@@ -595,7 +603,7 @@ export default function FreeformInput({
     } finally {
       setImporting(false);
     }
-  }, [notionUrl, importing]);
+  }, [notionUrl]);
 
   const handleInsertImport = useCallback(() => {
     if (!importPreview) return;
@@ -717,43 +725,53 @@ export default function FreeformInput({
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || `Request failed (${res.status})`);
+        let errMsg = `Request failed (${res.status})`;
+        try {
+          const err = await res.json();
+          errMsg = err.error || errMsg;
+        } catch {
+          errMsg = `Server error (${res.status}): ${res.statusText}`;
+        }
+        throw new Error(errMsg);
       }
 
       const reader = res.body?.getReader();
       if (!reader) throw new Error("No response stream");
 
-      const decoder = new TextDecoder();
-      let buffer = "";
+      try {
+        const decoder = new TextDecoder();
+        let buffer = "";
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
 
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const event = JSON.parse(line.slice(6));
-            handleCrawlEvent(event);
-          } catch {
-            // Skip malformed SSE lines
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const event = JSON.parse(line.slice(6));
+              handleCrawlEvent(event);
+            } catch {
+              // Skip malformed SSE lines
+            }
           }
         }
-      }
 
-      // Process remaining buffer
-      if (buffer.startsWith("data: ")) {
-        try {
-          const event = JSON.parse(buffer.slice(6));
-          handleCrawlEvent(event);
-        } catch {
-          // skip
+        // Process remaining buffer
+        if (buffer.startsWith("data: ")) {
+          try {
+            const event = JSON.parse(buffer.slice(6));
+            handleCrawlEvent(event);
+          } catch {
+            // skip
+          }
         }
+      } finally {
+        reader.releaseLock();
       }
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
@@ -765,7 +783,7 @@ export default function FreeformInput({
       crawlAbortRef.current = null;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [crawlUrl, crawlMaxPages, crawlRunning]);
+  }, [crawlUrl, crawlMaxPages]);
 
   const handleCrawlEvent = useCallback((event: Record<string, unknown>) => {
     const type = event.type as string;
@@ -1072,8 +1090,14 @@ export default function FreeformInput({
         body: JSON.stringify({ url: urlInput.trim() }),
       });
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to fetch URL");
+        let errMsg = "Failed to fetch URL";
+        try {
+          const err = await res.json();
+          errMsg = err.error || errMsg;
+        } catch {
+          errMsg = `Server error (${res.status}): ${res.statusText}`;
+        }
+        throw new Error(errMsg);
       }
       const data = await res.json();
       setUrlPreview(data);
@@ -1084,7 +1108,7 @@ export default function FreeformInput({
     } finally {
       setUrlFetching(false);
     }
-  }, [urlInput, urlFetching]);
+  }, [urlInput]);
 
   const handleUrlInsert = useCallback(() => {
     if (!urlPreview) return;

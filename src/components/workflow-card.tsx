@@ -404,8 +404,8 @@ function MiniHealthBar({
       <span
         style={{
           fontFamily: "var(--font-mono)",
-          fontSize: 7,
-          color: "var(--color-muted)",
+          fontSize: 9,
+          color: "var(--color-text)",
           lineHeight: 1,
         }}
       >
