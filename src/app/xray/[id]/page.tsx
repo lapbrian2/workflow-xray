@@ -105,9 +105,12 @@ export default function XRayPage() {
   // Retry counter to re-trigger the effect
   const [retryCount, setRetryCount] = useState(0);
 
-  // Reset flow map view state when switching between workflows
+  // Reset flow map view state + Notion sync state when switching between workflows
   useEffect(() => {
     resetXRayView();
+    setSynced(false);
+    setNotionUrl(null);
+    setNotionPageId(null);
   }, [id, resetXRayView]);
 
   useEffect(() => {

@@ -71,6 +71,8 @@ export default function FlowNode({ data }: FlowNodeProps) {
         setHovered(false);
         onHoverEnd?.();
       }}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
       style={{
         position: "relative",
         padding: "10px 14px",

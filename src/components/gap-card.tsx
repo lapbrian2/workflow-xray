@@ -54,7 +54,6 @@ export default function GapCard({ gap, index }: GapCardProps) {
         boxShadow: hovered
           ? `0 8px 24px rgba(0,0,0,0.06), 0 0 0 1px ${sevColor}10`
           : "0 1px 3px rgba(0,0,0,0.03)",
-        cursor: "pointer",
         position: "relative",
         overflow: "hidden",
       }}
@@ -169,7 +168,7 @@ export default function GapCard({ gap, index }: GapCardProps) {
         aria-label={`${GAP_LABELS[gap.type]} details`}
         style={{
           overflow: "hidden",
-          maxHeight: expanded ? 500 : 0,
+          maxHeight: expanded ? 2000 : 0,
           opacity: expanded ? 1 : 0,
           transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
           padding: expanded ? "12px 16px 16px" : "0 16px",

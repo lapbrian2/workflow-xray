@@ -249,7 +249,7 @@ export default function DashboardPage() {
             {error}
           </div>
           <button
-            onClick={() => { setError(null); setLoading(true); fetch("/api/workflows").then((r) => r.json()).then((data) => { setWorkflows(mergeWithServer(data.workflows || [])); }).catch(() => {}).finally(() => setLoading(false)); }}
+            onClick={() => { setError(null); setLoading(true); fetch("/api/workflows").then((r) => r.json()).then((data) => { setWorkflows(mergeWithServer(data.workflows || [])); }).catch((err) => { setError(err instanceof Error ? err.message : "Failed to load workflows. Please try again."); }).finally(() => setLoading(false)); }}
             style={{
               padding: "10px 28px",
               borderRadius: "var(--radius-sm)",

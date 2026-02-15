@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 // ---------------------------------------------------------------------------
 // Template system
@@ -706,6 +706,17 @@ export default function FreeformInput({
   const [crawlProgress, setCrawlProgress] = useState<CrawlProgress>({ stage: "idle" });
   const crawlAbortRef = useRef<AbortController | null>(null);
 
+  // Abort crawl SSE stream on unmount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    return () => {
+      if (crawlAbortRef.current) {
+        crawlAbortRef.current.abort();
+        crawlAbortRef.current = null;
+      }
+    };
+  }, []);
+
   // ─── Crawl SSE handler ───
   const handleCrawlStart = useCallback(async () => {
     if (crawlRunning || !crawlUrl.trim()) return;
@@ -1255,7 +1266,9 @@ export default function FreeformInput({
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
             e.preventDefault();
-            onSubmit();
+            if (!disabled && value.trim().length >= 20) {
+              onSubmit();
+            }
           }
         }}
         disabled={disabled}
@@ -1427,7 +1440,12 @@ export default function FreeformInput({
                     setExtractionResults(null);
                     setExtractionError(null);
                     // Reset crawl state when leaving crawl tab
-                    if (tab !== "crawl" && !crawlRunning) {
+                    if (tab !== "crawl") {
+                      if (crawlRunning && crawlAbortRef.current) {
+                        crawlAbortRef.current.abort();
+                        crawlAbortRef.current = null;
+                        setCrawlRunning(false);
+                      }
                       setCrawlError(null);
                       setCrawlProgress({ stage: "idle" });
                     }
@@ -2417,8 +2435,8 @@ export default function FreeformInput({
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat as Category | "All")}
-                onMouseEnter={() => setHoveredPill(cat)}
-                onMouseLeave={() => setHoveredPill(null)}
+                onMouseEnter={() => !disabled && setHoveredPill(cat)}
+                onMouseLeave={() => !disabled && setHoveredPill(null)}
                 disabled={disabled}
                 style={{
                   padding: "5px 14px",
@@ -2519,8 +2537,8 @@ export default function FreeformInput({
                   <button
                     key={globalIdx}
                     onClick={() => onChange(tpl.prompt)}
-                    onMouseEnter={() => setHoveredCard(globalIdx)}
-                    onMouseLeave={() => setHoveredCard(null)}
+                    onMouseEnter={() => !disabled && setHoveredCard(globalIdx)}
+                    onMouseLeave={() => !disabled && setHoveredCard(null)}
                     disabled={disabled}
                     style={{
                       textAlign: "left",

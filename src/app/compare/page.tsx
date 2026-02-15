@@ -63,8 +63,10 @@ export default function ComparePage() {
     } else if (!selected[0]) {
       setSelected([id, selected[1]]);
     } else if (!selected[1]) {
+      if (id === selected[0]) return; // Prevent selecting same workflow twice
       setSelected([selected[0], id]);
     } else {
+      if (id === selected[0]) return; // Prevent selecting same workflow twice
       setSelected([selected[0], id]);
     }
   };
