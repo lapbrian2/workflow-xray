@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { saveWorkflowLocal } from "@/lib/client-db";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
+import type { ExtractionSource } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Template system
@@ -1087,6 +1090,32 @@ export default function FreeformInput({
   const [extractionError, setExtractionError] = useState<string | null>(null);
   const extractLock = useRef(false);
 
+  // ─── Analyze All state ───
+  interface AnalyzeAllWorkflowItem {
+    id: string;
+    title: string;
+    status: "queued" | "analyzing" | "complete" | "error";
+    savedId?: string;
+    steps?: number;
+    gaps?: number;
+    automationPotential?: number;
+    error?: string;
+  }
+  interface AnalyzeAllProgress {
+    stage: "idle" | "analyzing" | "complete";
+    current?: number;
+    total?: number;
+    workflows?: AnalyzeAllWorkflowItem[];
+    summary?: {
+      totalWorkflows: number;
+      workflowsSaved: number;
+      workflowsFailed: number;
+      savedWorkflowIds: string[];
+    };
+  }
+  const [analyzeAllProgress, setAnalyzeAllProgress] = useState<AnalyzeAllProgress>({ stage: "idle" });
+  const analyzeAllAbortRef = useRef(false);
+
   // ─── URL fetch handler ───
   const handleUrlFetch = useCallback(async () => {
     if (!urlInput.trim() || urlFetching) return;
@@ -1186,6 +1215,143 @@ export default function FreeformInput({
     },
     [onChange]
   );
+
+  // ─── Analyze All handler ───
+  const handleAnalyzeAll = useCallback(async () => {
+    if (!extractionResults || extractionResults.workflows.length === 0) return;
+
+    const workflows = extractionResults.workflows;
+    analyzeAllAbortRef.current = false;
+
+    // Build initial queued list
+    const initial: AnalyzeAllWorkflowItem[] = workflows.map((wf, i) => ({
+      id: `aa_${i + 1}`,
+      title: wf.title,
+      status: "queued" as const,
+    }));
+
+    setAnalyzeAllProgress({
+      stage: "analyzing",
+      current: 0,
+      total: workflows.length,
+      workflows: initial,
+    });
+
+    // Hide the extraction results card — progress cards replace it
+    setExtractionResults(null);
+
+    const savedIds: string[] = [];
+    let failed = 0;
+
+    for (let i = 0; i < workflows.length; i++) {
+      if (analyzeAllAbortRef.current) break;
+
+      const wf = workflows[i];
+      const itemId = `aa_${i + 1}`;
+
+      // Mark current as analyzing
+      setAnalyzeAllProgress((prev) => ({
+        ...prev,
+        current: i + 1,
+        workflows: prev.workflows?.map((w) =>
+          w.id === itemId ? { ...w, status: "analyzing" as const } : w
+        ),
+      }));
+
+      try {
+        // 1. Decompose
+        const res = await fetchWithTimeout(
+          "/api/decompose",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ description: wf.extractedDescription }),
+          },
+          120000
+        );
+
+        if (!res.ok) {
+          let errMsg = "Decomposition failed";
+          try {
+            const err = await res.json();
+            errMsg = err.error || errMsg;
+          } catch {
+            errMsg = `Server error (${res.status})`;
+          }
+          throw new Error(errMsg);
+        }
+
+        const workflow = await res.json();
+
+        // Attach extraction source metadata
+        const extractionSource: ExtractionSource = {
+          type: "manual",
+          title: wf.title,
+          extractedAt: new Date().toISOString(),
+          sourceSection: wf.sourceSection,
+          totalWorkflowsInDocument: workflows.length,
+        };
+        workflow.extractionSource = extractionSource;
+
+        // 2. Save to server
+        await fetch("/api/workflows", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(workflow),
+        });
+
+        // 3. Save to local IndexedDB
+        saveWorkflowLocal(workflow);
+        savedIds.push(workflow.id);
+
+        // Mark complete with stats
+        setAnalyzeAllProgress((prev) => ({
+          ...prev,
+          workflows: prev.workflows?.map((w) =>
+            w.id === itemId
+              ? {
+                  ...w,
+                  status: "complete" as const,
+                  savedId: workflow.id,
+                  steps: workflow.decomposition?.steps?.length ?? 0,
+                  gaps: workflow.decomposition?.gaps?.length ?? 0,
+                  automationPotential:
+                    workflow.decomposition?.health?.automationPotential ?? 0,
+                }
+              : w
+          ),
+        }));
+      } catch (err) {
+        failed++;
+        setAnalyzeAllProgress((prev) => ({
+          ...prev,
+          workflows: prev.workflows?.map((w) =>
+            w.id === itemId
+              ? {
+                  ...w,
+                  status: "error" as const,
+                  error: err instanceof Error ? err.message : "Failed",
+                }
+              : w
+          ),
+        }));
+      }
+    }
+
+    // Complete
+    setAnalyzeAllProgress({
+      stage: "complete",
+      current: workflows.length,
+      total: workflows.length,
+      workflows: undefined, // Clear individual cards
+      summary: {
+        totalWorkflows: workflows.length,
+        workflowsSaved: savedIds.length,
+        workflowsFailed: failed,
+        savedWorkflowIds: savedIds,
+      },
+    });
+  }, [extractionResults]);
 
   // ─── Screenshot extraction handler ───
   const handleExtractFromScreenshot = useCallback(async () => {
@@ -1439,6 +1605,11 @@ export default function FreeformInput({
                     setUrlPreview(null);
                     setExtractionResults(null);
                     setExtractionError(null);
+                    // Reset analyze-all progress on tab switch
+                    if (analyzeAllProgress.stage !== "idle") {
+                      analyzeAllAbortRef.current = true;
+                      setAnalyzeAllProgress({ stage: "idle" });
+                    }
                     // Reset crawl state when leaving crawl tab
                     if (tab !== "crawl") {
                       if (crawlRunning && crawlAbortRef.current) {
@@ -2352,6 +2523,230 @@ export default function FreeformInput({
                       </button>
                     ))}
                   </div>
+
+                  {/* Analyze All button — shown when 2+ workflows */}
+                  {extractionResults.workflows.length >= 2 && (
+                    <div style={{ marginTop: 10, borderTop: "1px solid rgba(45,125,210,0.12)", paddingTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--color-muted)" }}>
+                        {extractionResults.workflows.length} workflows found
+                      </span>
+                      <button
+                        onClick={handleAnalyzeAll}
+                        style={{
+                          padding: "7px 16px",
+                          borderRadius: 6,
+                          border: "none",
+                          background: "var(--color-info)",
+                          color: "var(--color-light)",
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          transition: "all 0.2s",
+                          letterSpacing: "0.04em",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <span style={{ fontSize: 13 }}>&#9654;</span>
+                        Analyze All
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Analyze All: progress cards ── */}
+            {analyzeAllProgress.stage === "analyzing" && analyzeAllProgress.workflows && (
+              <div style={{ marginTop: 4, animation: "fadeIn 0.25s ease" }}>
+                <div style={{
+                  padding: "12px 14px",
+                  background: "var(--info-bg)",
+                  border: "1px solid rgba(45,125,210,0.19)",
+                  borderRadius: 8,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700, color: "var(--color-info)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 2 }}>
+                        Analyzing All Workflows
+                      </div>
+                      <div style={{ fontFamily: "var(--font-display)", fontSize: 13, fontWeight: 700, color: "var(--color-dark)" }}>
+                        {analyzeAllProgress.current} of {analyzeAllProgress.total} complete
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => { analyzeAllAbortRef.current = true; }}
+                      style={{ background: "none", border: "1px solid var(--color-border)", borderRadius: 4, fontSize: 9, fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--color-muted)", cursor: "pointer", padding: "3px 8px" }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+
+                  {/* Overall progress bar */}
+                  <div style={{ height: 3, borderRadius: 2, background: "rgba(45,125,210,0.12)", marginBottom: 10, overflow: "hidden" }}>
+                    <div style={{
+                      width: `${((analyzeAllProgress.current ?? 0) / (analyzeAllProgress.total ?? 1)) * 100}%`,
+                      height: "100%",
+                      background: "var(--color-info)",
+                      borderRadius: 2,
+                      transition: "width 0.4s ease",
+                    }} />
+                  </div>
+
+                  {/* Per-workflow status cards */}
+                  <div style={{ maxHeight: 240, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, paddingRight: 4 }}>
+                    {analyzeAllProgress.workflows.map((wf) => (
+                      <div
+                        key={wf.id}
+                        style={{
+                          padding: "8px 10px",
+                          borderRadius: 6,
+                          border: `1px solid ${
+                            wf.status === "complete" ? "rgba(23,165,137,0.2)"
+                            : wf.status === "error" ? "rgba(232,85,58,0.2)"
+                            : wf.status === "analyzing" ? "rgba(45,125,210,0.2)"
+                            : "var(--color-border)"
+                          }`,
+                          background:
+                            wf.status === "complete" ? "rgba(23,165,137,0.04)"
+                            : wf.status === "error" ? "rgba(232,85,58,0.04)"
+                            : wf.status === "analyzing" ? "rgba(45,125,210,0.04)"
+                            : "var(--color-surface)",
+                          transition: "all 0.2s ease",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {/* Status icon */}
+                          <span style={{ fontSize: 12, flexShrink: 0 }}>
+                            {wf.status === "queued" && <span style={{ opacity: 0.4 }}>&#9203;</span>}
+                            {wf.status === "analyzing" && (
+                              <span style={{
+                                width: 10, height: 10,
+                                border: "2px solid rgba(45,125,210,0.2)",
+                                borderTop: "2px solid var(--color-info)",
+                                borderRadius: "50%",
+                                animation: "spin 0.8s linear infinite",
+                                display: "inline-block",
+                              }} />
+                            )}
+                            {wf.status === "complete" && <span style={{ color: "var(--color-success)" }}>&#10003;</span>}
+                            {wf.status === "error" && <span style={{ color: "var(--color-accent)" }}>&#10007;</span>}
+                          </span>
+                          {/* Title */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 600,
+                              color: "var(--color-dark)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                            }}>
+                              {wf.title}
+                            </div>
+                          </div>
+                          {/* Results */}
+                          {wf.status === "complete" && wf.steps !== undefined && (
+                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--color-success)", fontWeight: 600, flexShrink: 0 }}>
+                              {wf.steps}s / {wf.gaps}g / {wf.automationPotential}%
+                            </div>
+                          )}
+                          {wf.status === "error" && (
+                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--color-accent)", flexShrink: 0 }}>
+                              Failed
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Analyze All: completion summary ── */}
+            {analyzeAllProgress.stage === "complete" && analyzeAllProgress.summary && (
+              <div style={{ marginTop: 4, animation: "fadeIn 0.25s ease" }}>
+                <div style={{
+                  padding: "14px 16px",
+                  background: analyzeAllProgress.summary.workflowsFailed === 0
+                    ? "rgba(23,165,137,0.06)"
+                    : "rgba(212,160,23,0.06)",
+                  border: `1px solid ${analyzeAllProgress.summary.workflowsFailed === 0 ? "rgba(23,165,137,0.2)" : "rgba(212,160,23,0.2)"}`,
+                  borderRadius: 8,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                    <div>
+                      <div style={{
+                        fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700,
+                        color: analyzeAllProgress.summary.workflowsFailed === 0 ? "var(--color-success)" : "var(--color-warning)",
+                        letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 2,
+                      }}>
+                        {analyzeAllProgress.summary.workflowsFailed === 0 ? "All Workflows Analyzed" : "Analysis Complete"}
+                      </div>
+                      <div style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 700, color: "var(--color-dark)" }}>
+                        {analyzeAllProgress.summary.workflowsSaved} workflow{analyzeAllProgress.summary.workflowsSaved !== 1 ? "s" : ""} saved to library
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setAnalyzeAllProgress({ stage: "idle" })}
+                      style={{ background: "none", border: "none", fontSize: 16, color: "var(--color-muted)", cursor: "pointer", padding: "2px 6px" }}
+                    >
+                      &times;
+                    </button>
+                  </div>
+
+                  {/* Stats row */}
+                  <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 700, color: "var(--color-success)" }}>
+                        {analyzeAllProgress.summary.workflowsSaved}
+                      </div>
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                        Saved
+                      </div>
+                    </div>
+                    {analyzeAllProgress.summary.workflowsFailed > 0 && (
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 700, color: "var(--color-accent)" }}>
+                          {analyzeAllProgress.summary.workflowsFailed}
+                        </div>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                          Failed
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 700, color: "var(--color-dark)" }}>
+                        {analyzeAllProgress.summary.totalWorkflows}
+                      </div>
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                        Total
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* View in Library link */}
+                  {analyzeAllProgress.summary.workflowsSaved > 0 && (
+                    <a
+                      href="/library"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "7px 16px",
+                        borderRadius: 6,
+                        background: "var(--color-success)",
+                        color: "var(--color-light)",
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        textDecoration: "none",
+                        transition: "all 0.2s",
+                        letterSpacing: "0.04em",
+                      }}
+                    >
+                      View in Library &rarr;
+                    </a>
+                  )}
                 </div>
               </div>
             )}
