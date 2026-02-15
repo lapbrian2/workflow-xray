@@ -60,6 +60,20 @@ export interface CostContext {
   hoursPerStep?: number;   // avg hours spent per workflow step
 }
 
+export interface ExtractionSource {
+  type: "notion" | "url" | "manual";
+  url?: string;           // source URL (Notion page or web page)
+  title?: string;         // page title from source
+  extractedAt: string;    // ISO timestamp
+}
+
+export interface ExtractedWorkflow {
+  title: string;
+  description: string;    // extracted workflow description ready for decompose
+  confidence: "high" | "medium" | "low";
+  sourceSnippet?: string; // short excerpt showing where it was found
+}
+
 export interface Workflow {
   id: string;
   decomposition: Decomposition;
@@ -76,6 +90,7 @@ export interface Workflow {
     outputTokens: number;
   };
   remediationPlan?: RemediationPlan; // attached remediation plan (if generated)
+  extractionSource?: ExtractionSource; // how this workflow was sourced
 }
 
 export interface StageInput {

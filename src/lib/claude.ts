@@ -108,6 +108,48 @@ export async function callClaude(userMessage: string): Promise<ClaudeResponse> {
   };
 }
 
+// ─── Extraction prompt ───
+function getExtractionPrompt(): string {
+  return loadPrompt("extract-system.md").text;
+}
+
+export function getExtractionPromptVersion(): string {
+  return loadPrompt("extract-system.md").hash;
+}
+
+export async function callClaudeExtraction(userMessage: string): Promise<ClaudeResponse> {
+  const response = await client.messages.create({
+    model: CLAUDE_MODEL,
+    max_tokens: 6144,
+    system: [
+      {
+        type: "text",
+        text: getExtractionPrompt(),
+        cache_control: { type: "ephemeral" },
+      },
+    ],
+    messages: [{ role: "user", content: userMessage }],
+  });
+
+  const textBlock = response.content.find((b) => b.type === "text");
+  if (!textBlock || textBlock.type !== "text") {
+    throw new Error("No text response from Claude");
+  }
+
+  const inputTokens = response.usage?.input_tokens ?? 0;
+  const outputTokens = response.usage?.output_tokens ?? 0;
+
+  console.log(
+    `[Claude:Extraction] model=${CLAUDE_MODEL} prompt=${getExtractionPromptVersion()} in=${inputTokens} out=${outputTokens} total=${inputTokens + outputTokens}`
+  );
+
+  return {
+    text: textBlock.text,
+    inputTokens,
+    outputTokens,
+  };
+}
+
 export async function callClaudeRemediation(userMessage: string): Promise<ClaudeResponse> {
   const response = await client.messages.create({
     model: CLAUDE_MODEL,
