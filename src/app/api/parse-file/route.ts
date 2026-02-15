@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
-// Allow up to 60s for large PDF parsing
+// Allow up to 60s for large file parsing
 export const maxDuration = 60;
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const MAX_CHARS = 30_000;
 
 // ─── POST /api/parse-file ───
-// Accepts FormData with a single file (.pdf or .docx) and returns extracted text.
+// Accepts FormData with a single file and returns extracted text.
+// Supported: .pdf, .docx, .xlsx, .xls
 // Text-based files (.txt, .md, .csv, .json) should be parsed client-side.
 
 export async function POST(request: NextRequest) {
-  // Rate limit: 10 file parses per minute per IP
+  // Rate limit: 15 file parses per minute per IP
   const ip = getClientIp(request);
-  const rl = rateLimit(`parse-file:${ip}`, 10, 60);
+  const rl = rateLimit(`parse-file:${ip}`, 15, 60);
   if (!rl.allowed) {
     return NextResponse.json(
       { error: `Rate limit exceeded. Try again in ${rl.resetInSeconds}s.` },
@@ -48,25 +49,61 @@ export async function POST(request: NextRequest) {
     }
 
     const fileName = file.name;
-    const ext = fileName.substring(fileName.lastIndexOf(".")).toLowerCase();
+    const lastDotIndex = fileName.lastIndexOf(".");
+    if (lastDotIndex === -1) {
+      return NextResponse.json(
+        { error: "File must have an extension (e.g., .pdf, .docx, .xlsx)." },
+        { status: 400 }
+      );
+    }
+    const ext = fileName.substring(lastDotIndex).toLowerCase();
 
     let content: string;
 
     if (ext === ".pdf") {
-      // pdf-parse uses CJS `module.exports =` — cast through eslint-disable for dynamic require
+      // pdf-parse uses CJS `module.exports =` — cast for dynamic require
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
       const buffer = Buffer.from(await file.arrayBuffer());
       const pdfData = await pdfParse(buffer);
       content = pdfData.text;
+
     } else if (ext === ".docx") {
       const mammoth = await import("mammoth");
       const buffer = Buffer.from(await file.arrayBuffer());
       const result = await mammoth.extractRawText({ buffer });
       content = result.value;
+
+    } else if (ext === ".xlsx" || ext === ".xls") {
+      const XLSX = await import("xlsx");
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const workbook = XLSX.read(buffer, { type: "buffer" });
+
+      // Extract text from ALL sheets, labeled by tab name
+      const sheetTexts: string[] = [];
+      for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        if (!sheet) continue;
+
+        // Convert sheet to CSV text (preserves all data)
+        const csv = XLSX.utils.sheet_to_csv(sheet, { blankrows: false });
+        if (csv.trim().length === 0) continue;
+
+        sheetTexts.push(`\n--- Sheet: ${sheetName} ---\n${csv}`);
+      }
+
+      if (sheetTexts.length === 0) {
+        return NextResponse.json(
+          { error: "Excel file contains no readable data in any sheet." },
+          { status: 422 }
+        );
+      }
+
+      content = sheetTexts.join("\n");
+
     } else {
       return NextResponse.json(
-        { error: `Unsupported file type: ${ext}. Server-side parsing supports .pdf and .docx only.` },
+        { error: `Unsupported file type: ${ext}. Server-side parsing supports .pdf, .docx, .xlsx, and .xls.` },
         { status: 400 }
       );
     }

@@ -633,6 +633,7 @@ export default function FreeformInput({
   // ─── File Upload state ───
   const [fileParsing, setFileParsing] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [fileDragOver, setFileDragOver] = useState(false);
   const [filePreview, setFilePreview] = useState<{
     title: string;
     content: string;
@@ -936,8 +937,13 @@ export default function FreeformInput({
 
     try {
       const fileName = file.name;
-      const ext = fileName.substring(fileName.lastIndexOf(".")).toLowerCase();
+      const lastDotIndex = fileName.lastIndexOf(".");
+      if (lastDotIndex === -1) {
+        throw new Error("File must have an extension (e.g., .pdf, .docx, .xlsx).");
+      }
+      const ext = fileName.substring(lastDotIndex).toLowerCase();
       const textExts = new Set([".txt", ".md", ".log", ".csv", ".json"]);
+      const serverExts = new Set([".pdf", ".docx", ".xlsx", ".xls"]);
 
       let content: string;
       const title = fileName.replace(/\.[^.]+$/, "");
@@ -960,8 +966,8 @@ export default function FreeformInput({
             // Leave as-is if not valid JSON
           }
         }
-      } else if (ext === ".pdf" || ext === ".docx") {
-        // Server-side parsing
+      } else if (serverExts.has(ext)) {
+        // Server-side parsing for PDF, DOCX, Excel
         const formData = new FormData();
         formData.append("file", file);
 
@@ -971,14 +977,21 @@ export default function FreeformInput({
         });
 
         if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Failed to parse file");
+          let errMsg = "Failed to parse file";
+          try {
+            const err = await res.json();
+            errMsg = err.error || errMsg;
+          } catch {
+            // Response wasn't JSON — use status text
+            errMsg = `Server error (${res.status}): ${res.statusText}`;
+          }
+          throw new Error(errMsg);
         }
 
         const data = await res.json();
         content = data.content;
       } else {
-        throw new Error(`Unsupported file type: ${ext}. Supported: .txt, .md, .csv, .json, .pdf, .docx`);
+        throw new Error(`Unsupported file type: ${ext}. Supported: .txt, .md, .csv, .json, .pdf, .docx, .xlsx, .xls`);
       }
 
       // Truncate client-side for very large text files
@@ -1006,6 +1019,9 @@ export default function FreeformInput({
       );
     } finally {
       setFileParsing(false);
+      setFileDragOver(false);
+      // Reset file input so re-selecting the same file triggers onChange
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }, []);
 
@@ -1395,6 +1411,7 @@ export default function FreeformInput({
                     if (tab !== "file") {
                       setFileError(null);
                       setFilePreview(null);
+                      setFileDragOver(false);
                       if (fileInputRef.current) fileInputRef.current.value = "";
                     }
                   }}
@@ -2093,13 +2110,36 @@ export default function FreeformInput({
                     lineHeight: 1.5,
                   }}
                 >
-                  Upload a document to extract workflows from. Supports .txt, .md, .csv, .json, .pdf, and .docx.
+                  Upload a document to extract workflows from. Supports .txt, .md, .csv, .json, .pdf, .docx, .xlsx, and .xls.
                 </div>
 
                 {!filePreview && !extractionResults && (
                   <div>
-                    {/* Drop zone / file input */}
+                    {/* Drop zone / file input with drag-and-drop */}
                     <label
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!fileParsing && !disabled) setFileDragOver(true);
+                      }}
+                      onDragEnter={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!fileParsing && !disabled) setFileDragOver(true);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setFileDragOver(false);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setFileDragOver(false);
+                        if (fileParsing || disabled) return;
+                        const droppedFile = e.dataTransfer.files?.[0];
+                        if (droppedFile) handleFileSelect(droppedFile);
+                      }}
                       style={{
                         display: "flex",
                         flexDirection: "column",
@@ -2107,8 +2147,12 @@ export default function FreeformInput({
                         justifyContent: "center",
                         padding: "20px 16px",
                         borderRadius: 8,
-                        border: "2px dashed var(--color-border)",
-                        background: "var(--color-surface)",
+                        border: fileDragOver
+                          ? "2px dashed var(--color-info)"
+                          : "2px dashed var(--color-border)",
+                        background: fileDragOver
+                          ? "rgba(45,125,210,0.06)"
+                          : "var(--color-surface)",
                         cursor: fileParsing || disabled ? "not-allowed" : "pointer",
                         transition: "all 0.2s",
                         gap: 8,
@@ -2118,7 +2162,7 @@ export default function FreeformInput({
                       <input
                         ref={fileInputRef}
                         type="file"
-                        accept=".txt,.md,.log,.csv,.json,.pdf,.docx"
+                        accept=".txt,.md,.log,.csv,.json,.pdf,.docx,.xlsx,.xls"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) handleFileSelect(file);
@@ -2145,16 +2189,16 @@ export default function FreeformInput({
                         </div>
                       ) : (
                         <>
-                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={fileDragOver ? "var(--color-info)" : "var(--color-muted)"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                             <polyline points="17 8 12 3 7 8" />
                             <line x1="12" y1="3" x2="12" y2="15" />
                           </svg>
-                          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-muted)" }}>
-                            Click to select a file
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: fileDragOver ? "var(--color-info)" : "var(--color-muted)" }}>
+                            {fileDragOver ? "Drop file here" : "Drag & drop or click to select"}
                           </span>
                           <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--color-muted)", opacity: 0.6 }}>
-                            .txt, .md, .csv, .json, .pdf, .docx &middot; max 10MB
+                            .txt, .md, .csv, .json, .pdf, .docx, .xlsx, .xls &middot; max 10MB
                           </span>
                         </>
                       )}
