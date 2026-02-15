@@ -106,7 +106,7 @@ export async function callClaude(userMessage: string): Promise<ClaudeResponse> {
       },
     ],
     messages: [{ role: "user", content: userMessage }],
-  });
+  }, { timeout: 45000 });
 
   const textBlock = response.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") {
@@ -141,7 +141,7 @@ export async function callClaudeExtraction(userMessage: string): Promise<ClaudeR
       },
     ],
     messages: [{ role: "user", content: userMessage }],
-  });
+  }, { timeout: 45000 });
 
   const textBlock = response.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") {
@@ -176,7 +176,7 @@ export async function callClaudeRemediation(userMessage: string): Promise<Claude
       },
     ],
     messages: [{ role: "user", content: userMessage }],
-  });
+  }, { timeout: 45000 });
 
   const textBlock = response.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") {
@@ -236,7 +236,7 @@ export async function callClaudeVisionExtraction(
       },
     ],
     messages: [{ role: "user", content: userContent }],
-  });
+  }, { timeout: 45000 });
 
   const textBlock = response.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") {

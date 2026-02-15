@@ -431,7 +431,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      notionUrl: `https://notion.so/${responsePageId.replace(/-/g, "")}`,
+      notionUrl: `https://notion.so/${responsePageId.replace(/-/g, "")}?pvs=4`,
       pageId: responsePageId,
       updated: !!existingPageId,
     });

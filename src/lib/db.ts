@@ -121,7 +121,7 @@ export async function getWorkflow(id: string): Promise<Workflow | null> {
 }
 
 // ─── LIST ───
-export async function listWorkflows(search?: string): Promise<Workflow[]> {
+export async function listWorkflows(search?: string, limit = 100): Promise<Workflow[]> {
   const backend = await getBackend();
   let workflows: Workflow[] = [];
 
@@ -179,7 +179,7 @@ export async function listWorkflows(search?: string): Promise<Workflow[]> {
     );
   }
 
-  return workflows;
+  return workflows.slice(0, limit);
 }
 
 // ─── DELETE ───

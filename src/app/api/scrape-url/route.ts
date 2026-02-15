@@ -125,10 +125,7 @@ export async function POST(request: NextRequest) {
     console.error("[scrape-url] Firecrawl error:", err);
     return NextResponse.json(
       {
-        error:
-          err instanceof Error
-            ? err.message
-            : "Failed to scrape URL. The page may be inaccessible.",
+        error: "Failed to scrape URL. The page may be inaccessible or blocked.",
       },
       { status: 502 }
     );
