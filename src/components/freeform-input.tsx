@@ -298,6 +298,245 @@ function PreviewCard({
 }
 
 // ---------------------------------------------------------------------------
+// VisualPreviewCard — for pages with minimal text (canvas editors, SPAs)
+// ---------------------------------------------------------------------------
+
+interface VisualPreviewCardProps {
+  title: string;
+  screenshot: string;
+  sourceUrl: string;
+  additionalContext: string;
+  onContextChange: (v: string) => void;
+  onExtractFromScreenshot: () => void;
+  onDescribeManually: () => void;
+  onCancel: () => void;
+  extracting: boolean;
+}
+
+function VisualPreviewCard({
+  title,
+  screenshot,
+  sourceUrl,
+  additionalContext,
+  onContextChange,
+  onExtractFromScreenshot,
+  onDescribeManually,
+  onCancel,
+  extracting,
+}: VisualPreviewCardProps) {
+  // Ensure the screenshot has a data URL prefix for <img> src
+  const imgSrc = screenshot.startsWith("data:")
+    ? screenshot
+    : `data:image/png;base64,${screenshot}`;
+
+  return (
+    <div
+      style={{
+        padding: "12px 14px",
+        background: "var(--info-bg)",
+        border: "1px solid rgba(45,125,210,0.19)",
+        borderRadius: 8,
+        animation: "fadeIn 0.25s ease",
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 6,
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            fontWeight: 700,
+            color: "var(--color-info)",
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+          }}
+        >
+          Visual Content Detected
+        </div>
+        <button
+          onClick={onCancel}
+          aria-label="Cancel preview"
+          style={{
+            background: "none",
+            border: "none",
+            fontSize: 16,
+            color: "var(--color-muted)",
+            cursor: "pointer",
+            padding: "2px 6px",
+          }}
+        >
+          &times;
+        </button>
+      </div>
+
+      {/* Page title */}
+      <div
+        style={{
+          fontFamily: "var(--font-display)",
+          fontSize: 14,
+          fontWeight: 700,
+          color: "var(--color-dark)",
+          marginBottom: 4,
+          lineHeight: 1.4,
+        }}
+      >
+        {title}
+      </div>
+
+      {/* Info message */}
+      <div
+        style={{
+          fontFamily: "var(--font-body)",
+          fontSize: 11,
+          color: "var(--color-text)",
+          marginBottom: 10,
+          lineHeight: 1.5,
+        }}
+      >
+        This page has minimal text content. We captured a screenshot instead.
+        Claude can analyze the visual layout to extract workflows.
+      </div>
+
+      {/* Screenshot preview thumbnail */}
+      <div
+        style={{
+          position: "relative",
+          maxHeight: 160,
+          overflow: "hidden",
+          marginBottom: 10,
+          borderRadius: 6,
+          border: "1px solid var(--color-border)",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imgSrc}
+          alt={`Screenshot of ${title}`}
+          style={{ width: "100%", display: "block", objectFit: "cover" }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 40,
+            background: "linear-gradient(transparent, var(--info-bg))",
+            pointerEvents: "none",
+          }}
+        />
+      </div>
+
+      {/* Source URL hint */}
+      {sourceUrl && (
+        <div
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 9,
+            color: "var(--color-muted)",
+            marginBottom: 8,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {sourceUrl}
+        </div>
+      )}
+
+      {/* Optional context textarea */}
+      <textarea
+        value={additionalContext}
+        onChange={(e) => onContextChange(e.target.value)}
+        placeholder="Optional: Describe what this page is about to help extraction (e.g. 'n8n workflow for processing orders')"
+        style={{
+          width: "100%",
+          minHeight: 52,
+          padding: "8px 10px",
+          borderRadius: 6,
+          border: "1px solid var(--color-border)",
+          background: "var(--color-surface)",
+          fontFamily: "var(--font-mono)",
+          fontSize: 11,
+          color: "var(--color-dark)",
+          resize: "vertical",
+          outline: "none",
+          marginBottom: 10,
+          lineHeight: 1.5,
+        }}
+      />
+
+      {/* Action buttons */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button
+          onClick={onDescribeManually}
+          disabled={extracting}
+          style={{
+            padding: "6px 14px",
+            borderRadius: 6,
+            border: "1px solid var(--color-border)",
+            background: "var(--color-surface)",
+            color: "var(--color-dark)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            fontWeight: 600,
+            cursor: extracting ? "not-allowed" : "pointer",
+            transition: "all 0.2s",
+          }}
+        >
+          Describe Manually
+        </button>
+        <button
+          onClick={onExtractFromScreenshot}
+          disabled={extracting}
+          style={{
+            padding: "6px 14px",
+            borderRadius: 6,
+            border: "none",
+            background: extracting ? "var(--color-border)" : "var(--color-info)",
+            color: extracting ? "var(--color-muted)" : "var(--color-light)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            fontWeight: 600,
+            cursor: extracting ? "not-allowed" : "pointer",
+            transition: "all 0.2s",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          {extracting ? (
+            <>
+              <span
+                style={{
+                  width: 10,
+                  height: 10,
+                  border: "2px solid rgba(240,242,245,0.3)",
+                  borderTop: "2px solid var(--color-light)",
+                  borderRadius: "50%",
+                  animation: "spin 0.8s linear infinite",
+                  display: "inline-block",
+                }}
+              />
+              Extracting...
+            </>
+          ) : (
+            "Extract from Screenshot"
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -379,7 +618,12 @@ export default function FreeformInput({
     charCount: number;
     truncated: boolean;
     originalLength?: number;
+    isVisualContent?: boolean;
+    screenshot?: string | null;
   } | null>(null);
+
+  // ─── Vision context (optional user description for screenshot extraction) ───
+  const [visionContext, setVisionContext] = useState("");
 
   // ─── Import tab state ───
   const [importTab, setImportTab] = useState<"notion" | "url">("notion");
@@ -495,6 +739,52 @@ export default function FreeformInput({
     },
     [onChange]
   );
+
+  // ─── Screenshot extraction handler ───
+  const handleExtractFromScreenshot = useCallback(async () => {
+    if (!urlPreview?.screenshot || extractLock.current) return;
+    extractLock.current = true;
+    setExtracting(true);
+    setExtractionError(null);
+    setExtractionResults(null);
+    try {
+      const res = await fetch("/api/extract-from-screenshot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          screenshot: urlPreview.screenshot,
+          sourceUrl: urlPreview.url,
+          additionalContext: visionContext || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Screenshot extraction failed");
+      }
+      const data = await res.json();
+      if (!data.workflows || data.workflows.length === 0) {
+        setExtractionError("No workflows found in the screenshot. Try describing the workflow manually.");
+      } else {
+        setExtractionResults({
+          documentTitle: data.documentTitle || "Untitled",
+          workflows: data.workflows,
+        });
+      }
+    } catch (err) {
+      setExtractionError(
+        err instanceof Error ? err.message : "Could not extract workflows from screenshot."
+      );
+    } finally {
+      setExtracting(false);
+      extractLock.current = false;
+    }
+  }, [urlPreview, visionContext]);
+
+  const handleDescribeManually = useCallback(() => {
+    setUrlPreview(null);
+    setShowImport(false);
+    setVisionContext("");
+  }, []);
 
   const filtered =
     activeCategory === "All"
@@ -691,7 +981,16 @@ export default function FreeformInput({
               {(["notion", "url"] as const).map((tab) => (
                 <button
                   key={tab}
-                  onClick={() => setImportTab(tab)}
+                  onClick={() => {
+                    setImportTab(tab);
+                    // Clear stale state from other tab
+                    setImportError(null);
+                    setUrlError(null);
+                    setImportPreview(null);
+                    setUrlPreview(null);
+                    setExtractionResults(null);
+                    setExtractionError(null);
+                  }}
                   style={{
                     padding: "5px 14px",
                     borderRadius: 6,
@@ -831,19 +1130,33 @@ export default function FreeformInput({
                   </div>
                 )}
 
-                {/* URL preview card */}
+                {/* URL preview card — text or visual */}
                 {urlPreview && !extractionResults && (
-                  <PreviewCard
-                    title={urlPreview.title}
-                    content={urlPreview.content}
-                    stats={`${urlPreview.charCount.toLocaleString()} chars`}
-                    truncated={urlPreview.truncated}
-                    originalLength={urlPreview.originalLength}
-                    onUseRaw={handleUrlInsert}
-                    onExtract={() => handleExtractWorkflows(urlPreview.content, "url", urlPreview.url)}
-                    onCancel={handleUrlCancelPreview}
-                    extracting={extracting}
-                  />
+                  urlPreview.isVisualContent && urlPreview.screenshot ? (
+                    <VisualPreviewCard
+                      title={urlPreview.title}
+                      screenshot={urlPreview.screenshot}
+                      sourceUrl={urlPreview.url}
+                      additionalContext={visionContext}
+                      onContextChange={setVisionContext}
+                      onExtractFromScreenshot={handleExtractFromScreenshot}
+                      onDescribeManually={handleDescribeManually}
+                      onCancel={handleUrlCancelPreview}
+                      extracting={extracting}
+                    />
+                  ) : (
+                    <PreviewCard
+                      title={urlPreview.title}
+                      content={urlPreview.content}
+                      stats={`${urlPreview.charCount.toLocaleString()} chars`}
+                      truncated={urlPreview.truncated}
+                      originalLength={urlPreview.originalLength}
+                      onUseRaw={handleUrlInsert}
+                      onExtract={() => handleExtractWorkflows(urlPreview.content, "url", urlPreview.url)}
+                      onCancel={handleUrlCancelPreview}
+                      extracting={extracting}
+                    />
+                  )
                 )}
               </>
             )}

@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { callClaudeExtraction, getExtractionPromptVersion, getModelId } from "@/lib/claude";
+import {
+  callClaudeVisionExtraction,
+  getVisionExtractionPromptVersion,
+  getModelId,
+} from "@/lib/claude";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import {
   ExtractionResultSchema,
@@ -7,12 +11,14 @@ import {
   parseExtractionJson,
 } from "@/lib/extraction-schemas";
 
-// ─── POST /api/extract-workflows ───
+// ─── POST /api/extract-from-screenshot ───
+// Sends a screenshot to Claude's vision model and extracts workflows.
+// Uses the same response format as /api/extract-workflows.
 
 export async function POST(request: NextRequest) {
   // Rate limit: 10 extraction calls per minute per IP
   const ip = getClientIp(request);
-  const rl = rateLimit(`extract-workflows:${ip}`, 10, 60);
+  const rl = rateLimit(`extract-screenshot:${ip}`, 10, 60);
   if (!rl.allowed) {
     return NextResponse.json(
       { error: `Rate limit exceeded. Try again in ${rl.resetInSeconds}s.` },
@@ -21,7 +27,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Parse body
-  let body: { content?: string; sourceUrl?: string; sourceType?: string };
+  let body: { screenshot?: string; sourceUrl?: string; additionalContext?: string };
   try {
     body = await request.json();
   } catch {
@@ -31,38 +37,25 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { content, sourceUrl, sourceType = "text" } = body;
+  const { screenshot, sourceUrl, additionalContext } = body;
 
-  if (!content || typeof content !== "string" || content.trim().length < 50) {
+  if (!screenshot || typeof screenshot !== "string") {
     return NextResponse.json(
-      { error: "Content must be at least 50 characters to extract workflows." },
+      { error: "Missing or invalid 'screenshot' field. Expected base64 string." },
       { status: 400 }
     );
   }
 
-  // Truncate to 30k chars for Claude context
-  const MAX_CHARS = 30_000;
-  const truncatedContent =
-    content.length > MAX_CHARS ? content.slice(0, MAX_CHARS) : content;
+  // Basic size check (base64 screenshots should be < 20MB)
+  if (screenshot.length > 20_000_000) {
+    return NextResponse.json(
+      { error: "Screenshot too large. Maximum 20MB." },
+      { status: 400 }
+    );
+  }
 
   try {
-    // Build the user message
-    const userMessage = [
-      `Source: ${sourceType}${sourceUrl ? ` (${sourceUrl})` : ""}`,
-      `Content length: ${truncatedContent.length} characters`,
-      content.length > MAX_CHARS
-        ? `Note: Content was truncated from ${content.length} to ${MAX_CHARS} characters.`
-        : "",
-      "",
-      "--- DOCUMENT CONTENT ---",
-      "",
-      truncatedContent,
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    // Call Claude for extraction
-    const response = await callClaudeExtraction(userMessage);
+    const response = await callClaudeVisionExtraction(screenshot, additionalContext);
 
     // Parse JSON from response
     let rawJson: unknown;
@@ -71,13 +64,13 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json(
         {
-          error: "Could not extract workflows. Try using 'Use Raw Content' instead.",
+          error: "Could not extract workflows from screenshot. The image may not contain recognizable workflows.",
         },
         { status: 502 }
       );
     }
 
-    // Validate with Zod (graceful — clamp and fix rather than reject)
+    // Validate with Zod (graceful — recover partial data)
     const parsed = ExtractionResultSchema.safeParse(rawJson);
 
     let result;
@@ -101,9 +94,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ...result,
-      sourceType,
+      sourceType: "screenshot",
       sourceUrl: sourceUrl || null,
-      promptVersion: getExtractionPromptVersion(),
+      promptVersion: getVisionExtractionPromptVersion(),
       modelUsed: getModelId(),
       tokenUsage: {
         inputTokens: response.inputTokens,
@@ -111,13 +104,13 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (err) {
-    console.error("[extract-workflows] Error:", err);
+    console.error("[extract-from-screenshot] Error:", err);
     return NextResponse.json(
       {
         error:
           err instanceof Error
             ? err.message
-            : "Failed to extract workflows from content.",
+            : "Failed to extract workflows from screenshot.",
       },
       { status: 500 }
     );

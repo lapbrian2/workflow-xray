@@ -40,9 +40,10 @@ function LoginForm() {
       if (!res.ok) {
         const data = await res.json();
         setError(data.error || "Authentication failed.");
+        setPassword("");
         setShake(true);
         setTimeout(() => setShake(false), 600);
-        inputRef.current?.select();
+        inputRef.current?.focus();
         return;
       }
 

@@ -8,6 +8,8 @@ const promptCache = new Map<string, { text: string; hash: string }>();
 
 const CLAUDE_MODEL = "claude-sonnet-4-20250514";
 
+const LOG_TOKENS = process.env.LOG_TOKEN_USAGE === "true";
+
 function loadPrompt(filename: string): { text: string; hash: string } {
   const cached = promptCache.get(filename);
   if (cached) return cached;
@@ -59,6 +61,24 @@ export function getRemediationPromptVersion(): string {
   return loadPrompt("remediation-system.md").hash;
 }
 
+// ─── Extraction prompt ───
+function getExtractionPrompt(): string {
+  return loadPrompt("extract-system.md").text;
+}
+
+export function getExtractionPromptVersion(): string {
+  return loadPrompt("extract-system.md").hash;
+}
+
+// ─── Vision extraction prompt ───
+function getVisionExtractionPrompt(): string {
+  return loadPrompt("vision-extract-system.md").text;
+}
+
+export function getVisionExtractionPromptVersion(): string {
+  return loadPrompt("vision-extract-system.md").hash;
+}
+
 /** Returns the model identifier being used. */
 export function getModelId(): string {
   return CLAUDE_MODEL;
@@ -96,25 +116,17 @@ export async function callClaude(userMessage: string): Promise<ClaudeResponse> {
   const inputTokens = response.usage?.input_tokens ?? 0;
   const outputTokens = response.usage?.output_tokens ?? 0;
 
-  // Log token usage for cost monitoring
-  console.log(
-    `[Claude] model=${CLAUDE_MODEL} prompt=${getPromptVersion()} in=${inputTokens} out=${outputTokens} total=${inputTokens + outputTokens}`
-  );
+  if (LOG_TOKENS) {
+    console.log(
+      `[Claude] model=${CLAUDE_MODEL} prompt=${getPromptVersion()} in=${inputTokens} out=${outputTokens} total=${inputTokens + outputTokens}`
+    );
+  }
 
   return {
     text: textBlock.text,
     inputTokens,
     outputTokens,
   };
-}
-
-// ─── Extraction prompt ───
-function getExtractionPrompt(): string {
-  return loadPrompt("extract-system.md").text;
-}
-
-export function getExtractionPromptVersion(): string {
-  return loadPrompt("extract-system.md").hash;
 }
 
 export async function callClaudeExtraction(userMessage: string): Promise<ClaudeResponse> {
@@ -139,9 +151,11 @@ export async function callClaudeExtraction(userMessage: string): Promise<ClaudeR
   const inputTokens = response.usage?.input_tokens ?? 0;
   const outputTokens = response.usage?.output_tokens ?? 0;
 
-  console.log(
-    `[Claude:Extraction] model=${CLAUDE_MODEL} prompt=${getExtractionPromptVersion()} in=${inputTokens} out=${outputTokens} total=${inputTokens + outputTokens}`
-  );
+  if (LOG_TOKENS) {
+    console.log(
+      `[Claude:Extraction] model=${CLAUDE_MODEL} prompt=${getExtractionPromptVersion()} in=${inputTokens} out=${outputTokens} total=${inputTokens + outputTokens}`
+    );
+  }
 
   return {
     text: textBlock.text,
@@ -172,9 +186,71 @@ export async function callClaudeRemediation(userMessage: string): Promise<Claude
   const inputTokens = response.usage?.input_tokens ?? 0;
   const outputTokens = response.usage?.output_tokens ?? 0;
 
-  console.log(
-    `[Claude:Remediation] model=${CLAUDE_MODEL} prompt=${getRemediationPromptVersion()} in=${inputTokens} out=${outputTokens} total=${inputTokens + outputTokens}`
-  );
+  if (LOG_TOKENS) {
+    console.log(
+      `[Claude:Remediation] model=${CLAUDE_MODEL} prompt=${getRemediationPromptVersion()} in=${inputTokens} out=${outputTokens} total=${inputTokens + outputTokens}`
+    );
+  }
+
+  return {
+    text: textBlock.text,
+    inputTokens,
+    outputTokens,
+  };
+}
+
+// ─── Vision extraction (screenshot → workflow) ───
+
+export async function callClaudeVisionExtraction(
+  screenshot: string,
+  additionalContext?: string
+): Promise<ClaudeResponse> {
+  // Strip data URL prefix if present (Firecrawl may return data:image/... format)
+  const base64Data = screenshot.replace(/^data:image\/\w+;base64,/, "");
+
+  const userContent: Anthropic.Messages.ContentBlockParam[] = [
+    {
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: "image/png",
+        data: base64Data,
+      },
+    },
+    {
+      type: "text",
+      text: additionalContext
+        ? `Additional context about this page: ${additionalContext}\n\nAnalyze the screenshot above and extract any workflows visible.`
+        : "Analyze the screenshot above and extract any workflows visible.",
+    },
+  ];
+
+  const response = await client.messages.create({
+    model: CLAUDE_MODEL,
+    max_tokens: 6144,
+    system: [
+      {
+        type: "text",
+        text: getVisionExtractionPrompt(),
+        cache_control: { type: "ephemeral" },
+      },
+    ],
+    messages: [{ role: "user", content: userContent }],
+  });
+
+  const textBlock = response.content.find((b) => b.type === "text");
+  if (!textBlock || textBlock.type !== "text") {
+    throw new Error("No text response from Claude");
+  }
+
+  const inputTokens = response.usage?.input_tokens ?? 0;
+  const outputTokens = response.usage?.output_tokens ?? 0;
+
+  if (LOG_TOKENS) {
+    console.log(
+      `[Claude:VisionExtraction] model=${CLAUDE_MODEL} prompt=${getVisionExtractionPromptVersion()} in=${inputTokens} out=${outputTokens} total=${inputTokens + outputTokens}`
+    );
+  }
 
   return {
     text: textBlock.text,

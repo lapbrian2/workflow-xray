@@ -22,6 +22,8 @@ export default function ComparePage() {
   const { addToast } = useToast();
 
   useEffect(() => {
+    let cancelled = false;
+
     // Load from localStorage first (instant)
     const localWorkflows = listWorkflowsLocal();
     if (localWorkflows.length > 0) {
@@ -33,16 +35,22 @@ export default function ComparePage() {
     fetch("/api/workflows")
       .then((r) => r.json())
       .then((data) => {
+        if (cancelled) return;
         const serverWorkflows: Workflow[] = data.workflows || [];
         const merged = mergeWithServer(serverWorkflows);
         setWorkflows(merged);
       })
       .catch(() => {
+        if (cancelled) return;
         if (localWorkflows.length === 0) {
           setError("Failed to load workflows");
         }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, []);
 
   const handleSelect = (id: string) => {
