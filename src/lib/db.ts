@@ -168,9 +168,9 @@ export async function listWorkflows(search?: string): Promise<Workflow[]> {
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
-  // Optional search filter
+  // Optional search filter (cap at 200 chars to prevent DoS via large search strings)
   if (search) {
-    const q = search.toLowerCase();
+    const q = search.slice(0, 200).toLowerCase();
     workflows = workflows.filter(
       (w) =>
         w.decomposition.title.toLowerCase().includes(q) ||

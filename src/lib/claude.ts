@@ -37,9 +37,9 @@ function loadPrompt(filename: string): { text: string; hash: string } {
     }
   }
 
-  throw new Error(
-    `System prompt file "${filename}" not found. Searched: ${paths.join(", ")}. Check that deployment includes src/prompts/.`
-  );
+  const msg = `System prompt file "${filename}" not found. CWD: ${process.cwd()}. Searched: ${paths.join(", ")}`;
+  console.error(`[loadPrompt] ${msg}`);
+  throw new Error(msg);
 }
 
 // ─── Decompose prompt (backward-compatible) ───

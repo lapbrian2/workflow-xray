@@ -111,7 +111,11 @@ export function parseExtractionJson(responseText: string): unknown {
     // Retry: try to find JSON object in the response
     const match = responseText.match(/\{[\s\S]*\}/);
     if (match) {
-      return JSON.parse(match[0]);
+      try {
+        return JSON.parse(match[0]);
+      } catch {
+        // Fallback parse also failed
+      }
     }
     throw new Error("No valid JSON found in response");
   }

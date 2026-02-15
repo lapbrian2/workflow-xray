@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hashPassword, getExpectedToken, isAuthEnabled, AUTH_COOKIE_NAME, AUTH_COOKIE_MAX_AGE } from "@/lib/auth";
+import { hashPassword, getExpectedToken, isAuthEnabled, safeCompare, AUTH_COOKIE_NAME, AUTH_COOKIE_MAX_AGE } from "@/lib/auth";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 /**
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
   const submittedHash = hashPassword(password);
   const expectedHash = getExpectedToken();
 
-  if (submittedHash !== expectedHash) {
+  if (!expectedHash || !safeCompare(submittedHash, expectedHash)) {
     return NextResponse.json(
       { error: "Incorrect password." },
       { status: 401 }

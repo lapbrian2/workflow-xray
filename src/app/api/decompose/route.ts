@@ -32,16 +32,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const decomposeRequest: DecomposeRequest = {
-      description: body.description,
-      stages: body.stages,
-      context: body.context,
-    };
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid request body." },
+        { status: 400 }
+      );
+    }
 
+    // Validate and sanitize input
     if (
-      !decomposeRequest.description ||
-      decomposeRequest.description.trim().length === 0
+      !body.description ||
+      typeof body.description !== "string" ||
+      body.description.trim().length === 0
     ) {
       return NextResponse.json(
         { error: "Workflow description is required" },
@@ -50,12 +55,32 @@ export async function POST(request: NextRequest) {
     }
 
     // Prevent excessive input that could overflow context window
-    if (decomposeRequest.description.length > 15000) {
+    if (body.description.length > 15000) {
       return NextResponse.json(
         { error: "Workflow description is too long (max 15,000 characters). Please shorten it or split into multiple workflows." },
         { status: 400 }
       );
     }
+
+    // Validate stages if provided
+    const stages = Array.isArray(body.stages)
+      ? body.stages
+          .filter((s: unknown) => typeof s === "string" && s.trim().length > 0)
+          .slice(0, 20)
+          .map((s: string) => s.slice(0, 500))
+      : undefined;
+
+    // Validate context if provided
+    const context =
+      typeof body.context === "string"
+        ? body.context.slice(0, 5000)
+        : undefined;
+
+    const decomposeRequest: DecomposeRequest = {
+      description: body.description,
+      stages,
+      context,
+    };
 
     const result = await decomposeWorkflow(decomposeRequest);
 
@@ -92,7 +117,14 @@ export async function POST(request: NextRequest) {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       ...(parentId ? { parentId, version } : { version: 1 }),
-      ...(body.costContext ? { costContext: body.costContext } : {}),
+      ...(body.costContext && typeof body.costContext === "object"
+        ? {
+            costContext: {
+              hourlyRate: typeof body.costContext.hourlyRate === "number" ? body.costContext.hourlyRate : undefined,
+              hoursPerStep: typeof body.costContext.hoursPerStep === "number" ? body.costContext.hoursPerStep : undefined,
+            },
+          }
+        : {}),
       promptVersion: _meta.promptVersion,
       modelUsed: _meta.modelUsed,
       tokenUsage: {
@@ -118,8 +150,8 @@ export async function POST(request: NextRequest) {
         userMessage = "Request timed out. Try a shorter workflow description or try again.";
       } else if (error.message.includes("rate limit") || error.message.includes("429")) {
         userMessage = "Too many requests. Please wait a moment and try again.";
-      } else if (error.message.includes("System prompt file not found")) {
-        userMessage = "Server configuration error. Please contact support.";
+      } else if (error.message.includes("not found") && error.message.includes("prompt")) {
+        userMessage = "Server configuration error — prompt files missing. Please contact support.";
       } else {
         userMessage = "Decomposition failed. Please try again.";
       }

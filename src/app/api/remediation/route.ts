@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { callClaudeRemediation, getRemediationPromptVersion, getModelId } from "@/lib/claude";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { getWorkflow, saveWorkflow } from "@/lib/db";
+import { parseExtractionJson } from "@/lib/extraction-schemas";
 import type { Workflow, RemediationPlan, RemediationPhase, ProjectedImpact } from "@/lib/types";
 import { z } from "zod";
 
@@ -106,17 +107,12 @@ export async function POST(request: NextRequest) {
     // Call Claude
     const claudeResponse = await callClaudeRemediation(userMessage);
 
-    // Parse JSON from response
+    // Parse JSON from response (handles code fences, embedded objects, etc.)
     let parsed;
     try {
-      // Handle potential markdown code fences
-      let rawText = claudeResponse.text.trim();
-      if (rawText.startsWith("```")) {
-        rawText = rawText.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
-      }
-      parsed = JSON.parse(rawText);
+      parsed = parseExtractionJson(claudeResponse.text);
     } catch {
-      console.error("[Remediation] Failed to parse Claude response as JSON");
+      console.error("[Remediation] Failed to parse Claude response as JSON:", claudeResponse.text.slice(0, 200));
       return NextResponse.json(
         { error: "Analysis failed — please try again." },
         { status: 502 }
@@ -171,7 +167,7 @@ export async function POST(request: NextRequest) {
       plan,
     });
   } catch (error) {
-    console.error("Remediation error:", error);
+    console.error("[Remediation] Error:", error);
 
     if (error instanceof z.ZodError) {
       console.error("[Remediation] Schema validation failed:", error.issues);
@@ -181,11 +177,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiError = error as { status?: number; code?: string };
+    const apiError = error as { status?: number; code?: string; message?: string };
     if (apiError.status === 429) {
       return NextResponse.json(
         { error: "AI service is busy. Please wait a moment and try again." },
         { status: 429 }
+      );
+    }
+
+    // Surface prompt-loading errors clearly
+    if (apiError.message?.includes("not found")) {
+      console.error("[Remediation] Prompt file missing:", apiError.message);
+      return NextResponse.json(
+        { error: "Server configuration error — prompt files missing. Please contact support." },
+        { status: 503 }
+      );
+    }
+
+    // Surface Anthropic API errors
+    if (apiError.status && apiError.status >= 400) {
+      return NextResponse.json(
+        { error: `AI service error (${apiError.status}). Please try again.` },
+        { status: 502 }
       );
     }
 

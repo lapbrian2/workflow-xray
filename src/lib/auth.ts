@@ -6,7 +6,7 @@
  * raw password never travels after the initial POST to /api/auth.
  */
 
-import { createHash } from "crypto";
+import { createHash, timingSafeEqual } from "crypto";
 
 export const AUTH_COOKIE_NAME = "xray_auth";
 export const AUTH_COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
@@ -29,6 +29,15 @@ export function getExpectedToken(): string | null {
   const password = process.env.AUTH_PASSWORD;
   if (!password) return null; // Auth disabled if no password set
   return hashPassword(password);
+}
+
+/**
+ * Timing-safe comparison of two hex hash strings.
+ * Prevents timing attacks on password verification.
+ */
+export function safeCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a, "hex"), Buffer.from(b, "hex"));
 }
 
 /**
