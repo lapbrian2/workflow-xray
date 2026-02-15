@@ -12,21 +12,21 @@ interface WorkflowCardProps {
 
 function healthDotColor(value: number, invert: boolean): string {
   const v = invert ? 100 - value : value;
-  if (v >= 65) return "#17A589";
-  if (v >= 40) return "#D4A017";
-  return "#E8553A";
+  if (v >= 65) return "var(--color-success)";
+  if (v >= 40) return "var(--color-warning)";
+  return "var(--color-accent)";
 }
 
 function fragilityBarColor(fragility: number): string {
-  if (fragility >= 70) return "#E8553A";
-  if (fragility >= 40) return "#D4A017";
-  return "#17A589";
+  if (fragility >= 70) return "var(--color-accent)";
+  if (fragility >= 40) return "var(--color-warning)";
+  return "var(--color-success)";
 }
 
 function getHealthBorderColor(avgHealth: number): string {
-  if (avgHealth >= 65) return "#17A589";
-  if (avgHealth >= 40) return "#D4A017";
-  return "#E8553A";
+  if (avgHealth >= 65) return "var(--color-success)";
+  if (avgHealth >= 40) return "var(--color-warning)";
+  return "var(--color-accent)";
 }
 
 export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) {
@@ -39,7 +39,7 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
       (100 - health.fragility) + (100 - health.complexity)) /
     4;
   const healthColor =
-    avgHealth >= 65 ? "#17A589" : avgHealth >= 40 ? "#D4A017" : "#E8553A";
+    avgHealth >= 65 ? "var(--color-success)" : avgHealth >= 40 ? "var(--color-warning)" : "var(--color-accent)";
   const borderAccentColor = getHealthBorderColor(avgHealth);
 
   const handleDeleteClick = () => {
@@ -171,17 +171,17 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
           <StatTag
             label={`${decomposition.steps.length} steps`}
             value={Math.min(decomposition.steps.length / 15, 1)}
-            color="#2D7DD2"
+            color="var(--color-info)"
           />
           <StatTag
             label={`${decomposition.gaps.length} gaps`}
             value={Math.min(decomposition.gaps.length / 8, 1)}
-            color={decomposition.gaps.length > 4 ? "#E8553A" : "#D4A017"}
+            color={decomposition.gaps.length > 4 ? "var(--color-accent)" : "var(--color-warning)"}
           />
           <StatTag
             label={`${health.automationPotential}% auto`}
             value={health.automationPotential / 100}
-            color="#17A589"
+            color="var(--color-success)"
           />
         </div>
 
@@ -244,7 +244,7 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
                   fontFamily: "var(--font-mono)",
                   fontSize: 9,
                   background: "linear-gradient(135deg, var(--color-accent), #F09060)",
-                  color: "#fff",
+                  color: "var(--color-light)",
                   padding: "2px 7px",
                   borderRadius: 4,
                   fontWeight: 600,
@@ -260,8 +260,8 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: 9,
-                  background: "linear-gradient(135deg, #17A589, #1ABC9C)",
-                  color: "#fff",
+                  background: "linear-gradient(135deg, var(--color-success), var(--color-cell))",
+                  color: "var(--color-light)",
                   padding: "2px 7px",
                   borderRadius: 4,
                   fontWeight: 600,
@@ -282,7 +282,7 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
                 fontFamily: "var(--font-mono)",
                 fontSize: 11,
                 fontWeight: 600,
-                color: "#fff",
+                color: "var(--color-light)",
                 textDecoration: "none",
                 padding: "5px 14px",
                 borderRadius: 6,
@@ -366,7 +366,7 @@ function MiniHealthBar({
   invert?: boolean;
 }) {
   const v = invert ? 100 - value : value;
-  const color = v >= 65 ? "#17A589" : v >= 40 ? "#D4A017" : "#E8553A";
+  const color = v >= 65 ? "var(--color-success)" : v >= 40 ? "var(--color-warning)" : "var(--color-accent)";
 
   return (
     <div

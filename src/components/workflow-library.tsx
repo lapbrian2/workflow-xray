@@ -127,7 +127,12 @@ export default function WorkflowLibrary() {
           }),
         });
         if (!res.ok) {
-          const err = await res.json();
+          let err;
+          try {
+            err = await res.json();
+          } catch {
+            err = { error: `Sync failed (${res.status})` };
+          }
           errors.push(`${w.decomposition.title}: ${err.error || "failed"}`);
         }
       } catch {

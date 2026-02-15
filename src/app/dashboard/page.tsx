@@ -7,10 +7,13 @@ import { GAP_LABELS, LAYER_COLORS, SEVERITY_COLORS } from "@/lib/types";
 import { listWorkflowsLocal, mergeWithServer } from "@/lib/client-db";
 import ScoreRing from "@/components/score-ring";
 import Breadcrumb from "@/components/breadcrumb";
+import { useToast } from "@/components/toast";
 
 export default function DashboardPage() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { addToast } = useToast();
 
   useEffect(() => {
     const local = listWorkflowsLocal();
@@ -23,9 +26,17 @@ export default function DashboardPage() {
       .then((data) => {
         const merged = mergeWithServer(data.workflows || []);
         setWorkflows(merged);
+        setError(null);
       })
-      .catch(() => {})
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : "Failed to load workflows";
+        if (workflows.length === 0) {
+          setError(msg);
+        }
+        addToast("error", msg);
+      })
       .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Aggregations ──
@@ -189,6 +200,70 @@ export default function DashboardPage() {
               }}
             />
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error && workflows.length === 0) {
+    return (
+      <div style={{ maxWidth: 960, margin: "0 auto", padding: "clamp(20px, 4vw, 32px) clamp(16px, 4vw, 32px)" }}>
+        <h1
+          className="text-gradient"
+          style={{
+            fontSize: "clamp(24px, 5vw, 32px)",
+            fontWeight: 900,
+            fontFamily: "var(--font-display)",
+            letterSpacing: "-0.02em",
+            marginBottom: 8,
+          }}
+        >
+          Team Dashboard
+        </h1>
+        <div
+          style={{
+            textAlign: "center",
+            padding: "64px 24px",
+            animation: "fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both",
+          }}
+        >
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: "50%",
+              background: "linear-gradient(135deg, var(--accent-bg-light), rgba(252, 232, 228, 0.6))",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 16px",
+              fontSize: 22,
+              fontWeight: 700,
+              color: "var(--color-accent)",
+            }}
+          >
+            !
+          </div>
+          <div style={{ fontSize: 15, color: "var(--color-danger)", fontFamily: "var(--font-body)", marginBottom: 8 }}>
+            {error}
+          </div>
+          <button
+            onClick={() => { setError(null); setLoading(true); fetch("/api/workflows").then((r) => r.json()).then((data) => { setWorkflows(mergeWithServer(data.workflows || [])); }).catch(() => {}).finally(() => setLoading(false)); }}
+            style={{
+              padding: "10px 28px",
+              borderRadius: "var(--radius-sm)",
+              border: "none",
+              background: "linear-gradient(135deg, var(--color-accent) 0%, #F09060 100%)",
+              color: "var(--color-surface)",
+              fontFamily: "var(--font-mono)",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+              boxShadow: "0 4px 12px rgba(232, 85, 58, 0.25)",
+            }}
+          >
+            Retry
+          </button>
         </div>
       </div>
     );

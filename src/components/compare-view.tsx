@@ -98,7 +98,7 @@ export default function CompareView({ result, before, after, onExportPdf, export
               fontFamily: "var(--font-mono)",
               fontSize: 11,
               fontWeight: 600,
-              color: "#fff",
+              color: "var(--color-light)",
               background: "var(--color-accent)",
               border: "none",
               padding: "6px 14px",
@@ -130,8 +130,8 @@ export default function CompareView({ result, before, after, onExportPdf, export
                     fontWeight: 600,
                     padding: "6px 14px",
                     borderRadius: "var(--radius-sm)",
-                    background: isGood ? "#E9F7EF" : "#FDF0EE",
-                    color: isGood ? "#17A589" : "#E8553A",
+                    background: isGood ? "var(--success-bg)" : "var(--danger-bg)",
+                    color: isGood ? "var(--color-success)" : "var(--color-accent)",
                   }}
                 >
                   {part}
@@ -277,7 +277,7 @@ export default function CompareView({ result, before, after, onExportPdf, export
             beforeVal={before.health.complexity}
             afterVal={after.health.complexity}
             delta={healthDelta.complexity}
-            color="#2D7DD2"
+            color="var(--color-info)"
             lowerIsBetter
           />
           <HealthMetricDelta
@@ -285,7 +285,7 @@ export default function CompareView({ result, before, after, onExportPdf, export
             beforeVal={before.health.fragility}
             afterVal={after.health.fragility}
             delta={healthDelta.fragility}
-            color="#E8553A"
+            color="var(--color-accent)"
             lowerIsBetter
           />
           <HealthMetricDelta
@@ -293,7 +293,7 @@ export default function CompareView({ result, before, after, onExportPdf, export
             beforeVal={before.health.automationPotential}
             afterVal={after.health.automationPotential}
             delta={healthDelta.automationPotential}
-            color="#17A589"
+            color="var(--color-success)"
             lowerIsBetter={false}
           />
           <HealthMetricDelta
@@ -301,7 +301,7 @@ export default function CompareView({ result, before, after, onExportPdf, export
             beforeVal={before.health.teamLoadBalance}
             afterVal={after.health.teamLoadBalance}
             delta={healthDelta.teamLoadBalance}
-            color="#8E44AD"
+            color="var(--color-memory)"
             lowerIsBetter={false}
           />
         </div>
@@ -340,9 +340,9 @@ export default function CompareView({ result, before, after, onExportPdf, export
             gap: 12,
           }}
         >
-          <span style={{ color: "#17A589" }}>+{added.length} added</span>
-          <span style={{ color: "#E8553A" }}>&minus;{removed.length} removed</span>
-          <span style={{ color: "#D4A017" }}>~{modified.length} modified</span>
+          <span style={{ color: "var(--color-success)" }}>+{added.length} added</span>
+          <span style={{ color: "var(--color-accent)" }}>&minus;{removed.length} removed</span>
+          <span style={{ color: "var(--color-warning)" }}>~{modified.length} modified</span>
           <span>{unchangedSteps.length} unchanged</span>
         </div>
 
@@ -398,10 +398,10 @@ export default function CompareView({ result, before, after, onExportPdf, export
             gap: 12,
           }}
         >
-          <span style={{ color: "#17A589" }}>
+          <span style={{ color: "var(--color-success)" }}>
             {gapsResolved.length} resolved
           </span>
-          <span style={{ color: "#E8553A" }}>
+          <span style={{ color: "var(--color-accent)" }}>
             {gapsNew.length} new
           </span>
           <span>{gapsPersistent.length} persistent</span>
@@ -459,14 +459,14 @@ function HealthMetricDelta({
     delta === 0
       ? "var(--color-muted)"
       : isImprovement
-        ? "#17A589"
-        : "#E8553A";
+        ? "var(--color-success)"
+        : "var(--color-accent)";
   const badgeBg =
     delta === 0
       ? "var(--color-border)"
       : isImprovement
-        ? "#E9F7EF"
-        : "#FDF0EE";
+        ? "var(--success-bg)"
+        : "var(--danger-bg)";
   const arrow = delta === 0 ? "" : delta > 0 ? "\u2191" : "\u2193";
 
   return (
@@ -475,7 +475,7 @@ function HealthMetricDelta({
         textAlign: "center",
         padding: 12,
         borderRadius: "var(--radius-sm)",
-        background: "#F7F8FA",
+        background: "var(--color-surface-alt)",
       }}
     >
       <div
@@ -569,22 +569,22 @@ function StepDiffCard({
 }) {
   const config = {
     added: {
-      border: "#17A589",
-      bg: "#17A58908",
+      border: "var(--color-success)",
+      bg: "var(--success-bg-light)",
       label: "ADDED",
-      labelColor: "#17A589",
+      labelColor: "var(--color-success)",
     },
     removed: {
-      border: "#E8553A",
-      bg: "#E8553A08",
+      border: "var(--color-accent)",
+      bg: "var(--accent-bg-light)",
       label: "REMOVED",
-      labelColor: "#E8553A",
+      labelColor: "var(--color-accent)",
     },
     modified: {
-      border: "#D4A017",
-      bg: "#D4A01708",
+      border: "var(--color-warning)",
+      bg: "var(--warning-bg-light)",
       label: "MODIFIED",
-      labelColor: "#D4A017",
+      labelColor: "var(--color-warning)",
     },
     unchanged: {
       border: "var(--color-border)",
@@ -681,7 +681,7 @@ function StepDiffCard({
               >
                 <span
                   style={{
-                    color: "#D4A017",
+                    color: "var(--color-warning)",
                     fontWeight: 600,
                     minWidth: 100,
                   }}
@@ -710,7 +710,7 @@ function StepDiffCard({
             marginTop: 8,
             padding: "6px 10px",
             borderRadius: 4,
-            background: "rgba(212, 160, 23, 0.08)",
+            background: "var(--warning-bg-light)",
           }}
         >
           <span
@@ -718,7 +718,7 @@ function StepDiffCard({
               fontFamily: "var(--font-mono)",
               fontSize: 10,
               fontWeight: 600,
-              color: "#D4A017",
+              color: "var(--color-warning)",
             }}
           >
             Changed:{" "}
@@ -766,11 +766,11 @@ function GapDiffCard({
     <div
       style={{
         padding: 12,
-        borderLeft: `3px solid ${isResolved ? "#17A589" : isNew ? "#E8553A" : "var(--color-border)"}`,
+        borderLeft: `3px solid ${isResolved ? "var(--color-success)" : isNew ? "var(--color-accent)" : "var(--color-border)"}`,
         background: isResolved
-          ? "#17A58908"
+          ? "var(--success-bg-light)"
           : isNew
-            ? "#E8553A08"
+            ? "var(--accent-bg-light)"
             : "transparent",
         borderRadius: "var(--radius-sm)",
         marginBottom: 8,
@@ -828,8 +828,8 @@ function GapDiffCard({
               fontFamily: "var(--font-mono)",
               fontSize: 9,
               fontWeight: 700,
-              color: isResolved ? "#17A589" : "#E8553A",
-              background: isResolved ? "#17A58915" : "#E8553A15",
+              color: isResolved ? "var(--color-success)" : "var(--color-accent)",
+              background: isResolved ? "var(--success-bg-light)" : "var(--accent-bg-light)",
               padding: "2px 8px",
               borderRadius: 4,
               letterSpacing: "0.06em",

@@ -24,6 +24,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate API key is configured
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json(
+        { error: "API key not configured. Please set ANTHROPIC_API_KEY." },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json();
     const decomposeRequest: DecomposeRequest = {
       description: body.description,
@@ -37,6 +45,14 @@ export async function POST(request: NextRequest) {
     ) {
       return NextResponse.json(
         { error: "Workflow description is required" },
+        { status: 400 }
+      );
+    }
+
+    // Prevent excessive input that could overflow context window
+    if (decomposeRequest.description.length > 15000) {
+      return NextResponse.json(
+        { error: "Workflow description is too long (max 15,000 characters). Please shorten it or split into multiple workflows." },
         { status: 400 }
       );
     }

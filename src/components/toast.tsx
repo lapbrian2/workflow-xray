@@ -103,25 +103,25 @@ const COLOR_MAP: Record<ToastType, { bg: string; border: string; accent: string;
     bg: "linear-gradient(135deg, rgba(232,249,245,0.97) 0%, rgba(213,245,240,0.95) 100%)",
     border: "rgba(23,165,137,0.18)",
     accent: "var(--color-success)",
-    icon: "#17A589",
+    icon: "var(--color-success)",
   },
   error: {
     bg: "linear-gradient(135deg, rgba(253,240,238,0.97) 0%, rgba(255,230,225,0.95) 100%)",
     border: "rgba(232,85,58,0.18)",
     accent: "var(--color-accent)",
-    icon: "#C0392B",
+    icon: "var(--color-danger)",
   },
   warning: {
     bg: "linear-gradient(135deg, rgba(255,249,230,0.97) 0%, rgba(255,243,210,0.95) 100%)",
     border: "rgba(212,160,23,0.18)",
     accent: "var(--color-warning)",
-    icon: "#D4A017",
+    icon: "var(--color-warning)",
   },
   info: {
     bg: "linear-gradient(135deg, rgba(232,243,255,0.97) 0%, rgba(215,235,255,0.95) 100%)",
     border: "rgba(45,125,210,0.18)",
     accent: "var(--color-info)",
-    icon: "#2D7DD2",
+    icon: "var(--color-info)",
   },
 };
 
@@ -175,7 +175,7 @@ function ToastItem({
           height: 24,
           borderRadius: "50%",
           background: `${colors.accent}`,
-          color: "#fff",
+          color: "var(--color-light)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",

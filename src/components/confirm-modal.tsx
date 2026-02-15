@@ -14,9 +14,9 @@ interface ConfirmModalProps {
 }
 
 const VARIANT_COLORS = {
-  danger: { bg: "#FDF0EE", border: "#E8553A", icon: "!", accent: "#C0392B" },
-  warning: { bg: "#FFF8E1", border: "#D4A017", icon: "⚠", accent: "#B8860B" },
-  info: { bg: "#EDF4FC", border: "#2D7DD2", icon: "i", accent: "#2D7DD2" },
+  danger: { bg: "var(--danger-bg)", border: "var(--color-accent)", icon: "!", accent: "var(--color-danger)" },
+  warning: { bg: "var(--warning-bg)", border: "var(--color-warning)", icon: "⚠", accent: "#B8860B" },
+  info: { bg: "var(--info-bg)", border: "var(--color-info)", icon: "i", accent: "var(--color-info)" },
 };
 
 export default function ConfirmModal({
@@ -89,7 +89,7 @@ export default function ConfirmModal({
     >
       <div
         style={{
-          background: "#fff",
+          background: "var(--color-surface)",
           borderRadius: "var(--radius-xl)",
           border: `1px solid ${colors.border}20`,
           boxShadow:
@@ -198,11 +198,11 @@ export default function ConfirmModal({
                 border: "none",
                 background:
                   variant === "danger"
-                    ? "linear-gradient(135deg, #C0392B, #E74C3C)"
+                    ? "linear-gradient(135deg, var(--color-danger), #E74C3C)"
                     : variant === "warning"
-                      ? "linear-gradient(135deg, #B8860B, #D4A017)"
-                      : "linear-gradient(135deg, #2D7DD2, #5BA0E0)",
-                color: "#fff",
+                      ? "linear-gradient(135deg, #B8860B, var(--color-warning))"
+                      : "linear-gradient(135deg, var(--color-info), #5BA0E0)",
+                color: "var(--color-light)",
                 fontFamily: "var(--font-mono)",
                 fontSize: 12,
                 fontWeight: 600,

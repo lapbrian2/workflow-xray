@@ -270,8 +270,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let body;
   try {
-    const { before, after } = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid request body." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const { before, after } = body;
     if (!before || !after) {
       return NextResponse.json(
         { error: "Both before and after decompositions are required" },

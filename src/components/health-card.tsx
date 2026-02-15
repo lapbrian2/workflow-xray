@@ -19,18 +19,18 @@ function scoreLabel(value: number): string {
 }
 
 function scoreColor(value: number): string {
-  if (value >= 80) return "#17A589";
-  if (value >= 60) return "#2D7DD2";
-  if (value >= 40) return "#D4A017";
-  return "#E8553A";
+  if (value >= 80) return "var(--color-success)";
+  if (value >= 60) return "var(--color-info)";
+  if (value >= 40) return "var(--color-warning)";
+  return "var(--color-accent)";
 }
 
 /** For metrics where high = bad (complexity, fragility), invert the color logic */
 function invertedScoreColor(value: number): string {
-  if (value <= 20) return "#17A589";
-  if (value <= 40) return "#2D7DD2";
-  if (value <= 60) return "#D4A017";
-  return "#E8553A";
+  if (value <= 20) return "var(--color-success)";
+  if (value <= 40) return "var(--color-info)";
+  if (value <= 60) return "var(--color-warning)";
+  return "var(--color-accent)";
 }
 
 function invertedScoreLabel(value: number): string {
@@ -147,7 +147,7 @@ export default function HealthCard({
           <ScoreRing
             value={health.complexity}
             label="Complexity"
-            color="#2D7DD2"
+            color="var(--color-info)"
           />
           <div
             style={{
@@ -170,7 +170,7 @@ export default function HealthCard({
           <ScoreRing
             value={health.fragility}
             label="Fragility"
-            color="#E8553A"
+            color="var(--color-accent)"
           />
           <div
             style={{
@@ -193,7 +193,7 @@ export default function HealthCard({
           <ScoreRing
             value={health.automationPotential}
             label="Automation"
-            color="#17A589"
+            color="var(--color-success)"
           />
           <div
             style={{
@@ -216,7 +216,7 @@ export default function HealthCard({
           <ScoreRing
             value={health.teamLoadBalance}
             label="Team Balance"
-            color="#8E44AD"
+            color="var(--color-memory)"
           />
           <div
             style={{
@@ -263,22 +263,22 @@ export default function HealthCard({
         <MetricBar
           label="Complexity"
           value={health.complexity}
-          color="#2D7DD2"
+          color="var(--color-info)"
         />
         <MetricBar
           label="Fragility"
           value={health.fragility}
-          color="#E8553A"
+          color="var(--color-accent)"
         />
         <MetricBar
           label="Automation Potential"
           value={health.automationPotential}
-          color="#17A589"
+          color="var(--color-success)"
         />
         <MetricBar
           label="Team Load Balance"
           value={health.teamLoadBalance}
-          color="#8E44AD"
+          color="var(--color-memory)"
         />
 
         {/* Interpretation line */}

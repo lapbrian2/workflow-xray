@@ -88,6 +88,20 @@
   --accent-bg-light: rgba(232, 85, 58, 0.06);
   --info-bg-light: rgba(45, 125, 210, 0.06);
   --success-bg-light: rgba(23, 165, 137, 0.06);
+  --memory-bg-light: rgba(142, 68, 173, 0.06);
+  --warning-bg-light: rgba(212, 160, 23, 0.06);
+
+  /* Background fills for banners / panels */
+  --success-bg: #e8f8f5;
+  --info-bg: #edf4fc;
+  --warning-bg: #fff8e1;
+  --danger-bg: #fdf0ee;
+
+  /* Dark variants for text on light success backgrounds */
+  --color-success-dark: #1e5631;
+
+  /* Light-text color used on dark buttons */
+  --color-light: #f0f2f5;
 
   /* Disabled state */
   --disabled-opacity: 0.5;

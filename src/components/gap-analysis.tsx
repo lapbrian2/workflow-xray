@@ -14,13 +14,13 @@ export default function GapAnalysis({ gaps }: GapAnalysisProps) {
         <div
           className="empty-state-icon"
           style={{
-            background: "linear-gradient(135deg, #E8F8F5, #D5F5F0)",
-            color: "#17A589",
+            background: "linear-gradient(135deg, var(--success-bg), #D5F5F0)",
+            color: "var(--color-success)",
           }}
         >
           &#x2713;
         </div>
-        <div className="empty-state-title" style={{ color: "#17A589" }}>
+        <div className="empty-state-title" style={{ color: "var(--color-success)" }}>
           No gaps detected
         </div>
         <div className="empty-state-desc">
@@ -46,13 +46,13 @@ export default function GapAnalysis({ gaps }: GapAnalysisProps) {
         }}
       >
         {highGaps.length > 0 && (
-          <Badge count={highGaps.length} label="high" color="#E8553A" />
+          <Badge count={highGaps.length} label="high" color="var(--color-accent)" />
         )}
         {mediumGaps.length > 0 && (
-          <Badge count={mediumGaps.length} label="medium" color="#D4A017" />
+          <Badge count={mediumGaps.length} label="medium" color="var(--color-warning)" />
         )}
         {lowGaps.length > 0 && (
-          <Badge count={lowGaps.length} label="low" color="#17A589" />
+          <Badge count={lowGaps.length} label="low" color="var(--color-success)" />
         )}
       </div>
       <div

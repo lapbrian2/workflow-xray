@@ -132,7 +132,7 @@ export default function GapCard({ gap, index }: GapCardProps) {
               fontFamily: "var(--font-mono)",
               fontSize: 10,
               fontWeight: 700,
-              color: "#fff",
+              color: "var(--color-light)",
               background: `linear-gradient(135deg, ${sevColor} 0%, ${sevColor}CC 100%)`,
               padding: "3px 10px",
               borderRadius: 12,
@@ -193,7 +193,7 @@ export default function GapCard({ gap, index }: GapCardProps) {
             padding: "10px 16px",
             background: "linear-gradient(135deg, rgba(23,165,137,0.06) 0%, rgba(23,165,137,0.02) 100%)",
             borderRadius: "var(--radius-sm)",
-            borderLeft: "3px solid #17A589",
+            borderLeft: "3px solid var(--color-success)",
             transition: "all 0.3s ease",
             transform: hovered ? "translateX(2px)" : "translateX(0)",
           }}
@@ -203,7 +203,7 @@ export default function GapCard({ gap, index }: GapCardProps) {
               fontFamily: "var(--font-mono)",
               fontSize: 10,
               fontWeight: 700,
-              color: "#17A589",
+              color: "var(--color-success)",
               letterSpacing: "0.06em",
               marginBottom: 4,
               textTransform: "uppercase",
@@ -214,7 +214,7 @@ export default function GapCard({ gap, index }: GapCardProps) {
           <div
             style={{
               fontSize: 13,
-              color: "#1E5631",
+              color: "var(--color-success-dark)",
               lineHeight: 1.55,
             }}
           >
@@ -239,8 +239,8 @@ export default function GapCard({ gap, index }: GapCardProps) {
                   fontFamily: "var(--font-mono)",
                   fontSize: 10,
                   fontWeight: 600,
-                  color: "#E8553A",
-                  background: "rgba(232,85,58,0.08)",
+                  color: "var(--color-accent)",
+                  background: "var(--accent-bg-light)",
                   border: "1px solid rgba(232,85,58,0.15)",
                   padding: "3px 10px",
                   borderRadius: 10,
@@ -260,16 +260,16 @@ export default function GapCard({ gap, index }: GapCardProps) {
                   fontWeight: 600,
                   color:
                     gap.effortLevel === "quick_win"
-                      ? "#17A589"
+                      ? "var(--color-success)"
                       : gap.effortLevel === "incremental"
-                        ? "#2D7DD2"
-                        : "#8E44AD",
+                        ? "var(--color-info)"
+                        : "var(--color-memory)",
                   background:
                     gap.effortLevel === "quick_win"
-                      ? "rgba(23,165,137,0.08)"
+                      ? "var(--success-bg-light)"
                       : gap.effortLevel === "incremental"
-                        ? "rgba(45,125,210,0.08)"
-                        : "rgba(142,68,173,0.08)",
+                        ? "var(--info-bg-light)"
+                        : "var(--memory-bg-light)",
                   border: `1px solid ${
                     gap.effortLevel === "quick_win"
                       ? "rgba(23,165,137,0.15)"
