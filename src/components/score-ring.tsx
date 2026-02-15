@@ -43,7 +43,7 @@ export default function ScoreRing({
   // Animate the number counting up
   useEffect(() => {
     if (!mounted) return;
-    const duration = 1200;
+    const duration = 800;
     const startTime = performance.now();
 
     const animate = (now: number) => {
@@ -103,7 +103,7 @@ export default function ScoreRing({
           strokeDashoffset={mounted ? targetOffset : circumference}
           strokeLinecap="round"
           style={{
-            transition: "stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1)",
+            transition: "stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
           }}
         />
         {/* Main fill ring */}
@@ -118,7 +118,7 @@ export default function ScoreRing({
           strokeDashoffset={mounted ? targetOffset : circumference}
           strokeLinecap="round"
           style={{
-            transition: "stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1)",
+            transition: "stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
           }}
         />
       </svg>

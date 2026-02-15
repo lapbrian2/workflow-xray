@@ -298,7 +298,7 @@ function HomeContent() {
             marginBottom: 20,
             opacity: mounted ? 1 : 0,
             transform: mounted ? "translateY(0)" : "translateY(12px)",
-            transition: "all 0.7s cubic-bezier(0.4, 0, 0.2, 1) 0.1s",
+            transition: "all 0.35s cubic-bezier(0.4, 0, 0.2, 1) 0.05s",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -329,7 +329,7 @@ function HomeContent() {
             marginBottom: 20,
             opacity: mounted ? 1 : 0,
             transform: mounted ? "translateY(0)" : "translateY(24px)",
-            transition: "all 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.25s",
+            transition: "all 0.35s cubic-bezier(0.4, 0, 0.2, 1) 0.12s",
           }}
         >
           <span
@@ -358,7 +358,7 @@ function HomeContent() {
             margin: "0 auto",
             opacity: mounted ? 1 : 0,
             transform: mounted ? "translateY(0)" : "translateY(18px)",
-            transition: "all 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.45s",
+            transition: "all 0.35s cubic-bezier(0.4, 0, 0.2, 1) 0.2s",
           }}
         >
           Describe a workflow in natural language. Get a visual decomposition
@@ -375,7 +375,7 @@ function HomeContent() {
             background:
               "linear-gradient(90deg, transparent, var(--color-accent), transparent)",
             opacity: mounted ? 0.5 : 0,
-            transition: "opacity 0.8s ease 0.6s",
+            transition: "opacity 0.35s ease 0.28s",
           }}
         />
       </div>
@@ -638,7 +638,7 @@ function HomeContent() {
           zIndex: 2,
           opacity: mounted ? 1 : 0,
           transform: mounted ? "translateY(0)" : "translateY(20px)",
-          transition: "all 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.65s",
+          transition: "all 0.35s cubic-bezier(0.4, 0, 0.2, 1) 0.28s",
         }}
       >
         <WorkflowInput

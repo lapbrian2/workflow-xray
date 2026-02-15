@@ -78,7 +78,7 @@ export default function WorkflowCard({ workflow, onDelete }: WorkflowCardProps) 
           background:
             "linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.03) 30%, rgba(232,85,58,0.04) 50%, rgba(255,255,255,0.03) 70%, transparent 100%)",
           backgroundSize: "300% 100%",
-          animation: hovered ? "cardShimmer 3s ease infinite" : "none",
+          animation: hovered ? "cardShimmer 1.5s ease infinite" : "none",
           pointerEvents: "none",
           zIndex: 0,
           opacity: hovered ? 1 : 0,

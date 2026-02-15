@@ -51,7 +51,7 @@ export default function MetricBar({ label, value, color }: MetricBarProps) {
             height: "100%",
             borderRadius: 3,
             background: color,
-            transition: "width 0.8s ease",
+            transition: "width 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
           }}
         />
       </div>
