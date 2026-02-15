@@ -1086,6 +1086,8 @@ export default function FreeformInput({
   const [extractionResults, setExtractionResults] = useState<{
     documentTitle: string;
     workflows: ExtractedWf[];
+    sourceType?: "notion" | "url" | "text" | "file";
+    sourceUrl?: string;
   } | null>(null);
   const [extractionError, setExtractionError] = useState<string | null>(null);
   const extractLock = useRef(false);
@@ -1094,27 +1096,36 @@ export default function FreeformInput({
   interface AnalyzeAllWorkflowItem {
     id: string;
     title: string;
+    extractedDescription: string;
     status: "queued" | "analyzing" | "complete" | "error";
     savedId?: string;
     steps?: number;
     gaps?: number;
     automationPotential?: number;
     error?: string;
+    sourceSection?: string;
+    confidence?: string;
   }
   interface AnalyzeAllProgress {
     stage: "idle" | "analyzing" | "complete";
     current?: number;
     total?: number;
+    sourceType?: "notion" | "url" | "manual" | "file" | "text";
+    sourceTitle?: string;
     workflows?: AnalyzeAllWorkflowItem[];
     summary?: {
       totalWorkflows: number;
       workflowsSaved: number;
       workflowsFailed: number;
       savedWorkflowIds: string[];
+      totalSteps: number;
+      totalGaps: number;
+      avgAutomation: number;
+      failedWorkflows?: AnalyzeAllWorkflowItem[];
     };
   }
   const [analyzeAllProgress, setAnalyzeAllProgress] = useState<AnalyzeAllProgress>({ stage: "idle" });
-  const analyzeAllAbortRef = useRef(false);
+  const analyzeAllAbortRef = useRef<AbortController | null>(null);
 
   // ─── URL fetch handler ───
   const handleUrlFetch = useCallback(async () => {
@@ -1189,6 +1200,8 @@ export default function FreeformInput({
           setExtractionResults({
             documentTitle: data.documentTitle || "Untitled",
             workflows: data.workflows,
+            sourceType: sourceType === "text" ? "text" : sourceType,
+            sourceUrl,
           });
         }
       } catch (err) {
@@ -1217,37 +1230,32 @@ export default function FreeformInput({
   );
 
   // ─── Analyze All handler ───
-  const handleAnalyzeAll = useCallback(async () => {
-    if (!extractionResults || extractionResults.workflows.length === 0) return;
-
-    const workflows = extractionResults.workflows;
-    analyzeAllAbortRef.current = false;
-
-    // Build initial queued list
-    const initial: AnalyzeAllWorkflowItem[] = workflows.map((wf, i) => ({
-      id: `aa_${i + 1}`,
-      title: wf.title,
-      status: "queued" as const,
-    }));
+  const runAnalyzeAll = useCallback(async (workflowItems: AnalyzeAllWorkflowItem[], srcType?: string, srcTitle?: string, srcUrl?: string) => {
+    // Create a new AbortController for this run
+    const abort = new AbortController();
+    analyzeAllAbortRef.current = abort;
 
     setAnalyzeAllProgress({
       stage: "analyzing",
       current: 0,
-      total: workflows.length,
-      workflows: initial,
+      total: workflowItems.length,
+      sourceType: (srcType as AnalyzeAllProgress["sourceType"]) || "manual",
+      sourceTitle: srcTitle,
+      workflows: workflowItems.map((w) => ({ ...w, status: "queued" as const })),
     });
-
-    // Hide the extraction results card — progress cards replace it
-    setExtractionResults(null);
 
     const savedIds: string[] = [];
     let failed = 0;
+    let totalSteps = 0;
+    let totalGaps = 0;
+    let automationSum = 0;
+    const failedItems: AnalyzeAllWorkflowItem[] = [];
 
-    for (let i = 0; i < workflows.length; i++) {
-      if (analyzeAllAbortRef.current) break;
+    for (let i = 0; i < workflowItems.length; i++) {
+      if (abort.signal.aborted) break;
 
-      const wf = workflows[i];
-      const itemId = `aa_${i + 1}`;
+      const wf = workflowItems[i];
+      const itemId = wf.id;
 
       // Mark current as analyzing
       setAnalyzeAllProgress((prev) => ({
@@ -1259,16 +1267,19 @@ export default function FreeformInput({
       }));
 
       try {
-        // 1. Decompose
+        // 1. Decompose with AbortController signal
         const res = await fetchWithTimeout(
           "/api/decompose",
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ description: wf.extractedDescription }),
+            signal: abort.signal,
           },
           120000
         );
+
+        if (abort.signal.aborted) break;
 
         if (!res.ok) {
           let errMsg = "Decomposition failed";
@@ -1283,26 +1294,40 @@ export default function FreeformInput({
 
         const workflow = await res.json();
 
-        // Attach extraction source metadata
+        // Attach extraction source metadata with correct source type
+        const resolvedType = srcType === "text" ? "manual" : (srcType || "manual");
         const extractionSource: ExtractionSource = {
-          type: "manual",
+          type: resolvedType as ExtractionSource["type"],
+          url: srcUrl,
           title: wf.title,
           extractedAt: new Date().toISOString(),
           sourceSection: wf.sourceSection,
-          totalWorkflowsInDocument: workflows.length,
+          totalWorkflowsInDocument: workflowItems.length,
         };
         workflow.extractionSource = extractionSource;
 
-        // 2. Save to server
-        await fetch("/api/workflows", {
+        // 2. Save to server — with error handling
+        const saveRes = await fetch("/api/workflows", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(workflow),
+          signal: abort.signal,
         });
+
+        if (!saveRes.ok) {
+          throw new Error(`Failed to save (${saveRes.status})`);
+        }
 
         // 3. Save to local IndexedDB
         saveWorkflowLocal(workflow);
         savedIds.push(workflow.id);
+
+        const steps = workflow.decomposition?.steps?.length ?? 0;
+        const gaps = workflow.decomposition?.gaps?.length ?? 0;
+        const auto = workflow.decomposition?.health?.automationPotential ?? 0;
+        totalSteps += steps;
+        totalGaps += gaps;
+        automationSum += auto;
 
         // Mark complete with stats
         setAnalyzeAllProgress((prev) => ({
@@ -1313,45 +1338,92 @@ export default function FreeformInput({
                   ...w,
                   status: "complete" as const,
                   savedId: workflow.id,
-                  steps: workflow.decomposition?.steps?.length ?? 0,
-                  gaps: workflow.decomposition?.gaps?.length ?? 0,
-                  automationPotential:
-                    workflow.decomposition?.health?.automationPotential ?? 0,
+                  steps,
+                  gaps,
+                  automationPotential: auto,
                 }
               : w
           ),
         }));
       } catch (err) {
+        if (abort.signal.aborted) break;
         failed++;
+        const errorMsg = err instanceof Error ? err.message : "Failed";
+        failedItems.push({ ...wf, status: "error", error: errorMsg });
         setAnalyzeAllProgress((prev) => ({
           ...prev,
           workflows: prev.workflows?.map((w) =>
             w.id === itemId
-              ? {
-                  ...w,
-                  status: "error" as const,
-                  error: err instanceof Error ? err.message : "Failed",
-                }
+              ? { ...w, status: "error" as const, error: errorMsg }
               : w
           ),
         }));
       }
     }
 
-    // Complete
+    // If aborted, reset to idle
+    if (abort.signal.aborted) {
+      setAnalyzeAllProgress({ stage: "idle" });
+      analyzeAllAbortRef.current = null;
+      return;
+    }
+
+    const saved = savedIds.length;
+
+    // Complete with rich summary
     setAnalyzeAllProgress({
       stage: "complete",
-      current: workflows.length,
-      total: workflows.length,
-      workflows: undefined, // Clear individual cards
+      current: workflowItems.length,
+      total: workflowItems.length,
+      sourceType: (srcType as AnalyzeAllProgress["sourceType"]) || "manual",
+      workflows: undefined,
       summary: {
-        totalWorkflows: workflows.length,
-        workflowsSaved: savedIds.length,
+        totalWorkflows: workflowItems.length,
+        workflowsSaved: saved,
         workflowsFailed: failed,
         savedWorkflowIds: savedIds,
+        totalSteps,
+        totalGaps,
+        avgAutomation: saved > 0 ? Math.round(automationSum / saved) : 0,
+        failedWorkflows: failedItems.length > 0 ? failedItems : undefined,
       },
     });
-  }, [extractionResults]);
+    analyzeAllAbortRef.current = null;
+  }, []);
+
+  const handleAnalyzeAll = useCallback(() => {
+    if (!extractionResults || extractionResults.workflows.length === 0) return;
+    if (analyzeAllProgress.stage === "analyzing") return; // Guard double-click
+
+    const items: AnalyzeAllWorkflowItem[] = extractionResults.workflows.map((wf, i) => ({
+      id: `aa_${i + 1}`,
+      title: wf.title,
+      extractedDescription: wf.extractedDescription,
+      status: "queued" as const,
+      sourceSection: wf.sourceSection,
+      confidence: wf.confidence,
+    }));
+
+    const srcType = extractionResults.sourceType || "manual";
+    const srcTitle = extractionResults.documentTitle;
+    const srcUrl = extractionResults.sourceUrl;
+
+    // Hide extraction results — progress cards replace them
+    setExtractionResults(null);
+
+    runAnalyzeAll(items, srcType, srcTitle, srcUrl);
+  }, [extractionResults, analyzeAllProgress.stage, runAnalyzeAll]);
+
+  const handleRetryFailed = useCallback(() => {
+    if (!analyzeAllProgress.summary?.failedWorkflows?.length) return;
+    const failedItems = analyzeAllProgress.summary.failedWorkflows.map((wf, i) => ({
+      ...wf,
+      id: `retry_${i + 1}`,
+      status: "queued" as const,
+      error: undefined,
+    }));
+    runAnalyzeAll(failedItems, analyzeAllProgress.sourceType);
+  }, [analyzeAllProgress, runAnalyzeAll]);
 
   // ─── Screenshot extraction handler ───
   const handleExtractFromScreenshot = useCallback(async () => {
@@ -1381,6 +1453,8 @@ export default function FreeformInput({
         setExtractionResults({
           documentTitle: data.documentTitle || "Untitled",
           workflows: data.workflows,
+          sourceType: "url",
+          sourceUrl: urlPreview?.url,
         });
       }
     } catch (err) {
@@ -1607,7 +1681,8 @@ export default function FreeformInput({
                     setExtractionError(null);
                     // Reset analyze-all progress on tab switch
                     if (analyzeAllProgress.stage !== "idle") {
-                      analyzeAllAbortRef.current = true;
+                      analyzeAllAbortRef.current?.abort();
+                      analyzeAllAbortRef.current = null;
                       setAnalyzeAllProgress({ stage: "idle" });
                     }
                     // Reset crawl state when leaving crawl tab
@@ -2532,16 +2607,17 @@ export default function FreeformInput({
                       </span>
                       <button
                         onClick={handleAnalyzeAll}
+                        disabled={disabled || analyzeAllProgress.stage === "analyzing"}
                         style={{
                           padding: "7px 16px",
                           borderRadius: 6,
                           border: "none",
-                          background: "var(--color-info)",
-                          color: "var(--color-light)",
+                          background: disabled || analyzeAllProgress.stage === "analyzing" ? "var(--color-border)" : "var(--color-info)",
+                          color: disabled || analyzeAllProgress.stage === "analyzing" ? "var(--color-muted)" : "var(--color-light)",
                           fontFamily: "var(--font-mono)",
                           fontSize: 11,
                           fontWeight: 700,
-                          cursor: "pointer",
+                          cursor: disabled || analyzeAllProgress.stage === "analyzing" ? "not-allowed" : "pointer",
                           transition: "all 0.2s",
                           letterSpacing: "0.04em",
                           display: "flex",
@@ -2560,7 +2636,7 @@ export default function FreeformInput({
 
             {/* ── Analyze All: progress cards ── */}
             {analyzeAllProgress.stage === "analyzing" && analyzeAllProgress.workflows && (
-              <div style={{ marginTop: 4, animation: "fadeIn 0.25s ease" }}>
+              <div role="status" aria-live="polite" aria-label="Batch workflow analysis progress" style={{ marginTop: 4, animation: "fadeIn 0.25s ease" }}>
                 <div style={{
                   padding: "12px 14px",
                   background: "var(--info-bg)",
@@ -2573,12 +2649,26 @@ export default function FreeformInput({
                         Analyzing All Workflows
                       </div>
                       <div style={{ fontFamily: "var(--font-display)", fontSize: 13, fontWeight: 700, color: "var(--color-dark)" }}>
-                        {analyzeAllProgress.current} of {analyzeAllProgress.total} complete
+                        {analyzeAllProgress.workflows.filter((w) => w.status === "complete" || w.status === "error").length} of {analyzeAllProgress.total} complete
                       </div>
                     </div>
                     <button
-                      onClick={() => { analyzeAllAbortRef.current = true; }}
-                      style={{ background: "none", border: "1px solid var(--color-border)", borderRadius: 4, fontSize: 9, fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--color-muted)", cursor: "pointer", padding: "3px 8px" }}
+                      onClick={() => { analyzeAllAbortRef.current?.abort(); }}
+                      aria-label="Cancel batch analysis"
+                      style={{
+                        background: "none",
+                        border: "1px solid var(--color-border)",
+                        borderRadius: 4,
+                        fontSize: 9,
+                        fontFamily: "var(--font-mono)",
+                        fontWeight: 600,
+                        color: "var(--color-muted)",
+                        cursor: "pointer",
+                        padding: "4px 10px",
+                        transition: "all 0.15s ease",
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--color-accent)"; e.currentTarget.style.color = "var(--color-accent)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--color-border)"; e.currentTarget.style.color = "var(--color-muted)"; }}
                     >
                       Cancel
                     </button>
@@ -2587,7 +2677,7 @@ export default function FreeformInput({
                   {/* Overall progress bar */}
                   <div style={{ height: 3, borderRadius: 2, background: "rgba(45,125,210,0.12)", marginBottom: 10, overflow: "hidden" }}>
                     <div style={{
-                      width: `${((analyzeAllProgress.current ?? 0) / (analyzeAllProgress.total ?? 1)) * 100}%`,
+                      width: `${(analyzeAllProgress.workflows.filter((w) => w.status === "complete" || w.status === "error").length / (analyzeAllProgress.total ?? 1)) * 100}%`,
                       height: "100%",
                       background: "var(--color-info)",
                       borderRadius: 2,
@@ -2596,160 +2686,246 @@ export default function FreeformInput({
                   </div>
 
                   {/* Per-workflow status cards */}
-                  <div style={{ maxHeight: 240, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, paddingRight: 4 }}>
-                    {analyzeAllProgress.workflows.map((wf) => (
-                      <div
-                        key={wf.id}
-                        style={{
-                          padding: "8px 10px",
-                          borderRadius: 6,
-                          border: `1px solid ${
-                            wf.status === "complete" ? "rgba(23,165,137,0.2)"
-                            : wf.status === "error" ? "rgba(232,85,58,0.2)"
-                            : wf.status === "analyzing" ? "rgba(45,125,210,0.2)"
-                            : "var(--color-border)"
-                          }`,
-                          background:
-                            wf.status === "complete" ? "rgba(23,165,137,0.04)"
-                            : wf.status === "error" ? "rgba(232,85,58,0.04)"
-                            : wf.status === "analyzing" ? "rgba(45,125,210,0.04)"
-                            : "var(--color-surface)",
-                          transition: "all 0.2s ease",
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          {/* Status icon */}
-                          <span style={{ fontSize: 12, flexShrink: 0 }}>
-                            {wf.status === "queued" && <span style={{ opacity: 0.4 }}>&#9203;</span>}
-                            {wf.status === "analyzing" && (
-                              <span style={{
-                                width: 10, height: 10,
-                                border: "2px solid rgba(45,125,210,0.2)",
-                                borderTop: "2px solid var(--color-info)",
-                                borderRadius: "50%",
-                                animation: "spin 0.8s linear infinite",
-                                display: "inline-block",
-                              }} />
+                  <div style={{ maxHeight: 260, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, paddingRight: 4 }}>
+                    {analyzeAllProgress.workflows.map((wf) => {
+                      const isComplete = wf.status === "complete" && wf.savedId;
+                      const Tag = isComplete ? "a" : "div";
+                      return (
+                        <Tag
+                          key={wf.id}
+                          {...(isComplete ? { href: `/xray/${wf.savedId}`, target: "_blank", rel: "noopener noreferrer" } : {})}
+                          style={{
+                            padding: "8px 10px",
+                            borderRadius: 6,
+                            textDecoration: "none",
+                            cursor: isComplete ? "pointer" : "default",
+                            border: `1px solid ${
+                              wf.status === "complete" ? "rgba(23,165,137,0.2)"
+                              : wf.status === "error" ? "rgba(232,85,58,0.2)"
+                              : wf.status === "analyzing" ? "rgba(45,125,210,0.2)"
+                              : "var(--color-border)"
+                            }`,
+                            background:
+                              wf.status === "complete" ? "rgba(23,165,137,0.04)"
+                              : wf.status === "error" ? "rgba(232,85,58,0.04)"
+                              : wf.status === "analyzing" ? "rgba(45,125,210,0.06)"
+                              : "var(--color-surface)",
+                            transition: "all 0.2s ease",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            {/* Status icon */}
+                            <span style={{ fontSize: 12, flexShrink: 0 }}>
+                              {wf.status === "queued" && <span style={{ opacity: 0.4 }}>&#9203;</span>}
+                              {wf.status === "analyzing" && (
+                                <span style={{
+                                  width: 10, height: 10,
+                                  border: "2px solid rgba(45,125,210,0.2)",
+                                  borderTop: "2px solid var(--color-info)",
+                                  borderRadius: "50%",
+                                  animation: "spin 0.8s linear infinite",
+                                  display: "inline-block",
+                                }} />
+                              )}
+                              {wf.status === "complete" && <span style={{ color: "var(--color-success)" }}>&#10003;</span>}
+                              {wf.status === "error" && <span style={{ color: "var(--color-accent)" }}>&#10007;</span>}
+                            </span>
+                            {/* Title */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{
+                                fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 600,
+                                color: "var(--color-dark)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                              }}>
+                                {wf.title}
+                              </div>
+                              {wf.status === "error" && wf.error && (
+                                <div style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--color-accent)", marginTop: 2, opacity: 0.8 }}>
+                                  {wf.error}
+                                </div>
+                              )}
+                            </div>
+                            {/* Results or link indicator */}
+                            {wf.status === "complete" && wf.steps !== undefined && (
+                              <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--color-success)", fontWeight: 600, flexShrink: 0, display: "flex", alignItems: "center", gap: 4 }}>
+                                {wf.steps}s / {wf.gaps}g / {wf.automationPotential}%
+                                <span style={{ fontSize: 8, opacity: 0.6 }}>&rarr;</span>
+                              </div>
                             )}
-                            {wf.status === "complete" && <span style={{ color: "var(--color-success)" }}>&#10003;</span>}
-                            {wf.status === "error" && <span style={{ color: "var(--color-accent)" }}>&#10007;</span>}
-                          </span>
-                          {/* Title */}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{
-                              fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 600,
-                              color: "var(--color-dark)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                            }}>
-                              {wf.title}
-                            </div>
+                            {wf.status === "error" && (
+                              <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--color-accent)", flexShrink: 0 }}>
+                                Failed
+                              </div>
+                            )}
                           </div>
-                          {/* Results */}
-                          {wf.status === "complete" && wf.steps !== undefined && (
-                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--color-success)", fontWeight: 600, flexShrink: 0 }}>
-                              {wf.steps}s / {wf.gaps}g / {wf.automationPotential}%
-                            </div>
-                          )}
-                          {wf.status === "error" && (
-                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--color-accent)", flexShrink: 0 }}>
-                              Failed
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                        </Tag>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
             )}
 
             {/* ── Analyze All: completion summary ── */}
-            {analyzeAllProgress.stage === "complete" && analyzeAllProgress.summary && (
-              <div style={{ marginTop: 4, animation: "fadeIn 0.25s ease" }}>
-                <div style={{
-                  padding: "14px 16px",
-                  background: analyzeAllProgress.summary.workflowsFailed === 0
-                    ? "rgba(23,165,137,0.06)"
-                    : "rgba(212,160,23,0.06)",
-                  border: `1px solid ${analyzeAllProgress.summary.workflowsFailed === 0 ? "rgba(23,165,137,0.2)" : "rgba(212,160,23,0.2)"}`,
-                  borderRadius: 8,
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                    <div>
-                      <div style={{
-                        fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700,
-                        color: analyzeAllProgress.summary.workflowsFailed === 0 ? "var(--color-success)" : "var(--color-warning)",
-                        letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 2,
-                      }}>
-                        {analyzeAllProgress.summary.workflowsFailed === 0 ? "All Workflows Analyzed" : "Analysis Complete"}
+            {analyzeAllProgress.stage === "complete" && analyzeAllProgress.summary && (() => {
+              const s = analyzeAllProgress.summary;
+              const allGood = s.workflowsFailed === 0;
+              return (
+                <div role="status" aria-live="polite" aria-label="Batch analysis complete" style={{ marginTop: 4, animation: "fadeIn 0.25s ease" }}>
+                  <div style={{
+                    padding: "14px 16px",
+                    background: allGood
+                      ? "linear-gradient(135deg, rgba(23,165,137,0.06) 0%, rgba(45,125,210,0.04) 100%)"
+                      : "linear-gradient(135deg, rgba(212,160,23,0.06) 0%, rgba(232,85,58,0.03) 100%)",
+                    border: `1px solid ${allGood ? "rgba(23,165,137,0.2)" : "rgba(212,160,23,0.2)"}`,
+                    borderRadius: 8,
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                      <div>
+                        <div style={{
+                          fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700,
+                          color: allGood ? "var(--color-success)" : "var(--color-warning)",
+                          letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 2,
+                        }}>
+                          {allGood ? "All Workflows Analyzed" : "Analysis Complete"}
+                        </div>
+                        <div style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 700, color: "var(--color-dark)" }}>
+                          {s.workflowsSaved} workflow{s.workflowsSaved !== 1 ? "s" : ""} saved to library
+                        </div>
                       </div>
-                      <div style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 700, color: "var(--color-dark)" }}>
-                        {analyzeAllProgress.summary.workflowsSaved} workflow{analyzeAllProgress.summary.workflowsSaved !== 1 ? "s" : ""} saved to library
-                      </div>
+                      <button
+                        onClick={() => setAnalyzeAllProgress({ stage: "idle" })}
+                        aria-label="Dismiss summary"
+                        style={{ background: "none", border: "none", fontSize: 16, color: "var(--color-muted)", cursor: "pointer", padding: "2px 6px" }}
+                      >
+                        &times;
+                      </button>
                     </div>
-                    <button
-                      onClick={() => setAnalyzeAllProgress({ stage: "idle" })}
-                      style={{ background: "none", border: "none", fontSize: 16, color: "var(--color-muted)", cursor: "pointer", padding: "2px 6px" }}
-                    >
-                      &times;
-                    </button>
-                  </div>
 
-                  {/* Stats row */}
-                  <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 700, color: "var(--color-success)" }}>
-                        {analyzeAllProgress.summary.workflowsSaved}
-                      </div>
-                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                        Saved
-                      </div>
-                    </div>
-                    {analyzeAllProgress.summary.workflowsFailed > 0 && (
+                    {/* Stats grid */}
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: s.workflowsFailed > 0 ? "repeat(5, 1fr)" : "repeat(4, 1fr)",
+                      gap: 8,
+                      marginBottom: 14,
+                      padding: "10px 8px",
+                      background: "rgba(255,255,255,0.5)",
+                      borderRadius: 6,
+                      border: "1px solid rgba(0,0,0,0.04)",
+                    }}>
                       <div style={{ textAlign: "center" }}>
-                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 700, color: "var(--color-accent)" }}>
-                          {analyzeAllProgress.summary.workflowsFailed}
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 700, color: "var(--color-success)" }}>
+                          {s.workflowsSaved}
                         </div>
-                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                          Failed
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 7, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                          Saved
                         </div>
                       </div>
-                    )}
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 700, color: "var(--color-dark)" }}>
-                        {analyzeAllProgress.summary.totalWorkflows}
+                      {s.workflowsFailed > 0 && (
+                        <div style={{ textAlign: "center" }}>
+                          <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 700, color: "var(--color-accent)" }}>
+                            {s.workflowsFailed}
+                          </div>
+                          <div style={{ fontFamily: "var(--font-mono)", fontSize: 7, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                            Failed
+                          </div>
+                        </div>
+                      )}
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 700, color: "var(--color-dark)" }}>
+                          {s.totalSteps}
+                        </div>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 7, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                          Steps
+                        </div>
                       </div>
-                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                        Total
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 700, color: "var(--color-warning)" }}>
+                          {s.totalGaps}
+                        </div>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 7, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                          Gaps
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 700, color: "var(--color-info)" }}>
+                          {s.avgAutomation}%
+                        </div>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 7, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                          Avg Auto
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* View in Library link */}
-                  {analyzeAllProgress.summary.workflowsSaved > 0 && (
-                    <a
-                      href="/library"
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "7px 16px",
-                        borderRadius: 6,
-                        background: "var(--color-success)",
-                        color: "var(--color-light)",
-                        fontFamily: "var(--font-mono)",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        textDecoration: "none",
-                        transition: "all 0.2s",
-                        letterSpacing: "0.04em",
-                      }}
-                    >
-                      View in Library &rarr;
-                    </a>
-                  )}
+                    {/* Action buttons */}
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {s.workflowsSaved > 0 && (
+                        <a
+                          href="/library"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "7px 16px",
+                            borderRadius: 6,
+                            background: "var(--color-success)",
+                            color: "var(--color-light)",
+                            fontFamily: "var(--font-mono)",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            textDecoration: "none",
+                            transition: "all 0.2s",
+                            letterSpacing: "0.04em",
+                          }}
+                        >
+                          View in Library &rarr;
+                        </a>
+                      )}
+                      {s.workflowsFailed > 0 && s.failedWorkflows && (
+                        <button
+                          onClick={handleRetryFailed}
+                          style={{
+                            padding: "7px 16px",
+                            borderRadius: 6,
+                            border: "1px solid var(--color-warning)",
+                            background: "transparent",
+                            color: "var(--color-warning)",
+                            fontFamily: "var(--font-mono)",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            transition: "all 0.2s",
+                            letterSpacing: "0.04em",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          &#8635; Retry {s.workflowsFailed} Failed
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setAnalyzeAllProgress({ stage: "idle" })}
+                        style={{
+                          padding: "7px 16px",
+                          borderRadius: 6,
+                          border: "1px solid var(--color-border)",
+                          background: "transparent",
+                          color: "var(--color-text)",
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          transition: "all 0.2s",
+                          letterSpacing: "0.04em",
+                        }}
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Extracting spinner */}
             {extracting && (
