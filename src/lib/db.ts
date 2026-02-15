@@ -75,6 +75,7 @@ export async function saveWorkflow(workflow: Workflow): Promise<void> {
       {
         access: "public",
         addRandomSuffix: false,
+        allowOverwrite: true,
         contentType: "application/json",
       }
     );
