@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 
 // ---------------------------------------------------------------------------
 // Template system
@@ -89,6 +89,215 @@ const CATEGORY_COLORS: Record<Category, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// PreviewCard — shared card for Notion / URL fetch previews
+// ---------------------------------------------------------------------------
+
+interface PreviewCardProps {
+  title: string;
+  content: string;
+  stats: string;
+  truncated: boolean;
+  originalLength?: number;
+  onUseRaw: () => void;
+  onExtract: () => void;
+  onCancel: () => void;
+  extracting: boolean;
+}
+
+function PreviewCard({
+  title,
+  content,
+  stats,
+  truncated,
+  originalLength,
+  onUseRaw,
+  onExtract,
+  onCancel,
+  extracting,
+}: PreviewCardProps) {
+  return (
+    <div
+      style={{
+        padding: "12px 14px",
+        background: "var(--success-bg)",
+        border: "1px solid rgba(23,165,137,0.19)",
+        borderRadius: 8,
+        animation: "fadeIn 0.25s ease",
+      }}
+    >
+      {/* Title + close row */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 6,
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            fontWeight: 700,
+            color: "var(--color-success)",
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+          }}
+        >
+          Page Fetched
+        </div>
+        <button
+          onClick={onCancel}
+          aria-label="Cancel preview"
+          style={{
+            background: "none",
+            border: "none",
+            fontSize: 16,
+            color: "var(--color-muted)",
+            cursor: "pointer",
+            padding: "2px 6px",
+          }}
+        >
+          &times;
+        </button>
+      </div>
+
+      {/* Page title */}
+      <div
+        style={{
+          fontFamily: "var(--font-display)",
+          fontSize: 14,
+          fontWeight: 700,
+          color: "var(--color-dark)",
+          marginBottom: 4,
+          lineHeight: 1.4,
+        }}
+      >
+        {title}
+      </div>
+
+      {/* Stats line */}
+      <div
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 10,
+          color: "var(--color-muted)",
+          marginBottom: 8,
+        }}
+      >
+        {stats}
+        {truncated && originalLength && (
+          <span style={{ color: "var(--color-warning)" }}>
+            {" "}
+            &middot; truncated from {originalLength.toLocaleString()} chars
+          </span>
+        )}
+      </div>
+
+      {/* Content snippet with fade */}
+      <div
+        style={{
+          position: "relative",
+          maxHeight: 80,
+          overflow: "hidden",
+          marginBottom: 10,
+        }}
+      >
+        <pre
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            lineHeight: 1.5,
+            color: "var(--color-text)",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            margin: 0,
+          }}
+        >
+          {content.slice(0, 600)}
+        </pre>
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 36,
+            background:
+              "linear-gradient(transparent, var(--success-bg))",
+            pointerEvents: "none",
+          }}
+        />
+      </div>
+
+      {/* Action buttons */}
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          onClick={onUseRaw}
+          disabled={extracting}
+          style={{
+            padding: "6px 14px",
+            borderRadius: 6,
+            border: "1px solid var(--color-border)",
+            background: "var(--color-surface)",
+            color: "var(--color-dark)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            fontWeight: 600,
+            cursor: extracting ? "not-allowed" : "pointer",
+            transition: "all 0.2s",
+          }}
+        >
+          Use Raw Content
+        </button>
+        <button
+          onClick={onExtract}
+          disabled={extracting}
+          style={{
+            padding: "6px 14px",
+            borderRadius: 6,
+            border: "none",
+            background: extracting
+              ? "var(--color-border)"
+              : "var(--color-info)",
+            color: extracting
+              ? "var(--color-muted)"
+              : "var(--color-light)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            fontWeight: 600,
+            cursor: extracting ? "not-allowed" : "pointer",
+            transition: "all 0.2s",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          {extracting ? (
+            <>
+              <span
+                style={{
+                  width: 10,
+                  height: 10,
+                  border: "2px solid rgba(240,242,245,0.3)",
+                  borderTop: "2px solid var(--color-light)",
+                  borderRadius: "50%",
+                  animation: "spin 0.8s linear infinite",
+                  display: "inline-block",
+                }}
+              />
+              Extracting...
+            </>
+          ) : (
+            "Extract Workflows"
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -158,6 +367,134 @@ export default function FreeformInput({
   const handleCancelPreview = useCallback(() => {
     setImportPreview(null);
   }, []);
+
+  // ─── URL Import state ───
+  const [urlInput, setUrlInput] = useState("");
+  const [urlFetching, setUrlFetching] = useState(false);
+  const [urlError, setUrlError] = useState<string | null>(null);
+  const [urlPreview, setUrlPreview] = useState<{
+    title: string;
+    content: string;
+    url: string;
+    charCount: number;
+    truncated: boolean;
+    originalLength?: number;
+  } | null>(null);
+
+  // ─── Import tab state ───
+  const [importTab, setImportTab] = useState<"notion" | "url">("notion");
+
+  // ─── Extraction state ───
+  interface ExtractedWf {
+    id: string;
+    title: string;
+    summary?: string;
+    extractedDescription: string;
+    estimatedSteps?: number;
+    sourceSection?: string;
+    confidence?: string;
+  }
+  const [extracting, setExtracting] = useState(false);
+  const [extractionResults, setExtractionResults] = useState<{
+    documentTitle: string;
+    workflows: ExtractedWf[];
+  } | null>(null);
+  const [extractionError, setExtractionError] = useState<string | null>(null);
+  const extractLock = useRef(false);
+
+  // ─── URL fetch handler ───
+  const handleUrlFetch = useCallback(async () => {
+    if (!urlInput.trim() || urlFetching) return;
+    setUrlFetching(true);
+    setUrlError(null);
+    setUrlPreview(null);
+    setExtractionResults(null);
+    try {
+      const res = await fetch("/api/scrape-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: urlInput.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to fetch URL");
+      }
+      const data = await res.json();
+      setUrlPreview(data);
+    } catch (err) {
+      setUrlError(
+        err instanceof Error ? err.message : "Could not scrape this page."
+      );
+    } finally {
+      setUrlFetching(false);
+    }
+  }, [urlInput, urlFetching]);
+
+  const handleUrlInsert = useCallback(() => {
+    if (!urlPreview) return;
+    onChange(urlPreview.content);
+    setUrlPreview(null);
+    setUrlInput("");
+    setShowImport(false);
+    setExtractionResults(null);
+  }, [urlPreview, onChange]);
+
+  const handleUrlCancelPreview = useCallback(() => {
+    setUrlPreview(null);
+    setExtractionResults(null);
+  }, []);
+
+  // ─── Extraction handler (shared for Notion, URL, and text) ───
+  const handleExtractWorkflows = useCallback(
+    async (content: string, sourceType: "notion" | "url" | "text", sourceUrl?: string) => {
+      if (extractLock.current) return;
+      extractLock.current = true;
+      setExtracting(true);
+      setExtractionError(null);
+      setExtractionResults(null);
+      try {
+        const res = await fetch("/api/extract-workflows", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content, sourceType, sourceUrl }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || "Extraction failed");
+        }
+        const data = await res.json();
+        if (!data.workflows || data.workflows.length === 0) {
+          setExtractionError("No workflows found in this document. Try a page that describes a process or procedure.");
+        } else {
+          setExtractionResults({
+            documentTitle: data.documentTitle || "Untitled",
+            workflows: data.workflows,
+          });
+        }
+      } catch (err) {
+        setExtractionError(
+          err instanceof Error
+            ? err.message
+            : "Could not extract workflows. Try using raw content instead."
+        );
+      } finally {
+        setExtracting(false);
+        extractLock.current = false;
+      }
+    },
+    []
+  );
+
+  const handleSelectExtracted = useCallback(
+    (wf: ExtractedWf) => {
+      onChange(wf.extractedDescription);
+      setExtractionResults(null);
+      setImportPreview(null);
+      setUrlPreview(null);
+      setShowImport(false);
+    },
+    [onChange]
+  );
 
   const filtered =
     activeCategory === "All"
@@ -283,7 +620,30 @@ export default function FreeformInput({
         </button>
       </div>
 
-      {/* Import from Notion ----------------------------------------------- */}
+      {/* Text extraction hint for long content */}
+      {value.length > 1000 && !extracting && !extractionResults && (
+        <div style={{ marginTop: 6 }}>
+          <button
+            onClick={() => handleExtractWorkflows(value, "text")}
+            disabled={disabled || extracting}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              color: "var(--color-info)",
+              padding: 0,
+              textDecoration: "underline",
+              textUnderlineOffset: 2,
+            }}
+          >
+            Pasted a long document? Extract workflows from this text &rarr;
+          </button>
+        </div>
+      )}
+
+      {/* Import section (Notion + URL) ------------------------------------- */}
       <div style={{ marginTop: 16, marginBottom: 8 }}>
         <button
           onClick={() => setShowImport(!showImport)}
@@ -312,20 +672,7 @@ export default function FreeformInput({
           >
             &#9654;
           </span>
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 100 100"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            style={{ opacity: 0.6 }}
-          >
-            <path
-              d="M6.017 4.313l55.333 -4.087c6.797 -0.583 8.543 -0.19 12.817 2.917l17.663 12.443c2.913 2.14 3.883 2.723 3.883 5.053v68.243c0 4.277 -1.553 6.807 -6.99 7.193L24.467 99.967c-4.08 0.193 -6.023 -0.39 -8.16 -3.113L3.3 79.94c-2.333 -3.113 -3.3 -5.443 -3.3 -8.167V11.113c0 -3.497 1.553 -6.413 6.017 -6.8z"
-              fill="currentColor"
-            />
-          </svg>
-          Import from Notion
+          Import Content
         </button>
 
         {showImport && (
@@ -339,247 +686,255 @@ export default function FreeformInput({
               animation: "fadeIn 0.2s ease",
             }}
           >
-            <div
-              style={{
-                fontFamily: "var(--font-body)",
-                fontSize: 12,
-                color: "var(--color-text)",
-                marginBottom: 8,
-                lineHeight: 1.5,
-              }}
-            >
-              Paste a Notion page URL to pull its content into the input field.
-              Make sure the &ldquo;Workflow X-Ray&rdquo; integration is connected
-              to the page.
-            </div>
-
-            {/* URL input row */}
-            {!importPreview && (
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  type="text"
-                  value={notionUrl}
-                  onChange={(e) => {
-                    setNotionUrl(e.target.value);
-                    setImportError(null);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleNotionFetch();
-                    }
-                  }}
-                  placeholder="https://www.notion.so/your-page-id"
-                  disabled={importing || disabled}
-                  style={{
-                    flex: 1,
-                    padding: "8px 12px",
-                    borderRadius: 6,
-                    border: `1px solid ${importError ? "rgba(232,85,58,0.25)" : "var(--color-border)"}`,
-                    background: "var(--color-surface)",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 12,
-                    color: "var(--color-dark)",
-                    outline: "none",
-                  }}
-                />
+            {/* Tab pills */}
+            <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
+              {(["notion", "url"] as const).map((tab) => (
                 <button
-                  onClick={handleNotionFetch}
-                  disabled={importing || !notionUrl.trim() || disabled}
+                  key={tab}
+                  onClick={() => setImportTab(tab)}
                   style={{
-                    padding: "8px 16px",
+                    padding: "5px 14px",
                     borderRadius: 6,
                     border: "none",
-                    background:
-                      importing || !notionUrl.trim()
-                        ? "var(--color-border)"
-                        : "var(--color-dark)",
-                    color:
-                      importing || !notionUrl.trim()
-                        ? "var(--color-muted)"
-                        : "var(--color-light)",
+                    background: importTab === tab ? "var(--color-dark)" : "var(--color-border)",
+                    color: importTab === tab ? "var(--color-light)" : "var(--color-text)",
                     fontFamily: "var(--font-mono)",
-                    fontSize: 12,
+                    fontSize: 10,
                     fontWeight: 600,
-                    cursor:
-                      importing || !notionUrl.trim() ? "not-allowed" : "pointer",
+                    cursor: "pointer",
                     transition: "all 0.2s",
                     display: "flex",
                     alignItems: "center",
-                    gap: 6,
-                    whiteSpace: "nowrap",
+                    gap: 5,
                   }}
                 >
-                  {importing ? (
-                    <>
-                      <span
-                        style={{
-                          width: 12,
-                          height: 12,
-                          border: "2px solid rgba(240,242,245,0.3)",
-                          borderTop: "2px solid var(--color-light)",
-                          borderRadius: "50%",
-                          animation: "spin 0.8s linear infinite",
-                          display: "inline-block",
-                        }}
-                      />
-                      Fetching...
-                    </>
-                  ) : (
-                    "Fetch Page"
+                  {tab === "notion" && (
+                    <svg width="10" height="10" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ opacity: 0.7 }}>
+                      <path d="M6.017 4.313l55.333 -4.087c6.797 -0.583 8.543 -0.19 12.817 2.917l17.663 12.443c2.913 2.14 3.883 2.723 3.883 5.053v68.243c0 4.277 -1.553 6.807 -6.99 7.193L24.467 99.967c-4.08 0.193 -6.023 -0.39 -8.16 -3.113L3.3 79.94c-2.333 -3.113 -3.3 -5.443 -3.3 -8.167V11.113c0 -3.497 1.553 -6.413 6.017 -6.8z" fill="currentColor" />
+                    </svg>
                   )}
+                  {tab === "notion" ? "Notion" : "URL"}
                 </button>
-              </div>
-            )}
+              ))}
+            </div>
 
-            {/* Preview card */}
-            {importPreview && (
-              <div
-                style={{
-                  marginTop: 4,
-                  padding: "12px 14px",
-                  background: "var(--success-bg)",
-                  border: "1px solid rgba(23,165,137,0.19)",
-                  borderRadius: 8,
-                  animation: "fadeIn 0.25s ease",
-                }}
-              >
+            {/* ── Notion tab ── */}
+            {importTab === "notion" && (
+              <>
                 <div
                   style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: "var(--color-dark)",
-                    marginBottom: 6,
+                    fontFamily: "var(--font-body)",
+                    fontSize: 12,
+                    color: "var(--color-text)",
+                    marginBottom: 8,
+                    lineHeight: 1.5,
                   }}
                 >
-                  {importPreview.title}
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 12,
-                    marginBottom: importPreview.truncated ? 6 : 10,
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 10,
-                    color: "var(--color-muted)",
-                  }}
-                >
-                  <span>{importPreview.blockCount} blocks</span>
-                  <span>{importPreview.content.length.toLocaleString()} chars</span>
-                  <span>
-                    {importPreview.content.split("\n").filter((l) => l.trim()).length} lines
-                  </span>
+                  Paste a Notion page URL. The &ldquo;Workflow X-Ray&rdquo; integration must be connected.
                 </div>
 
-                {importPreview.truncated && (
-                  <div
-                    style={{
-                      marginBottom: 10,
-                      padding: "6px 10px",
-                      background: "var(--danger-bg)",
-                      border: "1px solid rgba(232,85,58,0.19)",
-                      borderRadius: 6,
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 10,
-                      color: "var(--color-danger)",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    Large page detected ({importPreview.originalLength?.toLocaleString()} chars).
-                    Content was truncated to 30,000 characters for effective analysis.
-                    Consider importing a specific section instead.
+                {!importPreview && !extractionResults && (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type="text"
+                      value={notionUrl}
+                      onChange={(e) => { setNotionUrl(e.target.value); setImportError(null); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleNotionFetch(); } }}
+                      placeholder="https://www.notion.so/your-page-id"
+                      disabled={importing || disabled}
+                      style={{
+                        flex: 1, padding: "8px 12px", borderRadius: 6,
+                        border: `1px solid ${importError ? "rgba(232,85,58,0.25)" : "var(--color-border)"}`,
+                        background: "var(--color-surface)", fontFamily: "var(--font-mono)",
+                        fontSize: 12, color: "var(--color-dark)", outline: "none",
+                      }}
+                    />
+                    <button
+                      onClick={handleNotionFetch}
+                      disabled={importing || !notionUrl.trim() || disabled}
+                      style={{
+                        padding: "8px 16px", borderRadius: 6, border: "none",
+                        background: importing || !notionUrl.trim() ? "var(--color-border)" : "var(--color-dark)",
+                        color: importing || !notionUrl.trim() ? "var(--color-muted)" : "var(--color-light)",
+                        fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600,
+                        cursor: importing || !notionUrl.trim() ? "not-allowed" : "pointer",
+                        transition: "all 0.2s", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+                      }}
+                    >
+                      {importing ? (<><span style={{ width: 12, height: 12, border: "2px solid rgba(240,242,245,0.3)", borderTop: "2px solid var(--color-light)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} /> Fetching...</>) : "Fetch Page"}
+                    </button>
                   </div>
                 )}
 
-                {/* Content snippet preview */}
+                {/* Notion preview card */}
+                {importPreview && !extractionResults && (
+                  <PreviewCard
+                    title={importPreview.title}
+                    content={importPreview.content}
+                    stats={`${importPreview.blockCount} blocks \u00b7 ${importPreview.content.length.toLocaleString()} chars`}
+                    truncated={!!importPreview.truncated}
+                    originalLength={importPreview.originalLength}
+                    onUseRaw={handleInsertImport}
+                    onExtract={() => handleExtractWorkflows(importPreview.content, "notion", notionUrl || undefined)}
+                    onCancel={handleCancelPreview}
+                    extracting={extracting}
+                  />
+                )}
+              </>
+            )}
+
+            {/* ── URL tab ── */}
+            {importTab === "url" && (
+              <>
                 <div
                   style={{
-                    maxHeight: 100,
-                    overflow: "hidden",
-                    position: "relative",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 11,
-                    lineHeight: 1.6,
+                    fontFamily: "var(--font-body)",
+                    fontSize: 12,
                     color: "var(--color-text)",
-                    padding: "8px 10px",
-                    background: "var(--color-surface)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: 6,
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                    marginBottom: 10,
+                    marginBottom: 8,
+                    lineHeight: 1.5,
                   }}
                 >
-                  {importPreview.content.slice(0, 500)}
-                  {importPreview.content.length > 500 && "..."}
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      height: 32,
-                      background:
-                        "linear-gradient(transparent, var(--color-surface))",
-                      pointerEvents: "none",
-                    }}
-                  />
+                  Enter any web page URL to scrape its content.
                 </div>
 
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    onClick={handleInsertImport}
-                    style={{
-                      padding: "8px 20px",
-                      borderRadius: 6,
-                      border: "none",
-                      background: "var(--color-success)",
-                      color: "var(--color-light)",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      transition: "all 0.2s",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    &#x2713; Use This Content
-                  </button>
-                  <button
-                    onClick={handleCancelPreview}
-                    style={{
-                      padding: "8px 16px",
-                      borderRadius: 6,
-                      border: "1px solid var(--color-border)",
-                      background: "var(--color-surface)",
-                      color: "var(--color-text)",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      transition: "all 0.2s",
-                    }}
-                  >
-                    Cancel
-                  </button>
+                {!urlPreview && !extractionResults && (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type="text"
+                      value={urlInput}
+                      onChange={(e) => { setUrlInput(e.target.value); setUrlError(null); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleUrlFetch(); } }}
+                      placeholder="https://example.com/process-docs"
+                      disabled={urlFetching || disabled}
+                      style={{
+                        flex: 1, padding: "8px 12px", borderRadius: 6,
+                        border: `1px solid ${urlError ? "rgba(232,85,58,0.25)" : "var(--color-border)"}`,
+                        background: "var(--color-surface)", fontFamily: "var(--font-mono)",
+                        fontSize: 12, color: "var(--color-dark)", outline: "none",
+                      }}
+                    />
+                    <button
+                      onClick={handleUrlFetch}
+                      disabled={urlFetching || !urlInput.trim() || disabled}
+                      style={{
+                        padding: "8px 16px", borderRadius: 6, border: "none",
+                        background: urlFetching || !urlInput.trim() ? "var(--color-border)" : "var(--color-dark)",
+                        color: urlFetching || !urlInput.trim() ? "var(--color-muted)" : "var(--color-light)",
+                        fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600,
+                        cursor: urlFetching || !urlInput.trim() ? "not-allowed" : "pointer",
+                        transition: "all 0.2s", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+                      }}
+                    >
+                      {urlFetching ? (<><span style={{ width: 12, height: 12, border: "2px solid rgba(240,242,245,0.3)", borderTop: "2px solid var(--color-light)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} /> Fetching...</>) : "Fetch Page"}
+                    </button>
+                  </div>
+                )}
+
+                {/* URL preview card */}
+                {urlPreview && !extractionResults && (
+                  <PreviewCard
+                    title={urlPreview.title}
+                    content={urlPreview.content}
+                    stats={`${urlPreview.charCount.toLocaleString()} chars`}
+                    truncated={urlPreview.truncated}
+                    originalLength={urlPreview.originalLength}
+                    onUseRaw={handleUrlInsert}
+                    onExtract={() => handleExtractWorkflows(urlPreview.content, "url", urlPreview.url)}
+                    onCancel={handleUrlCancelPreview}
+                    extracting={extracting}
+                  />
+                )}
+              </>
+            )}
+
+            {/* ── Extraction results (shared) ── */}
+            {extractionResults && (
+              <div style={{ marginTop: 4, animation: "fadeIn 0.25s ease" }}>
+                <div style={{
+                  padding: "12px 14px",
+                  background: "var(--info-bg)",
+                  border: "1px solid rgba(45,125,210,0.19)",
+                  borderRadius: 8,
+                }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10,
+                  }}>
+                    <div>
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700, color: "var(--color-info)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 2 }}>
+                        Workflows Found
+                      </div>
+                      <div style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 700, color: "var(--color-dark)" }}>
+                        {extractionResults.documentTitle}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => { setExtractionResults(null); }}
+                      style={{ background: "none", border: "none", fontSize: 16, color: "var(--color-muted)", cursor: "pointer", padding: "2px 6px" }}
+                    >
+                      &times;
+                    </button>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {extractionResults.workflows.map((wf) => (
+                      <button
+                        key={wf.id}
+                        onClick={() => handleSelectExtracted(wf)}
+                        style={{
+                          textAlign: "left", padding: "10px 12px", borderRadius: 6,
+                          border: "1px solid var(--color-border)", background: "var(--color-surface)",
+                          cursor: "pointer", transition: "all 0.2s",
+                          display: "flex", flexDirection: "column", gap: 4,
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, color: "var(--color-dark)" }}>
+                            {wf.title}
+                          </span>
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--color-info)", fontWeight: 600 }}>
+                            Select &rarr;
+                          </span>
+                        </div>
+                        {wf.summary && (
+                          <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--color-text)", lineHeight: 1.4 }}>
+                            {wf.summary}
+                          </div>
+                        )}
+                        <div style={{ display: "flex", gap: 8, fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--color-muted)" }}>
+                          {wf.estimatedSteps && <span>~{wf.estimatedSteps} steps</span>}
+                          {wf.confidence && (
+                            <span style={{
+                              color: wf.confidence === "high" ? "var(--color-success)" : wf.confidence === "medium" ? "var(--color-warning)" : "var(--color-muted)",
+                            }}>
+                              {wf.confidence} confidence
+                            </span>
+                          )}
+                          {wf.sourceSection && <span>{wf.sourceSection}</span>}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
 
-            {importError && (
-              <div
-                style={{
-                  marginTop: 8,
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 11,
-                  color: "var(--color-danger)",
-                  lineHeight: 1.5,
-                }}
-              >
-                {importError}
+            {/* Extracting spinner */}
+            {extracting && (
+              <div style={{
+                marginTop: 8, padding: "12px", textAlign: "center",
+                fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-info)",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}>
+                <span style={{ width: 14, height: 14, border: "2px solid rgba(45,125,210,0.2)", borderTop: "2px solid var(--color-info)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} />
+                Extracting workflows...
+              </div>
+            )}
+
+            {/* Errors */}
+            {(importError || urlError || extractionError) && (
+              <div style={{ marginTop: 8, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-danger)", lineHeight: 1.5 }}>
+                {importError || urlError || extractionError}
               </div>
             )}
           </div>
