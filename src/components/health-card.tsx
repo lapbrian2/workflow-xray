@@ -88,7 +88,7 @@ export default function HealthCard({
   gapCount,
 }: HealthCardProps) {
   return (
-    <div style={{ animation: "staggerFadeIn 0.5s ease both" }}>
+    <div style={{ animation: "staggerFadeIn 0.5s ease both", animationDelay: "0ms" }}>
       {/* Summary stats */}
       <div
         className="grid-stats-4"
@@ -130,7 +130,7 @@ export default function HealthCard({
           marginBottom: 24,
           position: "relative",
           overflow: "hidden",
-          animation: "staggerFadeIn 0.5s ease 0.15s both",
+          animation: "staggerFadeIn 0.5s ease 0.1s both",
         }}
       >
         {/* Subtle ambient gradient overlay */}
@@ -244,7 +244,7 @@ export default function HealthCard({
           background: "var(--color-surface)",
           borderRadius: "var(--radius-lg)",
           border: "1px solid var(--color-border)",
-          animation: "staggerFadeIn 0.5s ease 0.3s both",
+          animation: "staggerFadeIn 0.5s ease 0.2s both",
         }}
       >
         <div
@@ -289,7 +289,7 @@ export default function HealthCard({
             background: "linear-gradient(135deg, rgba(232,85,58,0.04) 0%, rgba(45,125,210,0.03) 100%)",
             borderRadius: "var(--radius-sm)",
             borderLeft: "3px solid var(--color-accent)",
-            animation: "staggerFadeIn 0.4s ease 0.5s both",
+            animation: "staggerFadeIn 0.4s ease 0.3s both",
           }}
         >
           <div

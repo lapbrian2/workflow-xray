@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import type { Step } from "@/lib/types";
 import { LAYER_COLORS, LAYER_LABELS } from "@/lib/types";
 
@@ -10,6 +10,8 @@ interface DetailPanelProps {
 }
 
 export default function DetailPanel({ step, onClose }: DetailPanelProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
   // Keyboard dismiss with Escape
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -21,6 +23,8 @@ export default function DetailPanel({ step, onClose }: DetailPanelProps) {
   useEffect(() => {
     if (step) {
       document.addEventListener("keydown", handleKeyDown);
+      // Move focus into the panel when it opens
+      panelRef.current?.focus();
       return () => document.removeEventListener("keydown", handleKeyDown);
     }
   }, [step, handleKeyDown]);
@@ -31,6 +35,8 @@ export default function DetailPanel({ step, onClose }: DetailPanelProps) {
 
   return (
     <div
+      ref={panelRef}
+      tabIndex={-1}
       role="complementary"
       aria-label={`Details for ${step.name}`}
       style={{
