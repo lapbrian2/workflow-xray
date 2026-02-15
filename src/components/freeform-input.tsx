@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { saveWorkflowLocal } from "@/lib/client-db";
+import { saveWorkflowLocal, getWorkflowLocal } from "@/lib/client-db";
 import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
-import type { ExtractionSource } from "@/lib/types";
+import { exportBatchToPdf } from "@/lib/pdf-batch-export";
+import type { ExtractionSource, Workflow } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Template system
@@ -1126,6 +1127,7 @@ export default function FreeformInput({
   }
   const [analyzeAllProgress, setAnalyzeAllProgress] = useState<AnalyzeAllProgress>({ stage: "idle" });
   const analyzeAllAbortRef = useRef<AbortController | null>(null);
+  const [batchExporting, setBatchExporting] = useState(false);
 
   // ─── URL fetch handler ───
   const handleUrlFetch = useCallback(async () => {
@@ -1424,6 +1426,48 @@ export default function FreeformInput({
     }));
     runAnalyzeAll(failedItems, analyzeAllProgress.sourceType);
   }, [analyzeAllProgress, runAnalyzeAll]);
+
+  // ─── Batch PDF export handler ───
+  const handleBatchPdfExport = useCallback(async () => {
+    if (batchExporting) return;
+    const savedIds = analyzeAllProgress.summary?.savedWorkflowIds;
+    if (!savedIds || savedIds.length === 0) return;
+
+    setBatchExporting(true);
+    try {
+      // Fetch workflows from localStorage (they were just saved there)
+      const workflows: Workflow[] = [];
+      for (const id of savedIds) {
+        const local = getWorkflowLocal(id);
+        if (local) {
+          workflows.push(local);
+        } else {
+          // Fallback: try fetching from server
+          try {
+            const res = await fetch(`/api/workflows?id=${id}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data) workflows.push(data);
+            }
+          } catch {
+            // Skip — workflow not available
+          }
+        }
+      }
+
+      if (workflows.length === 0) {
+        throw new Error("No workflows found. They may have been removed.");
+      }
+
+      const sourceTitle = analyzeAllProgress.sourceTitle || extractionResults?.documentTitle;
+      await exportBatchToPdf(workflows, sourceTitle);
+    } catch (err) {
+      console.error("Batch PDF export failed:", err);
+      alert(err instanceof Error ? err.message : "Failed to generate PDF. Please try again.");
+    } finally {
+      setBatchExporting(false);
+    }
+  }, [batchExporting, analyzeAllProgress, extractionResults]);
 
   // ─── Screenshot extraction handler ───
   const handleExtractFromScreenshot = useCallback(async () => {
@@ -2879,6 +2923,46 @@ export default function FreeformInput({
                         >
                           View in Library &rarr;
                         </a>
+                      )}
+                      {s.workflowsSaved > 0 && (
+                        <button
+                          onClick={handleBatchPdfExport}
+                          disabled={batchExporting}
+                          style={{
+                            padding: "7px 16px",
+                            borderRadius: 6,
+                            border: "1px solid var(--color-info)",
+                            background: batchExporting ? "var(--color-border)" : "transparent",
+                            color: batchExporting ? "var(--color-muted)" : "var(--color-info)",
+                            fontFamily: "var(--font-mono)",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: batchExporting ? "not-allowed" : "pointer",
+                            transition: "all 0.2s",
+                            letterSpacing: "0.04em",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            opacity: batchExporting ? 0.7 : 1,
+                          }}
+                        >
+                          {batchExporting ? (
+                            <>
+                              <span style={{
+                                width: 12,
+                                height: 12,
+                                border: "2px solid rgba(45,125,210,0.2)",
+                                borderTop: "2px solid var(--color-info)",
+                                borderRadius: "50%",
+                                animation: "spin 0.8s linear infinite",
+                                display: "inline-block",
+                              }} />
+                              Generating PDF...
+                            </>
+                          ) : (
+                            <>&#128196; Download PDF</>
+                          )}
+                        </button>
                       )}
                       {s.workflowsFailed > 0 && s.failedWorkflows && (
                         <button

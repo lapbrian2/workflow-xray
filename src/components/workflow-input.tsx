@@ -58,7 +58,7 @@ export default function WorkflowInput({
             description,
             stages: inputMode === "structured" ? stages : undefined,
             ...(reanalyzeParentId ? { parentId: reanalyzeParentId } : {}),
-            ...(costContext.hourlyRate || costContext.hoursPerStep
+            ...(costContext.hourlyRate || costContext.hoursPerStep || costContext.teamSize || costContext.teamContext
               ? { costContext }
               : {}),
           }),
@@ -150,7 +150,7 @@ export default function WorkflowInput({
           >
             &#9654;
           </span>
-          Cost Context (optional — improves ROI estimates)
+          Context (optional — sharpens analysis)
         </button>
 
         {showCostContext && (
@@ -249,6 +249,102 @@ export default function WorkflowInput({
           </div>
         )}
 
+        {/* Team context row */}
+        {showCostContext && (
+          <div
+            style={{
+              display: "flex",
+              gap: 16,
+              marginTop: 8,
+              padding: "12px 16px",
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-border)",
+              borderRadius: "var(--radius-sm)",
+              animation: "fadeIn 0.2s ease",
+            }}
+          >
+            <div style={{ width: 120, flexShrink: 0 }}>
+              <label
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "var(--color-muted)",
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  display: "block",
+                  marginBottom: 4,
+                }}
+              >
+                Team Size
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={500}
+                placeholder="e.g. 3"
+                value={costContext.teamSize ?? ""}
+                onChange={(e) =>
+                  setCostContext((c) => ({
+                    ...c,
+                    teamSize: e.target.value ? Number(e.target.value) : undefined,
+                  }))
+                }
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: 6,
+                  border: "1px solid var(--color-border)",
+                  background: "#fff",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 13,
+                  color: "var(--color-dark)",
+                  outline: "none",
+                }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "var(--color-muted)",
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  display: "block",
+                  marginBottom: 4,
+                }}
+              >
+                Team Context
+              </label>
+              <input
+                type="text"
+                maxLength={200}
+                placeholder="e.g. 'Solo operator, no employees' or '3-person marketing team with 1 contractor'"
+                value={costContext.teamContext ?? ""}
+                onChange={(e) =>
+                  setCostContext((c) => ({
+                    ...c,
+                    teamContext: e.target.value || undefined,
+                  }))
+                }
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: 6,
+                  border: "1px solid var(--color-border)",
+                  background: "#fff",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 13,
+                  color: "var(--color-dark)",
+                  outline: "none",
+                }}
+              />
+            </div>
+          </div>
+        )}
+
         {showCostContext && (
           <p
             style={{
@@ -259,9 +355,9 @@ export default function WorkflowInput({
               lineHeight: 1.5,
             }}
           >
-            Providing cost data produces more accurate ROI estimates. Without
-            it, the report will use conservative ranges and clearly label
-            assumptions.
+            Each field is optional. Team size and context help Claude tailor
+            recommendations to your team. Cost data improves ROI estimates.
+            Without these, the analysis uses conservative defaults.
           </p>
         )}
       </div>

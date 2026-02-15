@@ -76,8 +76,22 @@ export async function POST(request: NextRequest) {
         ? body.context.slice(0, 5000)
         : undefined;
 
+    // Build team context block to inject into the prompt
+    let enrichedDescription = body.description;
+    const cc = body.costContext;
+    if (cc && typeof cc === "object") {
+      const contextParts: string[] = [];
+      if (typeof cc.teamSize === "number") contextParts.push(`Team size: ${cc.teamSize} people`);
+      if (typeof cc.teamContext === "string" && cc.teamContext.trim()) contextParts.push(`Team: ${cc.teamContext.trim()}`);
+      if (typeof cc.hourlyRate === "number") contextParts.push(`Avg hourly rate: $${cc.hourlyRate}`);
+      if (typeof cc.hoursPerStep === "number") contextParts.push(`Avg hours per step: ${cc.hoursPerStep}`);
+      if (contextParts.length > 0) {
+        enrichedDescription += `\n\n## Team & Cost Context\n${contextParts.join("\n")}\nAdapt your analysis to this team. For solo operators (team size 1), avoid delegation suggestions. For larger teams, consider cross-training and load distribution.`;
+      }
+    }
+
     const decomposeRequest: DecomposeRequest = {
-      description: body.description,
+      description: enrichedDescription,
       stages,
       context,
     };
@@ -122,6 +136,10 @@ export async function POST(request: NextRequest) {
             costContext: {
               hourlyRate: typeof body.costContext.hourlyRate === "number" ? body.costContext.hourlyRate : undefined,
               hoursPerStep: typeof body.costContext.hoursPerStep === "number" ? body.costContext.hoursPerStep : undefined,
+              teamSize: typeof body.costContext.teamSize === "number" ? body.costContext.teamSize : undefined,
+              teamContext: typeof body.costContext.teamContext === "string" && body.costContext.teamContext.trim()
+                ? body.costContext.teamContext.trim().slice(0, 200)
+                : undefined,
             },
           }
         : {}),

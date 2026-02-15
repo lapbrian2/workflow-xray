@@ -58,6 +58,8 @@ export interface Decomposition {
 export interface CostContext {
   hourlyRate?: number;     // avg team hourly cost ($)
   hoursPerStep?: number;   // avg hours spent per workflow step
+  teamSize?: number;       // number of people executing this workflow
+  teamContext?: string;    // free-text team description (e.g. "Solo operator" or "3-person marketing team")
 }
 
 export interface ExtractionSource {

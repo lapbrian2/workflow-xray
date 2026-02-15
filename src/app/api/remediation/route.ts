@@ -292,11 +292,16 @@ function buildRemediationPrompt(
     prompt += `\n`;
   });
 
-  // Cost context
+  // Cost & team context
   if (costContext) {
-    prompt += `### Cost Context\n`;
+    prompt += `### Cost & Team Context\n`;
     if (costContext.hourlyRate) prompt += `- Hourly rate: $${costContext.hourlyRate}\n`;
     if (costContext.hoursPerStep) prompt += `- Hours per step: ${costContext.hoursPerStep}\n`;
+    if (costContext.teamSize) prompt += `- Team size: ${costContext.teamSize} people\n`;
+    if (costContext.teamContext) prompt += `- Team description: ${costContext.teamContext}\n`;
+    if (costContext.teamSize || costContext.teamContext) {
+      prompt += `\nAdapt recommendations to this team. For solo operators (team size 1), avoid delegation suggestions and focus on automation. For larger teams, consider cross-training, load distribution, and role-based task assignments.\n`;
+    }
     prompt += `\n`;
   }
 
