@@ -1,16 +1,17 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import {
   ReactFlow,
   Background,
   Controls,
+  MiniMap,
   type Node,
   type Edge,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import type { Decomposition } from "@/lib/types";
+import type { Decomposition, Step } from "@/lib/types";
 import { LAYER_COLORS } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import FlowNode from "./flow-node";
@@ -27,6 +28,7 @@ interface XRayVizProps {
 
 export default function XRayViz({ decomposition }: XRayVizProps) {
   const { selectedNodeId, setSelectedNodeId } = useStore();
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 
   /* ── Empty State ── */
   if (!decomposition.steps || decomposition.steps.length === 0) {
@@ -82,12 +84,34 @@ export default function XRayViz({ decomposition }: XRayVizProps) {
     [selectedNodeId, setSelectedNodeId]
   );
 
+  const handleNodeHoverStart = useCallback((id: string) => {
+    setHoveredNodeId(id);
+  }, []);
+
+  const handleNodeHoverEnd = useCallback(() => {
+    setHoveredNodeId(null);
+  }, []);
+
+  // Compute connected node set for hover highlighting
+  const connectedNodeIds = useMemo(() => {
+    if (!hoveredNodeId) return null;
+    const connected = new Set<string>([hoveredNodeId]);
+    decomposition.steps.forEach((s) => {
+      if (s.id === hoveredNodeId) {
+        s.dependencies.forEach((d) => connected.add(d));
+      }
+      if (s.dependencies.includes(hoveredNodeId)) {
+        connected.add(s.id);
+      }
+    });
+    return connected;
+  }, [hoveredNodeId, decomposition.steps]);
+
   // Compute critical path (longest dependency chain through the DAG)
   const criticalPathIds = useMemo(() => {
     const steps = decomposition.steps;
     const stepMap = new Map(steps.map((s) => [s.id, s]));
 
-    // For each step, compute the longest path ending at that step
     const longestPath = new Map<string, number>();
     const pathParent = new Map<string, string | null>();
 
@@ -116,7 +140,7 @@ export default function XRayViz({ decomposition }: XRayVizProps) {
         }
       }
 
-      visited.delete(stepId); // allow this node in other paths
+      visited.delete(stepId);
       const total = maxLen + 1;
       longestPath.set(stepId, total);
       pathParent.set(stepId, maxParent);
@@ -125,7 +149,6 @@ export default function XRayViz({ decomposition }: XRayVizProps) {
 
     steps.forEach((s) => computeLongest(s.id));
 
-    // Find the end of the critical path (step with longest path)
     let maxStep = steps[0]?.id;
     let maxLen = 0;
     longestPath.forEach((len, id) => {
@@ -135,7 +158,6 @@ export default function XRayViz({ decomposition }: XRayVizProps) {
       }
     });
 
-    // Trace back to build the critical path set
     const pathIds = new Set<string>();
     let current: string | null | undefined = maxStep;
     while (current) {
@@ -160,8 +182,7 @@ export default function XRayViz({ decomposition }: XRayVizProps) {
   const { nodes, edges } = useMemo(() => {
     const steps = decomposition.steps;
 
-    // Layout: arrange nodes in a top-down flow
-    // Group by dependency depth for vertical positioning
+    // ── Compute depth for vertical positioning ──
     const depthMap = new Map<string, number>();
 
     function getDepth(stepId: string, visited = new Set<string>()): number {
@@ -196,15 +217,88 @@ export default function XRayViz({ decomposition }: XRayVizProps) {
       depthGroups.get(d)!.push(s);
     });
 
+    // ── Barycenter edge-crossing reduction ──
+    const childrenOf = new Map<string, string[]>();
+    const parentsOf = new Map<string, string[]>();
+    steps.forEach((s) => {
+      parentsOf.set(s.id, [...s.dependencies]);
+      s.dependencies.forEach((depId) => {
+        if (!childrenOf.has(depId)) childrenOf.set(depId, []);
+        childrenOf.get(depId)!.push(s.id);
+      });
+    });
+
+    const positionMap = new Map<string, number>();
+    const row0 = depthGroups.get(0) || [];
+    row0.forEach((s, i) => positionMap.set(s.id, i));
+
+    const maxDepth = Math.max(...Array.from(depthGroups.keys()), 0);
+
+    // Top-down pass: sort each row by average parent position
+    for (let d = 1; d <= maxDepth; d++) {
+      const group = depthGroups.get(d);
+      if (!group) continue;
+
+      const barycenters = group.map((s) => {
+        const parents = parentsOf.get(s.id) || [];
+        if (parents.length === 0) return { step: s, bc: 0 };
+        const avgPos =
+          parents.reduce((sum, pid) => sum + (positionMap.get(pid) ?? 0), 0) /
+          parents.length;
+        return { step: s, bc: avgPos };
+      });
+
+      barycenters.sort((a, b) => a.bc - b.bc);
+      const sorted = barycenters.map((b) => b.step);
+      depthGroups.set(d, sorted);
+      sorted.forEach((s, i) => positionMap.set(s.id, i));
+    }
+
+    // Bottom-up refinement pass
+    for (let d = maxDepth - 1; d >= 0; d--) {
+      const group = depthGroups.get(d);
+      if (!group) continue;
+
+      const barycenters = group.map((s) => {
+        const children = childrenOf.get(s.id) || [];
+        if (children.length === 0)
+          return { step: s, bc: positionMap.get(s.id) ?? 0 };
+        const avgPos =
+          children.reduce(
+            (sum, cid) => sum + (positionMap.get(cid) ?? 0),
+            0
+          ) / children.length;
+        return { step: s, bc: avgPos };
+      });
+
+      barycenters.sort((a, b) => a.bc - b.bc);
+      const sorted = barycenters.map((b) => b.step);
+      depthGroups.set(d, sorted);
+      sorted.forEach((s, i) => positionMap.set(s.id, i));
+    }
+
+    // ── Dynamic spacing based on complexity ──
+    const maxRowWidth = Math.max(
+      ...Array.from(depthGroups.values()).map((g) => g.length)
+    );
+    const avgDeps =
+      steps.reduce((sum, s) => sum + s.dependencies.length, 0) /
+      Math.max(steps.length, 1);
+
+    const xSpacing = maxRowWidth <= 3 ? 300 : maxRowWidth <= 5 ? 260 : 230;
+    const ySpacing = avgDeps > 2 ? 200 : avgDeps > 1 ? 180 : 160;
+
+    // ── Build nodes ──
     const nodes: Node[] = [];
-    const xSpacing = 280;
-    const ySpacing = 160;
 
     depthGroups.forEach((groupSteps, depth) => {
       const totalWidth = groupSteps.length * xSpacing;
       const startX = -totalWidth / 2 + xSpacing / 2;
 
       groupSteps.forEach((step, i) => {
+        const isDimmed =
+          connectedNodeIds !== null && !connectedNodeIds.has(step.id);
+
         nodes.push({
           id: step.id,
           type: "custom",
@@ -215,16 +309,24 @@ export default function XRayViz({ decomposition }: XRayVizProps) {
             onClick: handleNodeClick,
             isCriticalPath: criticalPathIds.has(step.id),
             gapCount: gapCountByStep.get(step.id) || 0,
+            dimmed: isDimmed,
+            onHoverStart: handleNodeHoverStart,
+            onHoverEnd: handleNodeHoverEnd,
           },
         });
       });
     });
 
+    // ── Build edges ──
     const edges: Edge[] = [];
     steps.forEach((step) => {
       step.dependencies.forEach((depId) => {
         const isOnCriticalPath =
           criticalPathIds.has(depId) && criticalPathIds.has(step.id);
+        const isEdgeDimmed =
+          connectedNodeIds !== null &&
+          !(connectedNodeIds.has(depId) && connectedNodeIds.has(step.id));
+
         edges.push({
           id: `${depId}-${step.id}`,
           source: depId,
@@ -232,12 +334,13 @@ export default function XRayViz({ decomposition }: XRayVizProps) {
           type: "custom",
           data: {
             isCriticalPath: isOnCriticalPath,
+            dimmed: isEdgeDimmed,
           },
           style: {
             stroke: isOnCriticalPath
               ? "#DC143C"
-              : LAYER_COLORS[step.layer] + "60",
-            strokeWidth: isOnCriticalPath ? 3 : 1,
+              : LAYER_COLORS[step.layer] + "80",
+            strokeWidth: isOnCriticalPath ? 3 : 1.5,
           },
         });
       });
@@ -250,6 +353,9 @@ export default function XRayViz({ decomposition }: XRayVizProps) {
     handleNodeClick,
     criticalPathIds,
     gapCountByStep,
+    connectedNodeIds,
+    handleNodeHoverStart,
+    handleNodeHoverEnd,
   ]);
 
   const selectedStep = decomposition.steps.find(
@@ -275,8 +381,8 @@ export default function XRayViz({ decomposition }: XRayVizProps) {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
-        fitViewOptions={{ padding: 0.3 }}
-        minZoom={0.3}
+        fitViewOptions={{ padding: 0.35 }}
+        minZoom={0.2}
         maxZoom={1.5}
         proOptions={{ hideAttribution: true }}
       >
@@ -284,6 +390,19 @@ export default function XRayViz({ decomposition }: XRayVizProps) {
         <Controls
           showInteractive={false}
           style={{ borderRadius: 8, border: "1px solid var(--color-border)" }}
+        />
+        <MiniMap
+          nodeColor={(node) => {
+            const step = (node.data as { step: Step }).step;
+            return LAYER_COLORS[step.layer];
+          }}
+          maskColor="rgba(0, 0, 0, 0.06)"
+          style={{
+            borderRadius: 8,
+            border: "1px solid var(--color-border)",
+            height: 90,
+            width: 140,
+          }}
         />
       </ReactFlow>
 

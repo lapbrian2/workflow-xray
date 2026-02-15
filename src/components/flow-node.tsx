@@ -12,32 +12,39 @@ interface FlowNodeProps {
     onClick: (id: string) => void;
     isCriticalPath?: boolean;
     gapCount?: number;
+    dimmed?: boolean;
+    onHoverStart?: (id: string) => void;
+    onHoverEnd?: () => void;
   };
 }
 
-const CRITICAL_COLOR = "#DC143C";
+const CRITICAL_HEX = "#DC143C";
 const GAP_COLOR = "#D4A017";
 
 export default function FlowNode({ data }: FlowNodeProps) {
-  const { step, selected, onClick, isCriticalPath = false, gapCount = 0 } = data;
+  const {
+    step,
+    selected,
+    onClick,
+    isCriticalPath = false,
+    gapCount = 0,
+    dimmed = false,
+    onHoverStart,
+    onHoverEnd,
+  } = data;
   const color = LAYER_COLORS[step.layer];
   const [hovered, setHovered] = useState(false);
 
-  const descriptionPreview =
-    step.description && step.description.length > 60
-      ? step.description.slice(0, 60) + "\u2026"
-      : step.description || "";
-
   const criticalBorder = isCriticalPath
-    ? `2px solid ${CRITICAL_COLOR}`
+    ? `2px solid ${CRITICAL_HEX}`
     : `2px solid ${selected ? color : color + "40"}`;
 
   const criticalShadow = isCriticalPath
     ? selected
-      ? `0 0 0 3px ${CRITICAL_COLOR}30, 0 0 12px ${CRITICAL_COLOR}20`
+      ? `0 0 0 3px ${CRITICAL_HEX}30, 0 0 12px ${CRITICAL_HEX}20`
       : hovered
-        ? `0 0 12px ${CRITICAL_COLOR}25, 0 4px 12px rgba(0,0,0,0.12)`
-        : `0 0 8px ${CRITICAL_COLOR}18, 0 1px 3px rgba(0,0,0,0.06)`
+        ? `0 0 12px ${CRITICAL_HEX}25, 0 4px 12px rgba(0,0,0,0.12)`
+        : `0 0 8px ${CRITICAL_HEX}18, 0 1px 3px rgba(0,0,0,0.06)`
     : selected
       ? `0 0 0 3px ${color}20`
       : hovered
@@ -47,26 +54,33 @@ export default function FlowNode({ data }: FlowNodeProps) {
   return (
     <div
       onClick={() => onClick(step.id)}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => {
+        setHovered(true);
+        onHoverStart?.(step.id);
+      }}
+      onMouseLeave={() => {
+        setHovered(false);
+        onHoverEnd?.();
+      }}
       style={{
         position: "relative",
-        padding: "12px 16px",
+        padding: "10px 14px",
         borderRadius: "var(--radius-sm)",
         background: isCriticalPath
           ? selected
-            ? `${CRITICAL_COLOR}10`
-            : "#fff"
+            ? `${CRITICAL_HEX}10`
+            : "var(--color-surface, #fff)"
           : selected
             ? `${color}12`
-            : "#fff",
+            : "var(--color-surface, #fff)",
         border: criticalBorder,
-        minWidth: 180,
-        maxWidth: 240,
+        minWidth: 160,
+        maxWidth: 200,
         cursor: "pointer",
-        transition: "all 0.2s",
-        transform: hovered ? "scale(1.02)" : "scale(1)",
+        transition: "all 0.2s ease",
+        transform: hovered ? "scale(1.03)" : "scale(1)",
         boxShadow: criticalShadow,
+        opacity: dimmed ? 0.25 : 1,
         animation: isCriticalPath ? "criticalPulse 3s ease-in-out infinite" : undefined,
       }}
     >
@@ -75,7 +89,7 @@ export default function FlowNode({ data }: FlowNodeProps) {
         <style>{`
           @keyframes criticalPulse {
             0%, 100% { box-shadow: ${criticalShadow}; }
-            50% { box-shadow: 0 0 14px ${CRITICAL_COLOR}30, 0 1px 3px rgba(0,0,0,0.06); }
+            50% { box-shadow: 0 0 14px ${CRITICAL_HEX}30, 0 1px 3px rgba(0,0,0,0.06); }
           }
         `}</style>
       )}
@@ -91,13 +105,13 @@ export default function FlowNode({ data }: FlowNodeProps) {
             alignItems: "center",
             gap: 2,
             background: GAP_COLOR,
-            color: "#fff",
+            color: "var(--color-light, #fff)",
             fontFamily: "var(--font-mono)",
             fontSize: 9,
             fontWeight: 700,
             padding: "2px 6px",
             borderRadius: 8,
-            boxShadow: `0 1px 4px ${GAP_COLOR}50`,
+            boxShadow: "0 1px 4px rgba(212,160,23,0.5)",
             zIndex: 2,
             lineHeight: 1,
           }}
@@ -110,154 +124,96 @@ export default function FlowNode({ data }: FlowNodeProps) {
       <Handle
         type="target"
         position={Position.Top}
-        style={{ background: isCriticalPath ? CRITICAL_COLOR : color, width: 8, height: 8, border: "2px solid #fff" }}
+        style={{ background: isCriticalPath ? CRITICAL_HEX : color, width: 8, height: 8, border: "2px solid var(--color-surface, #fff)" }}
       />
 
-      {/* Layer badge */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 8,
-        }}
-      >
-        <span
+      {/* Layer badge + thin automation bar */}
+      <div style={{ marginBottom: 6 }}>
+        <div
           style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 9,
-            fontWeight: 700,
-            color,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-          }}
-        >
-          {LAYER_LABELS[step.layer]}
-        </span>
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 10,
-            fontWeight: 600,
-            color: "#fff",
-            background: color,
-            padding: "2px 8px",
-            borderRadius: 10,
-            display: "inline-flex",
+            display: "flex",
             alignItems: "center",
-            gap: 3,
+            justifyContent: "space-between",
           }}
         >
-          <span style={{ fontSize: 9, fontWeight: 500, opacity: 0.85 }}>Auto:</span>
-          {step.automationScore}%
-        </span>
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 9,
+              fontWeight: 700,
+              color,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
+          >
+            {LAYER_LABELS[step.layer]}
+          </span>
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 9,
+              fontWeight: 600,
+              color,
+              opacity: 0.8,
+            }}
+          >
+            {step.automationScore}%
+          </span>
+        </div>
+        <div
+          style={{
+            height: 3,
+            borderRadius: 2,
+            background: `${color}20`,
+            marginTop: 3,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              width: `${step.automationScore}%`,
+              height: "100%",
+              background: color,
+              borderRadius: 2,
+              transition: "width 0.4s ease",
+            }}
+          />
+        </div>
       </div>
 
       {/* Step name */}
       <div
         style={{
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: 600,
           color: "var(--color-dark)",
           fontFamily: "var(--font-mono)",
           lineHeight: 1.3,
-          marginBottom: descriptionPreview ? 2 : 4,
+          marginBottom: 6,
         }}
       >
         {step.name}
       </div>
 
-      {/* Description preview */}
-      {descriptionPreview && (
-        <div
-          style={{
-            fontSize: 11,
-            color: "var(--color-muted)",
-            fontFamily: "var(--font-body)",
-            lineHeight: 1.4,
-            marginBottom: 4,
-          }}
-        >
-          {descriptionPreview}
-        </div>
-      )}
-
-      {/* Owner */}
-      {step.owner && (
-        <div
-          style={{
-            fontSize: 11,
-            color: "var(--color-muted)",
-            fontFamily: "var(--font-body)",
-          }}
-        >
-          {step.owner}
-        </div>
-      )}
-
-      {/* Tools */}
-      {step.tools.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
-          {step.tools.map((tool) => (
-            <span
-              key={tool}
-              style={{
-                fontSize: 9,
-                fontFamily: "var(--font-mono)",
-                padding: "1px 5px",
-                borderRadius: 3,
-                background: `${color}15`,
-                color,
-              }}
-            >
-              {tool}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Input / Output indicator */}
+      {/* Compact metadata row: tools + I/O */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "center",
-          gap: 4,
-          marginTop: 10,
-          paddingTop: 8,
-          borderTop: `1px solid var(--color-border)`,
+          justifyContent: "space-between",
+          fontSize: 9,
+          fontFamily: "var(--font-mono)",
+          color: "var(--color-muted)",
         }}
       >
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 10,
-            fontWeight: 600,
-            color: "var(--color-muted)",
-          }}
-        >
-          {step.inputs.length}
+        <span>
+          {step.inputs.length} in / {step.outputs.length} out
         </span>
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 10,
-            color: "var(--color-muted)",
-            opacity: 0.6,
-          }}
-        >
-          {"\u2192"}
-        </span>
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 10,
-            fontWeight: 600,
-            color: "var(--color-muted)",
-          }}
-        >
-          {step.outputs.length}
-        </span>
+        {step.tools.length > 0 && (
+          <span style={{ opacity: 0.7 }}>
+            {step.tools.length} tool{step.tools.length !== 1 ? "s" : ""}
+          </span>
+        )}
       </div>
 
       {/* Critical path badge */}
@@ -275,13 +231,13 @@ export default function FlowNode({ data }: FlowNodeProps) {
               fontFamily: "var(--font-mono)",
               fontSize: 8,
               fontWeight: 700,
-              color: CRITICAL_COLOR,
+              color: CRITICAL_HEX,
               letterSpacing: "0.1em",
               textTransform: "uppercase",
-              background: `${CRITICAL_COLOR}10`,
+              background: `${CRITICAL_HEX}10`,
               padding: "2px 8px",
               borderRadius: 4,
-              border: `1px solid ${CRITICAL_COLOR}30`,
+              border: `1px solid ${CRITICAL_HEX}30`,
             }}
           >
             CRITICAL PATH
@@ -292,7 +248,7 @@ export default function FlowNode({ data }: FlowNodeProps) {
       <Handle
         type="source"
         position={Position.Bottom}
-        style={{ background: isCriticalPath ? CRITICAL_COLOR : color, width: 8, height: 8, border: "2px solid #fff" }}
+        style={{ background: isCriticalPath ? CRITICAL_HEX : color, width: 8, height: 8, border: "2px solid var(--color-surface, #fff)" }}
       />
     </div>
   );

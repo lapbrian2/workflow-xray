@@ -622,7 +622,7 @@ export default function XRayPage() {
         {activeTab === "flow" && (
           <div
             style={{
-              height: 600,
+              height: "max(500px, 65vh)",
               borderRadius: "var(--radius-lg)",
               border: "1px solid var(--color-border)",
               background: "var(--color-surface)",
