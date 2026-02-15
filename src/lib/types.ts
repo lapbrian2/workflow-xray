@@ -61,7 +61,7 @@ export interface CostContext {
 }
 
 export interface ExtractionSource {
-  type: "notion" | "url" | "manual" | "crawl";
+  type: "notion" | "url" | "manual" | "crawl" | "file";
   url?: string;           // source URL (Notion page or web page)
   title?: string;         // page title from source
   extractedAt: string;    // ISO timestamp
@@ -69,6 +69,10 @@ export interface ExtractionSource {
   crawlRootUrl?: string;           // root URL that initiated the crawl
   sourceSection?: string;           // section within the page where workflow was found
   totalWorkflowsInDocument?: number; // how many workflows on this particular page
+  // File-specific provenance
+  fileName?: string;                // original file name
+  fileType?: string;                // file extension (.pdf, .docx, .txt, etc.)
+  fileSizeBytes?: number;           // original file size
 }
 
 export interface ExtractedWorkflow {

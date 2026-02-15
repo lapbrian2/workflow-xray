@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/**": ["./prompts/**", "./src/prompts/**"],
   },
+  // Exclude pdf-parse from bundling — it loads test fixtures at require-time
+  // which breaks in serverless environments.
+  serverExternalPackages: ["pdf-parse"],
 };
 
 export default nextConfig;

@@ -109,21 +109,50 @@ export async function POST(request: NextRequest) {
         send({ type: "map_start" });
 
         let pages: string[];
+        let mapFallback = false;
+
         try {
           const mapResult = await firecrawl.map(url, { limit: maxPages });
 
           if (!mapResult.links || mapResult.links.length === 0) {
-            send({ type: "map_error", error: "No pages discovered. The site may block crawlers or have no public pages." });
-            controller.close();
-            return;
+            // Fallback: map returned 0 links — scrape root URL directly
+            console.warn("[crawl-site] Map returned 0 links, falling back to root URL:", url);
+            pages = [url];
+            mapFallback = true;
+          } else {
+            pages = mapResult.links.slice(0, maxPages).map((link) => link.url);
           }
 
-          pages = mapResult.links.slice(0, maxPages).map((link) => link.url);
-          send({ type: "map_complete", totalPages: pages.length, pages });
+          send({ type: "map_complete", totalPages: pages.length, pages, fallback: mapFallback });
         } catch (err) {
-          send({ type: "map_error", error: err instanceof Error ? err.message : "Site mapping failed." });
-          controller.close();
-          return;
+          console.error("[crawl-site] Map error:", err);
+
+          // Extract meaningful error from Firecrawl SdkError
+          const sdkErr = err as { message?: string; status?: number };
+          let errorDetail = "";
+          if (err instanceof Error) {
+            if (sdkErr.status === 402) {
+              errorDetail = "Firecrawl credits exhausted. Check your Firecrawl billing.";
+            } else if (sdkErr.status === 401) {
+              errorDetail = "Invalid Firecrawl API key.";
+            } else if (sdkErr.status === 429) {
+              errorDetail = "Firecrawl rate limit reached. Try again in a moment.";
+            } else {
+              errorDetail = err.message;
+            }
+          }
+
+          // Fallback: try scraping just the root URL
+          console.log("[crawl-site] Attempting single-page fallback for:", url);
+          pages = [url];
+          mapFallback = true;
+          send({
+            type: "map_complete",
+            totalPages: 1,
+            pages,
+            fallback: true,
+            fallbackReason: errorDetail || "Site mapping failed",
+          });
         }
 
         // ─── STAGE 2: Scrape each page ───

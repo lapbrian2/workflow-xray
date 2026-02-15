@@ -102,6 +102,7 @@ interface PreviewCardProps {
   onExtract: () => void;
   onCancel: () => void;
   extracting: boolean;
+  headerLabel?: string;
 }
 
 function PreviewCard({
@@ -114,6 +115,7 @@ function PreviewCard({
   onExtract,
   onCancel,
   extracting,
+  headerLabel = "Page Fetched",
 }: PreviewCardProps) {
   return (
     <div
@@ -144,7 +146,7 @@ function PreviewCard({
             textTransform: "uppercase",
           }}
         >
-          Page Fetched
+          {headerLabel}
         </div>
         <button
           onClick={onCancel}
@@ -626,7 +628,22 @@ export default function FreeformInput({
   const [visionContext, setVisionContext] = useState("");
 
   // ─── Import tab state ───
-  const [importTab, setImportTab] = useState<"notion" | "url" | "crawl">("notion");
+  const [importTab, setImportTab] = useState<"notion" | "url" | "crawl" | "file">("notion");
+
+  // ─── File Upload state ───
+  const [fileParsing, setFileParsing] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [filePreview, setFilePreview] = useState<{
+    title: string;
+    content: string;
+    charCount: number;
+    fileName: string;
+    fileType: string;
+    fileSizeBytes: number;
+    truncated: boolean;
+    originalLength?: number;
+  } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ─── Crawl Site state ───
   interface CrawlWorkflowItem {
@@ -645,6 +662,8 @@ export default function FreeformInput({
     // Map
     totalPages?: number;
     pages?: string[];
+    mapFallback?: boolean;
+    mapFallbackReason?: string;
     // Scrape
     scrapeCurrent?: number;
     scrapeTotal?: number;
@@ -761,6 +780,8 @@ export default function FreeformInput({
             stage: "scraping",
             totalPages: event.totalPages as number,
             pages: event.pages as string[],
+            mapFallback: (event.fallback as boolean) || false,
+            mapFallbackReason: (event.fallbackReason as string) || undefined,
           };
 
         case "map_error":
@@ -905,6 +926,104 @@ export default function FreeformInput({
     setCrawlProgress({ stage: "idle" });
   }, []);
 
+  // ─── File upload handler ───
+  const handleFileSelect = useCallback(async (file: File) => {
+    setFileParsing(true);
+    setFileError(null);
+    setFilePreview(null);
+    setExtractionResults(null);
+    setExtractionError(null);
+
+    try {
+      const fileName = file.name;
+      const ext = fileName.substring(fileName.lastIndexOf(".")).toLowerCase();
+      const textExts = new Set([".txt", ".md", ".log", ".csv", ".json"]);
+
+      let content: string;
+      const title = fileName.replace(/\.[^.]+$/, "");
+
+      if (textExts.has(ext)) {
+        // Client-side parsing for text formats
+        content = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsText(file);
+        });
+
+        // Pretty-print JSON for readability
+        if (ext === ".json") {
+          try {
+            const parsed = JSON.parse(content);
+            content = JSON.stringify(parsed, null, 2);
+          } catch {
+            // Leave as-is if not valid JSON
+          }
+        }
+      } else if (ext === ".pdf" || ext === ".docx") {
+        // Server-side parsing
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await fetch("/api/parse-file", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || "Failed to parse file");
+        }
+
+        const data = await res.json();
+        content = data.content;
+      } else {
+        throw new Error(`Unsupported file type: ${ext}. Supported: .txt, .md, .csv, .json, .pdf, .docx`);
+      }
+
+      // Truncate client-side for very large text files
+      const MAX_CHARS = 30_000;
+      const truncated = content.length > MAX_CHARS;
+      const safeContent = truncated ? content.slice(0, MAX_CHARS) : content;
+
+      if (safeContent.trim().length === 0) {
+        throw new Error("File contains no readable text.");
+      }
+
+      setFilePreview({
+        title,
+        content: safeContent,
+        charCount: safeContent.length,
+        fileName: file.name,
+        fileType: ext,
+        fileSizeBytes: file.size,
+        truncated,
+        originalLength: content.length,
+      });
+    } catch (err) {
+      setFileError(
+        err instanceof Error ? err.message : "Failed to read file"
+      );
+    } finally {
+      setFileParsing(false);
+    }
+  }, []);
+
+  const handleFileInsert = useCallback(() => {
+    if (!filePreview) return;
+    onChange(filePreview.content);
+    setFilePreview(null);
+    setShowImport(false);
+    setExtractionResults(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [filePreview, onChange]);
+
+  const handleFileCancelPreview = useCallback(() => {
+    setFilePreview(null);
+    setExtractionResults(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
+
   // ─── Extraction state ───
   interface ExtractedWf {
     id: string;
@@ -967,7 +1086,7 @@ export default function FreeformInput({
 
   // ─── Extraction handler (shared for Notion, URL, and text) ───
   const handleExtractWorkflows = useCallback(
-    async (content: string, sourceType: "notion" | "url" | "text", sourceUrl?: string) => {
+    async (content: string, sourceType: "notion" | "url" | "text" | "file", sourceUrl?: string) => {
       if (extractLock.current) return;
       extractLock.current = true;
       setExtracting(true);
@@ -1255,7 +1374,7 @@ export default function FreeformInput({
           >
             {/* Tab pills */}
             <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
-              {(["notion", "url", "crawl"] as const).map((tab) => (
+              {(["notion", "url", "crawl", "file"] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => {
@@ -1271,6 +1390,12 @@ export default function FreeformInput({
                     if (tab !== "crawl" && !crawlRunning) {
                       setCrawlError(null);
                       setCrawlProgress({ stage: "idle" });
+                    }
+                    // Reset file state when leaving file tab
+                    if (tab !== "file") {
+                      setFileError(null);
+                      setFilePreview(null);
+                      if (fileInputRef.current) fileInputRef.current.value = "";
                     }
                   }}
                   style={{
@@ -1301,7 +1426,15 @@ export default function FreeformInput({
                       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
                     </svg>
                   )}
-                  {tab === "notion" ? "Notion" : tab === "url" ? "URL" : "Crawl Site"}
+                  {tab === "file" && (
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="12" y1="18" x2="12" y2="12" />
+                      <line x1="9" y1="15" x2="15" y2="15" />
+                    </svg>
+                  )}
+                  {tab === "notion" ? "Notion" : tab === "url" ? "URL" : tab === "crawl" ? "Crawl Site" : "Upload"}
                 </button>
               ))}
             </div>
@@ -1628,6 +1761,27 @@ export default function FreeformInput({
                       )}
                     </div>
 
+                    {/* Map fallback notice */}
+                    {crawlProgress.mapFallback && (
+                      <div
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 9,
+                          color: "var(--color-warning)",
+                          marginBottom: 8,
+                          padding: "4px 8px",
+                          background: "rgba(212,160,23,0.06)",
+                          borderRadius: 4,
+                          border: "1px solid rgba(212,160,23,0.15)",
+                        }}
+                      >
+                        Site map unavailable — scanning page directly
+                        {crawlProgress.mapFallbackReason && (
+                          <span style={{ color: "var(--color-muted)" }}> ({crawlProgress.mapFallbackReason})</span>
+                        )}
+                      </div>
+                    )}
+
                     {/* Scraping URL hint */}
                     {crawlProgress.stage === "scraping" && crawlProgress.scrapeUrl && (
                       <div
@@ -1925,6 +2079,124 @@ export default function FreeformInput({
                   </div>
                 )}
               </div>
+            )}
+
+            {/* ── File Upload tab ── */}
+            {importTab === "file" && (
+              <>
+                <div
+                  style={{
+                    fontFamily: "var(--font-body)",
+                    fontSize: 12,
+                    color: "var(--color-text)",
+                    marginBottom: 8,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Upload a document to extract workflows from. Supports .txt, .md, .csv, .json, .pdf, and .docx.
+                </div>
+
+                {!filePreview && !extractionResults && (
+                  <div>
+                    {/* Drop zone / file input */}
+                    <label
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "20px 16px",
+                        borderRadius: 8,
+                        border: "2px dashed var(--color-border)",
+                        background: "var(--color-surface)",
+                        cursor: fileParsing || disabled ? "not-allowed" : "pointer",
+                        transition: "all 0.2s",
+                        gap: 8,
+                        opacity: fileParsing ? 0.6 : 1,
+                      }}
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".txt,.md,.log,.csv,.json,.pdf,.docx"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileSelect(file);
+                        }}
+                        disabled={fileParsing || disabled}
+                        style={{ display: "none" }}
+                      />
+                      {fileParsing ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span
+                            style={{
+                              width: 14,
+                              height: 14,
+                              border: "2px solid rgba(45,125,210,0.2)",
+                              borderTop: "2px solid var(--color-info)",
+                              borderRadius: "50%",
+                              animation: "spin 0.8s linear infinite",
+                              display: "inline-block",
+                            }}
+                          />
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-info)" }}>
+                            Parsing file...
+                          </span>
+                        </div>
+                      ) : (
+                        <>
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                          </svg>
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-muted)" }}>
+                            Click to select a file
+                          </span>
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--color-muted)", opacity: 0.6 }}>
+                            .txt, .md, .csv, .json, .pdf, .docx &middot; max 10MB
+                          </span>
+                        </>
+                      )}
+                    </label>
+                  </div>
+                )}
+
+                {/* File error */}
+                {fileError && (
+                  <div
+                    style={{
+                      marginTop: 8,
+                      padding: "8px 12px",
+                      background: "rgba(232,85,58,0.05)",
+                      border: "1px solid rgba(232,85,58,0.15)",
+                      borderRadius: 6,
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 11,
+                      color: "var(--color-accent)",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {fileError}
+                  </div>
+                )}
+
+                {/* File preview card */}
+                {filePreview && !extractionResults && (
+                  <PreviewCard
+                    headerLabel="File Loaded"
+                    title={filePreview.title}
+                    content={filePreview.content}
+                    stats={`${filePreview.fileName} \u00b7 ${(filePreview.fileSizeBytes / 1024).toFixed(1)}KB \u00b7 ${filePreview.charCount.toLocaleString()} chars`}
+                    truncated={filePreview.truncated}
+                    originalLength={filePreview.originalLength}
+                    onUseRaw={handleFileInsert}
+                    onExtract={() => handleExtractWorkflows(filePreview.content, "file", filePreview.fileName)}
+                    onCancel={handleFileCancelPreview}
+                    extracting={extracting}
+                  />
+                )}
+              </>
             )}
 
             {/* ── Extraction results (shared) ── */}
