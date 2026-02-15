@@ -1,35 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import Firecrawl from "@mendable/firecrawl-js";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { stripBoilerplate, LOW_TEXT_THRESHOLD } from "@/lib/scrape-utils";
 
 // ─── POST /api/scrape-url ───
 // Scrapes a URL via Firecrawl and returns clean markdown text + optional screenshot.
 // When the page has minimal text (visual editor, canvas app), flags isVisualContent.
-
-/**
- * Strip boilerplate text to measure "meaningful" content.
- * Nav links, footers, cookie banners, etc. are noise.
- */
-function stripBoilerplate(markdown: string): string {
-  const boilerplate = [
-    "sign in", "sign up", "log in", "log out", "cookie", "privacy policy",
-    "terms of service", "subscribe", "newsletter", "follow us",
-    "copyright", "all rights reserved", "powered by", "accept cookies",
-    "close menu", "open menu", "skip to content",
-  ];
-
-  return markdown
-    .split("\n")
-    .filter((line) => line.trim().length >= 20)
-    .filter((line) => {
-      const lower = line.toLowerCase();
-      return !boilerplate.some((phrase) => lower.includes(phrase));
-    })
-    .join("\n")
-    .trim();
-}
-
-const LOW_TEXT_THRESHOLD = 200;
 
 export async function POST(request: NextRequest) {
   // Rate limit: 10 scrapes per minute per IP

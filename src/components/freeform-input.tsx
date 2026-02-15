@@ -626,7 +626,284 @@ export default function FreeformInput({
   const [visionContext, setVisionContext] = useState("");
 
   // ─── Import tab state ───
-  const [importTab, setImportTab] = useState<"notion" | "url">("notion");
+  const [importTab, setImportTab] = useState<"notion" | "url" | "crawl">("notion");
+
+  // ─── Crawl Site state ───
+  interface CrawlWorkflowItem {
+    id: string;
+    title: string;
+    pageUrl: string;
+    status: "queued" | "analyzing" | "complete" | "error";
+    savedId?: string;
+    steps?: number;
+    gaps?: number;
+    automationPotential?: number;
+    error?: string;
+  }
+  interface CrawlProgress {
+    stage: "idle" | "mapping" | "scraping" | "extracting" | "decomposing" | "complete" | "error";
+    // Map
+    totalPages?: number;
+    pages?: string[];
+    // Scrape
+    scrapeCurrent?: number;
+    scrapeTotal?: number;
+    scrapeUrl?: string;
+    // Extract
+    extractCurrent?: number;
+    extractTotal?: number;
+    extractUrl?: string;
+    totalWorkflowsFound?: number;
+    // Decompose
+    decomposeCurrent?: number;
+    decomposeTotal?: number;
+    workflows?: CrawlWorkflowItem[];
+    // Complete
+    summary?: {
+      totalPages: number;
+      pagesScraped: number;
+      pagesWithWorkflows: number;
+      totalWorkflows: number;
+      workflowsSaved: number;
+      workflowsFailed: number;
+      savedWorkflowIds: string[];
+    };
+    // Error
+    errorMessage?: string;
+  }
+  const [crawlUrl, setCrawlUrl] = useState("");
+  const [crawlMaxPages, setCrawlMaxPages] = useState(20);
+  const [crawlRunning, setCrawlRunning] = useState(false);
+  const [crawlError, setCrawlError] = useState<string | null>(null);
+  const [crawlProgress, setCrawlProgress] = useState<CrawlProgress>({ stage: "idle" });
+  const crawlAbortRef = useRef<AbortController | null>(null);
+
+  // ─── Crawl SSE handler ───
+  const handleCrawlStart = useCallback(async () => {
+    if (crawlRunning || !crawlUrl.trim()) return;
+    setCrawlRunning(true);
+    setCrawlError(null);
+    setCrawlProgress({ stage: "mapping" });
+
+    const abort = new AbortController();
+    crawlAbortRef.current = abort;
+
+    try {
+      const res = await fetch("/api/crawl-site", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: crawlUrl.trim(), maxPages: crawlMaxPages }),
+        signal: abort.signal,
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || `Request failed (${res.status})`);
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No response stream");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            handleCrawlEvent(event);
+          } catch {
+            // Skip malformed SSE lines
+          }
+        }
+      }
+
+      // Process remaining buffer
+      if (buffer.startsWith("data: ")) {
+        try {
+          const event = JSON.parse(buffer.slice(6));
+          handleCrawlEvent(event);
+        } catch {
+          // skip
+        }
+      }
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
+      const msg = err instanceof Error ? err.message : "Crawl failed";
+      setCrawlError(msg);
+      setCrawlProgress((p) => ({ ...p, stage: "error", errorMessage: msg }));
+    } finally {
+      setCrawlRunning(false);
+      crawlAbortRef.current = null;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [crawlUrl, crawlMaxPages, crawlRunning]);
+
+  const handleCrawlEvent = useCallback((event: Record<string, unknown>) => {
+    const type = event.type as string;
+
+    setCrawlProgress((prev) => {
+      switch (type) {
+        case "map_start":
+          return { ...prev, stage: "mapping" };
+
+        case "map_complete":
+          return {
+            ...prev,
+            stage: "scraping",
+            totalPages: event.totalPages as number,
+            pages: event.pages as string[],
+          };
+
+        case "map_error":
+          return { ...prev, stage: "error", errorMessage: event.error as string };
+
+        case "scrape_start":
+          return {
+            ...prev,
+            stage: "scraping",
+            scrapeCurrent: event.current as number,
+            scrapeTotal: event.total as number,
+            scrapeUrl: event.url as string,
+          };
+
+        case "scrape_complete":
+          return {
+            ...prev,
+            scrapeCurrent: event.current as number,
+            scrapeTotal: event.total as number,
+          };
+
+        case "scrape_error":
+          return {
+            ...prev,
+            scrapeCurrent: event.current as number,
+          };
+
+        case "extract_start":
+          return {
+            ...prev,
+            stage: "extracting",
+            extractCurrent: event.current as number,
+            extractTotal: event.total as number,
+            extractUrl: event.url as string,
+          };
+
+        case "extract_complete": {
+          const wfCount = event.workflowCount as number;
+          return {
+            ...prev,
+            extractCurrent: event.current as number,
+            totalWorkflowsFound: (prev.totalWorkflowsFound || 0) + wfCount,
+          };
+        }
+
+        case "extract_skip":
+          return {
+            ...prev,
+            extractCurrent: event.current as number,
+          };
+
+        case "decompose_queue": {
+          const items = (event.workflows as Array<{ id: string; title: string; pageUrl: string }>).map(
+            (w) => ({
+              id: w.id,
+              title: w.title,
+              pageUrl: w.pageUrl,
+              status: "queued" as const,
+            })
+          );
+          return {
+            ...prev,
+            stage: "decomposing",
+            workflows: items,
+            decomposeTotal: event.total as number,
+            decomposeCurrent: 0,
+          };
+        }
+
+        case "decompose_start": {
+          const wfId = event.workflowId as string;
+          return {
+            ...prev,
+            stage: "decomposing",
+            decomposeCurrent: event.current as number,
+            workflows: (prev.workflows || []).map((w) =>
+              w.id === wfId ? { ...w, status: "analyzing" as const } : w
+            ),
+          };
+        }
+
+        case "decompose_complete": {
+          const wfId = event.workflowId as string;
+          return {
+            ...prev,
+            decomposeCurrent: event.current as number,
+            workflows: (prev.workflows || []).map((w) =>
+              w.id === wfId
+                ? {
+                    ...w,
+                    status: "complete" as const,
+                    savedId: event.savedId as string,
+                    steps: event.steps as number,
+                    gaps: event.gaps as number,
+                    automationPotential: event.automationPotential as number,
+                  }
+                : w
+            ),
+          };
+        }
+
+        case "decompose_error": {
+          const wfId = event.workflowId as string;
+          return {
+            ...prev,
+            decomposeCurrent: event.current as number,
+            workflows: (prev.workflows || []).map((w) =>
+              w.id === wfId
+                ? { ...w, status: "error" as const, error: event.error as string }
+                : w
+            ),
+          };
+        }
+
+        case "pipeline_complete":
+          return {
+            ...prev,
+            stage: "complete",
+            summary: event.summary as CrawlProgress["summary"],
+          };
+
+        case "pipeline_error":
+          return {
+            ...prev,
+            stage: "error",
+            errorMessage: event.error as string,
+          };
+
+        default:
+          return prev;
+      }
+    });
+  }, []);
+
+  const handleCrawlReset = useCallback(() => {
+    if (crawlAbortRef.current) {
+      crawlAbortRef.current.abort();
+      crawlAbortRef.current = null;
+    }
+    setCrawlRunning(false);
+    setCrawlError(null);
+    setCrawlProgress({ stage: "idle" });
+  }, []);
 
   // ─── Extraction state ───
   interface ExtractedWf {
@@ -978,18 +1255,23 @@ export default function FreeformInput({
           >
             {/* Tab pills */}
             <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
-              {(["notion", "url"] as const).map((tab) => (
+              {(["notion", "url", "crawl"] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => {
                     setImportTab(tab);
-                    // Clear stale state from other tab
+                    // Clear stale state from other tabs
                     setImportError(null);
                     setUrlError(null);
                     setImportPreview(null);
                     setUrlPreview(null);
                     setExtractionResults(null);
                     setExtractionError(null);
+                    // Reset crawl state when leaving crawl tab
+                    if (tab !== "crawl" && !crawlRunning) {
+                      setCrawlError(null);
+                      setCrawlProgress({ stage: "idle" });
+                    }
                   }}
                   style={{
                     padding: "5px 14px",
@@ -1012,7 +1294,14 @@ export default function FreeformInput({
                       <path d="M6.017 4.313l55.333 -4.087c6.797 -0.583 8.543 -0.19 12.817 2.917l17.663 12.443c2.913 2.14 3.883 2.723 3.883 5.053v68.243c0 4.277 -1.553 6.807 -6.99 7.193L24.467 99.967c-4.08 0.193 -6.023 -0.39 -8.16 -3.113L3.3 79.94c-2.333 -3.113 -3.3 -5.443 -3.3 -8.167V11.113c0 -3.497 1.553 -6.413 6.017 -6.8z" fill="currentColor" />
                     </svg>
                   )}
-                  {tab === "notion" ? "Notion" : "URL"}
+                  {tab === "crawl" && (
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="2" y1="12" x2="22" y2="12" />
+                      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                    </svg>
+                  )}
+                  {tab === "notion" ? "Notion" : tab === "url" ? "URL" : "Crawl Site"}
                 </button>
               ))}
             </div>
@@ -1159,6 +1448,483 @@ export default function FreeformInput({
                   )
                 )}
               </>
+            )}
+
+            {/* ── Crawl Site tab ── */}
+            {importTab === "crawl" && (
+              <div>
+                {/* ─ Idle: Input form ─ */}
+                {crawlProgress.stage === "idle" && (
+                  <>
+                    <div
+                      style={{
+                        fontFamily: "var(--font-body)",
+                        fontSize: 12,
+                        color: "var(--color-text)",
+                        marginBottom: 8,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      Enter a website URL to crawl. All pages will be scraped, analyzed for workflows, and auto-decomposed.
+                    </div>
+
+                    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                      <input
+                        type="text"
+                        value={crawlUrl}
+                        onChange={(e) => { setCrawlUrl(e.target.value); setCrawlError(null); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleCrawlStart(); } }}
+                        placeholder="https://docs.example.com"
+                        disabled={crawlRunning || disabled}
+                        style={{
+                          flex: 1, padding: "8px 12px", borderRadius: 6,
+                          border: `1px solid ${crawlError ? "rgba(232,85,58,0.25)" : "var(--color-border)"}`,
+                          background: "var(--color-surface)", fontFamily: "var(--font-mono)",
+                          fontSize: 12, color: "var(--color-dark)", outline: "none",
+                        }}
+                      />
+                    </div>
+
+                    {/* Max pages slider */}
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--color-muted)", fontWeight: 600 }}>
+                          Max pages
+                        </span>
+                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, color: "var(--color-dark)" }}>
+                          {crawlMaxPages}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={1}
+                        max={50}
+                        value={crawlMaxPages}
+                        onChange={(e) => setCrawlMaxPages(Number(e.target.value))}
+                        disabled={crawlRunning || disabled}
+                        style={{ width: "100%", accentColor: "var(--color-accent)" }}
+                      />
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--color-muted)", marginTop: 2 }}>
+                        ~{1 + crawlMaxPages * 2} Firecrawl credits
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleCrawlStart}
+                      disabled={crawlRunning || !crawlUrl.trim() || disabled}
+                      style={{
+                        width: "100%",
+                        padding: "10px 20px",
+                        borderRadius: 6,
+                        border: "none",
+                        background: crawlRunning || !crawlUrl.trim()
+                          ? "var(--color-border)"
+                          : "linear-gradient(135deg, var(--color-accent) 0%, #F09060 100%)",
+                        color: crawlRunning || !crawlUrl.trim() ? "var(--color-muted)" : "var(--color-light)",
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: crawlRunning || !crawlUrl.trim() ? "not-allowed" : "pointer",
+                        transition: "all 0.2s",
+                        boxShadow: crawlRunning || !crawlUrl.trim() ? "none" : "0 2px 8px rgba(232,85,58,0.2)",
+                        letterSpacing: "0.02em",
+                      }}
+                    >
+                      Crawl &amp; Analyze
+                    </button>
+                  </>
+                )}
+
+                {/* ─ Progress: mapping / scraping / extracting / decomposing ─ */}
+                {["mapping", "scraping", "extracting", "decomposing"].includes(crawlProgress.stage) && (
+                  <div>
+                    {/* 4-stage progress bar */}
+                    <div style={{ display: "flex", gap: 3, marginBottom: 16 }}>
+                      {(["mapping", "scraping", "extracting", "decomposing"] as const).map((s) => {
+                        const stages = ["mapping", "scraping", "extracting", "decomposing"];
+                        const currentIdx = stages.indexOf(crawlProgress.stage);
+                        const stageIdx = stages.indexOf(s);
+                        const isComplete = stageIdx < currentIdx;
+                        const isActive = stageIdx === currentIdx;
+                        return (
+                          <div key={s} style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
+                            <div
+                              style={{
+                                height: 4,
+                                borderRadius: 2,
+                                background: isComplete
+                                  ? "var(--color-success)"
+                                  : isActive
+                                    ? "var(--color-accent)"
+                                    : "var(--color-border)",
+                                transition: "background 0.3s ease",
+                                position: "relative",
+                                overflow: "hidden",
+                              }}
+                            >
+                              {isActive && (
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    inset: 0,
+                                    background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)",
+                                    animation: "cardShimmer 1.5s ease infinite",
+                                    backgroundSize: "300% 100%",
+                                  }}
+                                />
+                              )}
+                            </div>
+                            <span
+                              style={{
+                                fontFamily: "var(--font-mono)",
+                                fontSize: 8,
+                                color: isComplete ? "var(--color-success)" : isActive ? "var(--color-accent)" : "var(--color-muted)",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
+                                fontWeight: isActive ? 700 : 500,
+                                textAlign: "center",
+                              }}
+                            >
+                              {s === "mapping" ? "Map" : s === "scraping" ? "Scrape" : s === "extracting" ? "Extract" : "Decompose"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Stage detail text */}
+                    <div
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 11,
+                        color: "var(--color-dark)",
+                        marginBottom: 12,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 12,
+                          height: 12,
+                          border: "2px solid rgba(232,85,58,0.2)",
+                          borderTop: "2px solid var(--color-accent)",
+                          borderRadius: "50%",
+                          animation: "spin 0.8s linear infinite",
+                          display: "inline-block",
+                          flexShrink: 0,
+                        }}
+                      />
+                      {crawlProgress.stage === "mapping" && "Discovering pages..."}
+                      {crawlProgress.stage === "scraping" && (
+                        <>Scraping pages... {crawlProgress.scrapeCurrent || 0}/{crawlProgress.scrapeTotal || "?"}</>
+                      )}
+                      {crawlProgress.stage === "extracting" && (
+                        <>Extracting workflows... {crawlProgress.extractCurrent || 0}/{crawlProgress.extractTotal || "?"}</>
+                      )}
+                      {crawlProgress.stage === "decomposing" && (
+                        <>Decomposing workflows... {crawlProgress.decomposeCurrent || 0}/{crawlProgress.decomposeTotal || "?"}</>
+                      )}
+                    </div>
+
+                    {/* Scraping URL hint */}
+                    {crawlProgress.stage === "scraping" && crawlProgress.scrapeUrl && (
+                      <div
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 9,
+                          color: "var(--color-muted)",
+                          marginBottom: 8,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {crawlProgress.scrapeUrl}
+                      </div>
+                    )}
+
+                    {/* Extracting URL hint */}
+                    {crawlProgress.stage === "extracting" && crawlProgress.extractUrl && (
+                      <div
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 9,
+                          color: "var(--color-muted)",
+                          marginBottom: 8,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {crawlProgress.extractUrl}
+                      </div>
+                    )}
+
+                    {/* Workflows found counter (during extracting) */}
+                    {crawlProgress.stage === "extracting" && (crawlProgress.totalWorkflowsFound || 0) > 0 && (
+                      <div
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 10,
+                          color: "var(--color-success)",
+                          marginBottom: 8,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {crawlProgress.totalWorkflowsFound} workflow{crawlProgress.totalWorkflowsFound !== 1 ? "s" : ""} found so far
+                      </div>
+                    )}
+
+                    {/* Per-workflow cards (decomposing stage) */}
+                    {crawlProgress.stage === "decomposing" && crawlProgress.workflows && crawlProgress.workflows.length > 0 && (
+                      <div
+                        style={{
+                          maxHeight: 240,
+                          overflowY: "auto",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 6,
+                          paddingRight: 4,
+                        }}
+                      >
+                        {crawlProgress.workflows.map((wf) => (
+                          <div
+                            key={wf.id}
+                            style={{
+                              padding: "8px 10px",
+                              borderRadius: 6,
+                              border: `1px solid ${
+                                wf.status === "complete" ? "rgba(23,165,137,0.2)"
+                                  : wf.status === "error" ? "rgba(232,85,58,0.2)"
+                                  : wf.status === "analyzing" ? "rgba(45,125,210,0.2)"
+                                  : "var(--color-border)"
+                              }`,
+                              background: wf.status === "complete" ? "rgba(23,165,137,0.04)"
+                                : wf.status === "error" ? "rgba(232,85,58,0.04)"
+                                : wf.status === "analyzing" ? "rgba(45,125,210,0.04)"
+                                : "var(--color-surface)",
+                              transition: "all 0.2s ease",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 12, flexShrink: 0 }}>
+                                {wf.status === "queued" && <span style={{ opacity: 0.4 }}>&#9203;</span>}
+                                {wf.status === "analyzing" && (
+                                  <span
+                                    style={{
+                                      width: 10,
+                                      height: 10,
+                                      border: "2px solid rgba(45,125,210,0.2)",
+                                      borderTop: "2px solid var(--color-info)",
+                                      borderRadius: "50%",
+                                      animation: "spin 0.8s linear infinite",
+                                      display: "inline-block",
+                                    }}
+                                  />
+                                )}
+                                {wf.status === "complete" && <span style={{ color: "var(--color-success)" }}>&#10003;</span>}
+                                {wf.status === "error" && <span style={{ color: "var(--color-accent)" }}>&#10007;</span>}
+                              </span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div
+                                  style={{
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    color: "var(--color-dark)",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {wf.title}
+                                </div>
+                                <div
+                                  style={{
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: 8,
+                                    color: "var(--color-muted)",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {wf.pageUrl}
+                                </div>
+                              </div>
+                              {wf.status === "complete" && wf.steps !== undefined && (
+                                <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--color-success)", fontWeight: 600, flexShrink: 0 }}>
+                                  {wf.steps}s / {wf.gaps}g / {wf.automationPotential}%
+                                </div>
+                              )}
+                              {wf.status === "error" && (
+                                <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--color-accent)", flexShrink: 0 }}>
+                                  Failed
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ─ Complete ─ */}
+                {crawlProgress.stage === "complete" && crawlProgress.summary && (
+                  <div>
+                    <div
+                      style={{
+                        padding: "16px",
+                        background: "linear-gradient(135deg, rgba(23,165,137,0.06) 0%, rgba(45,125,210,0.04) 100%)",
+                        borderRadius: 8,
+                        border: "1px solid rgba(23,165,137,0.2)",
+                        marginBottom: 12,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: "var(--color-success)",
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          marginBottom: 10,
+                        }}
+                      >
+                        Crawl Complete
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                        {[
+                          { label: "Pages Scraped", value: crawlProgress.summary.pagesScraped },
+                          { label: "Workflows Found", value: crawlProgress.summary.totalWorkflows },
+                          { label: "Saved", value: crawlProgress.summary.workflowsSaved },
+                        ].map((s) => (
+                          <div key={s.label} style={{ textAlign: "center" }}>
+                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 20, fontWeight: 700, color: "var(--color-dark)" }}>
+                              {s.value}
+                            </div>
+                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                              {s.label}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {crawlProgress.summary.workflowsFailed > 0 && (
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--color-warning)", marginTop: 8 }}>
+                          {crawlProgress.summary.workflowsFailed} workflow{crawlProgress.summary.workflowsFailed !== 1 ? "s" : ""} failed to decompose
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <a
+                        href="/library"
+                        style={{
+                          flex: 1,
+                          padding: "8px 16px",
+                          borderRadius: 6,
+                          border: "none",
+                          background: "linear-gradient(135deg, var(--color-accent) 0%, #F09060 100%)",
+                          color: "var(--color-light)",
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          textAlign: "center",
+                          textDecoration: "none",
+                          cursor: "pointer",
+                          boxShadow: "0 2px 8px rgba(232,85,58,0.2)",
+                        }}
+                      >
+                        View in Library &rarr;
+                      </a>
+                      <button
+                        onClick={handleCrawlReset}
+                        style={{
+                          padding: "8px 16px",
+                          borderRadius: 6,
+                          border: "1px solid var(--color-border)",
+                          background: "var(--color-surface)",
+                          color: "var(--color-dark)",
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          transition: "all 0.2s",
+                        }}
+                      >
+                        New Crawl
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ─ Error ─ */}
+                {crawlProgress.stage === "error" && (
+                  <div>
+                    <div
+                      style={{
+                        padding: "12px 14px",
+                        background: "rgba(232,85,58,0.05)",
+                        border: "1px solid rgba(232,85,58,0.2)",
+                        borderRadius: 8,
+                        marginBottom: 12,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: "var(--color-accent)",
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          marginBottom: 6,
+                        }}
+                      >
+                        Crawl Failed
+                      </div>
+                      <div
+                        style={{
+                          fontFamily: "var(--font-body)",
+                          fontSize: 12,
+                          color: "var(--color-text)",
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {crawlProgress.errorMessage || crawlError || "An unexpected error occurred."}
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleCrawlReset}
+                      style={{
+                        padding: "8px 16px",
+                        borderRadius: 6,
+                        border: "none",
+                        background: "var(--color-dark)",
+                        color: "var(--color-light)",
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                )}
+
+                {/* Crawl error inline (e.g., rate limit before SSE starts) */}
+                {crawlError && crawlProgress.stage === "idle" && (
+                  <div style={{ marginTop: 8, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-danger)", lineHeight: 1.5 }}>
+                    {crawlError}
+                  </div>
+                )}
+              </div>
             )}
 
             {/* ── Extraction results (shared) ── */}
