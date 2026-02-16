@@ -582,6 +582,39 @@ export default function XRayPage() {
         </div>
       </div>
 
+      {/* Team context banner */}
+      {workflow.costContext?.teamSize && (
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "8px 14px",
+          background: "rgba(45,125,210,0.04)",
+          border: "1px solid rgba(45,125,210,0.12)",
+          borderRadius: "var(--radius-sm)",
+          marginTop: 12,
+          animation: "fadeInUp 0.4s var(--ease-spring) 0.05s both",
+        }}>
+          <span style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            fontWeight: 600,
+            color: "var(--color-info)",
+          }}>
+            Calibrated for {workflow.costContext.teamSize}-person team
+          </span>
+          {workflow.costContext.teamContext && (
+            <span style={{
+              fontFamily: "var(--font-body)",
+              fontSize: 11,
+              color: "var(--color-muted)",
+            }}>
+              ({workflow.costContext.teamContext})
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Version Timeline */}
       {versionSiblings.length > 1 && (
         <VersionTimeline
@@ -642,13 +675,19 @@ export default function XRayPage() {
           </div>
         )}
         {activeTab === "gaps" && (
-          <GapAnalysis gaps={decomposition.gaps} />
+          <GapAnalysis
+            gaps={decomposition.gaps}
+            teamSize={workflow.costContext?.teamSize}
+            teamContext={workflow.costContext?.teamContext}
+          />
         )}
         {activeTab === "health" && (
           <HealthCard
             health={decomposition.health}
             stepCount={decomposition.steps.length}
             gapCount={decomposition.gaps.length}
+            teamSize={workflow.costContext?.teamSize}
+            confidence={decomposition.health.confidence}
           />
         )}
       </div>

@@ -5,9 +5,11 @@ import GapCard from "./gap-card";
 
 interface GapAnalysisProps {
   gaps: Gap[];
+  teamSize?: number;
+  teamContext?: string;
 }
 
-export default function GapAnalysis({ gaps }: GapAnalysisProps) {
+export default function GapAnalysis({ gaps, teamSize, teamContext }: GapAnalysisProps) {
   if (gaps.length === 0) {
     return (
       <div className="empty-state">
@@ -37,6 +39,29 @@ export default function GapAnalysis({ gaps }: GapAnalysisProps) {
 
   return (
     <div>
+      {teamSize && (
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "8px 14px",
+          background: "rgba(45,125,210,0.04)",
+          border: "1px solid rgba(45,125,210,0.12)",
+          borderRadius: "var(--radius-sm)",
+          marginBottom: 12,
+          fontFamily: "var(--font-mono)",
+          fontSize: 11,
+        }}>
+          <span style={{ fontWeight: 600, color: "var(--color-info)" }}>
+            Gap severity calibrated for {teamSize}-person team
+          </span>
+          {teamContext && (
+            <span style={{ color: "var(--color-muted)", fontFamily: "var(--font-body)" }}>
+              ({teamContext})
+            </span>
+          )}
+        </div>
+      )}
       <div
         style={{
           display: "flex",

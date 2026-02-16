@@ -4,11 +4,14 @@ import { useEffect, useState, useRef } from "react";
 import type { HealthMetrics } from "@/lib/types";
 import ScoreRing from "./score-ring";
 import MetricBar from "./metric-bar";
+import ConfidenceBadge from "./confidence-badge";
 
 interface HealthCardProps {
   health: HealthMetrics;
   stepCount: number;
   gapCount: number;
+  teamSize?: number;
+  confidence?: { level: "high" | "inferred"; reason: string };
 }
 
 function scoreLabel(value: number): string {
@@ -86,6 +89,8 @@ export default function HealthCard({
   health,
   stepCount,
   gapCount,
+  teamSize,
+  confidence,
 }: HealthCardProps) {
   return (
     <div style={{ animation: "staggerFadeIn 0.5s ease both", animationDelay: "0ms" }}>
@@ -260,6 +265,32 @@ export default function HealthCard({
         >
           Health Breakdown
         </div>
+        {(teamSize || confidence) && (
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 12,
+            padding: "6px 12px",
+            background: "rgba(45,125,210,0.04)",
+            borderRadius: "var(--radius-sm)",
+            border: "1px solid rgba(45,125,210,0.08)",
+          }}>
+            {teamSize && (
+              <span style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                fontWeight: 600,
+                color: "var(--color-info)",
+              }}>
+                Scores calibrated for {teamSize}-person team
+              </span>
+            )}
+            {confidence && (
+              <ConfidenceBadge level={confidence.level} context={confidence.reason} />
+            )}
+          </div>
+        )}
         <MetricBar
           label="Complexity"
           value={health.complexity}
