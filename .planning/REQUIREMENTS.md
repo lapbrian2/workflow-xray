@@ -1,0 +1,114 @@
+# Requirements: Workflow X-Ray
+
+**Defined:** 2026-02-16
+**Core Value:** Teams can submit any workflow description and receive an accurate, actionable diagnostic — with team-size-aware analysis — that reveals bottlenecks, gaps, and automation opportunities they couldn't see before.
+
+## v1 Requirements
+
+Requirements for this milestone. Each maps to roadmap phases.
+
+### Infrastructure & Security
+
+- [ ] **INFR-01**: App persists workflow data reliably without silent data loss from in-memory fallback
+- [ ] **INFR-02**: Auth cookie validation prevents bypass via format-only spoofing
+- [ ] **INFR-03**: All 13 API routes have consistent error handling with structured error responses
+- [ ] **INFR-04**: All API routes validate input with Zod schemas before processing
+
+### Team-Size-Aware Analysis
+
+- [ ] **TEAM-01**: User can specify team size (number of people) during workflow submission
+- [ ] **TEAM-02**: Health metric scores are calibrated based on team size context (e.g., fragility thresholds differ for 3-person vs 50-person teams)
+- [ ] **TEAM-03**: Gap analysis severity is contextualized to team capacity (bottleneck with 2 people is more critical than with 20)
+- [ ] **TEAM-04**: Analysis output displays team size context alongside scores and recommendations
+- [ ] **TEAM-05**: AI confidence indicators show where analysis is high-confidence vs. inferring per section
+
+### AI Reliability
+
+- [ ] **AIRE-01**: Claude API calls retry on transient failures (timeout, rate limit) with exponential backoff
+- [ ] **AIRE-02**: When Claude returns malformed output, app displays partial results instead of a full error page
+- [ ] **AIRE-03**: Loading states show meaningful progress during AI analysis (not just a spinner)
+
+### Reporting & Export
+
+- [ ] **REPT-01**: PDF export uses programmatic generation for consistent, professional output across all browsers
+- [ ] **REPT-02**: Team dashboard displays health metric trends with data visualization charts
+- [ ] **REPT-03**: PDF exports include structured sections (executive summary, flow diagram, gap analysis, recommendations)
+
+## v2 Requirements
+
+Deferred to future release. Tracked but not in current roadmap.
+
+### Testing & Quality
+
+- **TEST-01**: Unit test infrastructure with Vitest covering core logic (decompose, scoring, validation)
+- **TEST-02**: Component tests with Testing Library for critical UI components
+- **TEST-03**: E2E tests with Playwright for critical user flows (submit workflow, view X-ray, export PDF)
+- **TEST-04**: API mock layer (MSW) for testing Claude responses without API costs
+
+### Advanced Analytics
+
+- **ANLZ-01**: Analysis caching by content hash to avoid duplicate API costs
+- **ANLZ-02**: Time-series health tracking across workflow versions over time
+- **ANLZ-03**: Batch engagement comparison (intake vs. post-remediation across all client workflows)
+
+### Production Monitoring
+
+- **MNTR-01**: Sentry error monitoring for production failure capture
+- **MNTR-02**: Structured server-side logging with pino for debugging Claude API failures
+
+### Advanced Reporting
+
+- **RPRT-01**: Role-based analysis perspectives (executive view vs. operator view)
+- **RPRT-02**: Industry/domain templates for common consulting verticals
+
+### Platform Evolution
+
+- **PLAT-01**: Reasoning Cells — modular AI blocks that each do one thing well, transparently
+- **PLAT-02**: NeuroFlow — visual drag-and-drop flow builder connecting cells
+- **PLAT-03**: Personas — bundles of skills with persistent memory (digital teammates)
+- **PLAT-04**: Guided learning / adaptive expertise UI
+- **PLAT-05**: Skill marketplace — save, reuse, and share reasoning flows
+
+## Out of Scope
+
+Explicitly excluded. Documented to prevent scope creep.
+
+| Feature | Reason |
+|---------|--------|
+| Real-time collaborative editing | Consulting work is deliberate/asynchronous; adds 5x infrastructure complexity |
+| Custom AI model selection | Multi-model support triples maintenance; Claude Sonnet is optimal for this use case |
+| Workflow execution/automation engine | This is a diagnostic tool, not an orchestration platform |
+| User accounts / OAuth / SSO | Password auth is sufficient for small consulting team; defer to future milestone |
+| Mobile app | Web-first; mobile later |
+| Distributed rate limiting | Deferred; current per-isolate limits acceptable for team-scale usage |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| INFR-01 | — | Pending |
+| INFR-02 | — | Pending |
+| INFR-03 | — | Pending |
+| INFR-04 | — | Pending |
+| TEAM-01 | — | Pending |
+| TEAM-02 | — | Pending |
+| TEAM-03 | — | Pending |
+| TEAM-04 | — | Pending |
+| TEAM-05 | — | Pending |
+| AIRE-01 | — | Pending |
+| AIRE-02 | — | Pending |
+| AIRE-03 | — | Pending |
+| REPT-01 | — | Pending |
+| REPT-02 | — | Pending |
+| REPT-03 | — | Pending |
+
+**Coverage:**
+- v1 requirements: 15 total
+- Mapped to phases: 0
+- Unmapped: 15
+
+---
+*Requirements defined: 2026-02-16*
+*Last updated: 2026-02-16 after initial definition*
