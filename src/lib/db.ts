@@ -1,6 +1,6 @@
 import type { Workflow } from "./types";
 
-// ─── In-memory fallback (local dev / when no cloud storage configured) ───
+// ─── In-memory fallback (local dev ONLY — requires explicit opt-in) ───
 // Use globalThis to survive between warm invocations on serverless
 const globalStore = globalThis as unknown as {
   __workflowStore?: Map<string, Workflow>;
@@ -27,7 +27,7 @@ async function getKv() {
   return null;
 }
 
-// Determine storage backend priority: KV > Blob > Memory
+// Determine storage backend priority: KV > Blob > Memory (explicit opt-in only)
 type StorageBackend = "kv" | "blob" | "memory";
 
 async function getBackend(): Promise<StorageBackend> {
@@ -37,10 +37,66 @@ async function getBackend(): Promise<StorageBackend> {
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     return "blob";
   }
-  return "memory";
+  // INFR-01: Fail hard when no storage is configured — no silent data loss
+  if (process.env.ALLOW_MEMORY_STORAGE === "true") {
+    console.warn(
+      "[db] WARNING: Using in-memory storage. Data will NOT persist across serverless cold starts."
+    );
+    return "memory";
+  }
+  throw new Error(
+    "No storage backend configured. Set KV_REST_API_URL + KV_REST_API_TOKEN, " +
+      "BLOB_READ_WRITE_TOKEN, or ALLOW_MEMORY_STORAGE=true for local development."
+  );
 }
 
 const BLOB_PREFIX = "workflows/";
+
+// ─── KV ID Migration: Array → Redis Set (one-time) ───
+let idsMigrated = false;
+
+async function migrateIdsToSet(
+  kv: Awaited<ReturnType<typeof getKv>> & object
+): Promise<void> {
+  if (idsMigrated) return;
+  idsMigrated = true;
+
+  try {
+    const raw = await kv.get("workflow:ids");
+    if (raw === null) return;
+
+    let ids: string[] = [];
+    if (Array.isArray(raw)) {
+      ids = raw;
+    } else if (typeof raw === "string") {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          ids = parsed;
+        }
+      } catch {
+        return;
+      }
+    } else {
+      return;
+    }
+
+    if (ids.length > 0) {
+      // Delete old key first to avoid WRONGTYPE error
+      await kv.del("workflow:ids");
+      // SADD all existing IDs atomically — cast needed for @vercel/kv's rest parameter typing
+      await (kv.sadd as (key: string, ...members: string[]) => Promise<number>)(
+        "workflow:ids",
+        ...ids
+      );
+      console.log(
+        `[db] Migrated ${ids.length} workflow IDs from array to Redis Set`
+      );
+    }
+  } catch (error) {
+    console.warn("[db] ID migration skipped:", error);
+  }
+}
 
 // ─── SAVE ───
 export async function saveWorkflow(workflow: Workflow): Promise<void> {
@@ -49,21 +105,8 @@ export async function saveWorkflow(workflow: Workflow): Promise<void> {
   if (backend === "kv") {
     const kv = (await getKv())!;
     await kv.set(`workflow:${workflow.id}`, JSON.stringify(workflow));
-    let ids: string[] = [];
-    const raw = await kv.get("workflow:ids");
-    if (Array.isArray(raw)) {
-      ids = raw;
-    } else if (typeof raw === "string") {
-      try {
-        ids = JSON.parse(raw);
-      } catch {
-        ids = [];
-      }
-    }
-    if (!ids.includes(workflow.id)) {
-      ids.push(workflow.id);
-      await kv.set("workflow:ids", ids);
-    }
+    // SADD is atomic and idempotent — no race condition
+    await kv.sadd("workflow:ids", workflow.id);
     return;
   }
 
@@ -82,7 +125,7 @@ export async function saveWorkflow(workflow: Workflow): Promise<void> {
     return;
   }
 
-  // Memory fallback
+  // Memory fallback (explicit opt-in only)
   memoryStore.set(workflow.id, workflow);
 }
 
@@ -107,7 +150,9 @@ export async function getWorkflow(id: string): Promise<Workflow | null> {
   if (backend === "blob") {
     const blob = (await getBlob())!;
     try {
-      const { blobs } = await blob.list({ prefix: `${BLOB_PREFIX}${id}.json` });
+      const { blobs } = await blob.list({
+        prefix: `${BLOB_PREFIX}${id}.json`,
+      });
       if (blobs.length === 0) return null;
       const res = await fetch(blobs[0].url);
       if (!res.ok) return null;
@@ -121,23 +166,19 @@ export async function getWorkflow(id: string): Promise<Workflow | null> {
 }
 
 // ─── LIST ───
-export async function listWorkflows(search?: string, limit = 100): Promise<Workflow[]> {
+export async function listWorkflows(
+  search?: string,
+  limit = 100
+): Promise<Workflow[]> {
   const backend = await getBackend();
   let workflows: Workflow[] = [];
 
   if (backend === "kv") {
     const kv = (await getKv())!;
-    let ids: string[] = [];
-    const raw = await kv.get("workflow:ids");
-    if (Array.isArray(raw)) {
-      ids = raw;
-    } else if (typeof raw === "string") {
-      try {
-        ids = JSON.parse(raw);
-      } catch {
-        ids = [];
-      }
-    }
+    // Run one-time migration from array to Set (if needed)
+    await migrateIdsToSet(kv);
+    // SMEMBERS returns all set members as an array — atomic read
+    const ids: string[] = await kv.smembers("workflow:ids");
     const results = await Promise.all(ids.map((wid) => getWorkflow(wid)));
     workflows = results.filter(Boolean) as Workflow[];
   } else if (backend === "blob") {
@@ -189,26 +230,17 @@ export async function deleteWorkflow(id: string): Promise<boolean> {
   if (backend === "kv") {
     const kv = (await getKv())!;
     await kv.del(`workflow:${id}`);
-    let ids: string[] = [];
-    const raw = await kv.get("workflow:ids");
-    if (Array.isArray(raw)) {
-      ids = raw;
-    } else if (typeof raw === "string") {
-      try {
-        ids = JSON.parse(raw);
-      } catch {
-        ids = [];
-      }
-    }
-    const filtered = ids.filter((i) => i !== id);
-    await kv.set("workflow:ids", filtered);
+    // SREM is atomic — no race condition
+    await kv.srem("workflow:ids", id);
     return true;
   }
 
   if (backend === "blob") {
     const blob = (await getBlob())!;
     try {
-      const { blobs } = await blob.list({ prefix: `${BLOB_PREFIX}${id}.json` });
+      const { blobs } = await blob.list({
+        prefix: `${BLOB_PREFIX}${id}.json`,
+      });
       if (blobs.length > 0) {
         await blob.del(blobs[0].url);
       }

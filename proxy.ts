@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  getExpectedToken,
+  safeCompare,
+  AUTH_COOKIE_NAME,
+} from "@/lib/auth";
 
 /**
- * Middleware: Cookie-based password gate for the entire app.
+ * Proxy: Cookie-based password gate for the entire app.
+ * INFR-02: Real SHA-256 hash validation (not just format check).
  *
- * If AUTH_PASSWORD is set, every request (except /login, /api/auth, and static
- * assets) must carry a valid auth cookie. If the cookie is missing or invalid,
- * the user is redirected to /login.
- *
- * If AUTH_PASSWORD is NOT set, the middleware is a no-op — the app is public.
+ * Next.js 16 proxy.ts runs on Node.js runtime (NOT Edge), giving us
+ * full access to node:crypto via auth.ts for timing-safe comparison.
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Always allow: login page, auth API, static files, Next.js internals
@@ -35,7 +38,7 @@ export function middleware(request: NextRequest) {
   }
 
   // Check for the auth cookie
-  const authCookie = request.cookies.get("xray_auth");
+  const authCookie = request.cookies.get(AUTH_COOKIE_NAME);
 
   if (!authCookie?.value) {
     // No cookie → redirect to login
@@ -44,27 +47,18 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Validate the cookie value (compare hash)
-  // We can't import crypto in edge middleware easily, so we compute the
-  // expected value inline using the Web Crypto approach
-  // Instead, we store a simple HMAC-like token: sha256(salt + password)
-  // and check it matches.
-  //
-  // For middleware (Edge Runtime), we use a simpler approach:
-  // The /api/auth route sets the cookie with the correct hash.
-  // Here we just verify the cookie exists and has the right length (64 hex chars for SHA-256).
-  const token = authCookie.value;
-  if (!/^[a-f0-9]{64}$/.test(token)) {
-    // Invalid token format → redirect to login
+  // REAL validation: compare cookie hash against expected SHA-256 hash
+  const expectedToken = getExpectedToken();
+  if (!expectedToken || !safeCompare(authCookie.value, expectedToken)) {
+    // Invalid or spoofed cookie → redirect to login and clear cookie
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("from", pathname);
     const response = NextResponse.redirect(loginUrl);
-    response.cookies.delete("xray_auth");
+    response.cookies.delete(AUTH_COOKIE_NAME);
     return response;
   }
 
-  // Cookie exists and has valid format — allow through
-  // (Full hash validation happens in API routes via auth.ts)
+  // Cookie valid — allow through
   return NextResponse.next();
 }
 
