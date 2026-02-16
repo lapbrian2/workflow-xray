@@ -45,7 +45,7 @@ export const POST = withApiHandler<DecomposeInput>(
     // Call decomposeWorkflow with error mapping
     let result;
     try {
-      result = await decomposeWorkflow(decomposeRequest);
+      result = await decomposeWorkflow(decomposeRequest, body.costContext?.teamSize);
     } catch (error) {
       console.error("Decompose error:", error);
 

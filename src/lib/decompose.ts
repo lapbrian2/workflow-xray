@@ -42,6 +42,7 @@ const GapSchema = z.object({
   timeWaste: z.string().optional(),
   effortLevel: z.enum(["quick_win", "incremental", "strategic"]).optional(),
   impactedRoles: z.array(z.string()).optional(),
+  confidence: z.enum(["high", "inferred"]).optional().default("inferred"),
 });
 
 const DecompositionResponseSchema = z.object({
@@ -157,6 +158,13 @@ export async function decomposeWorkflow(
   const cleanGaps = validated.gaps.filter(
     (g) => g.stepIds.length > 0 || SYSTEM_GAP_TYPES.has(g.type)
   );
+
+  // Post-process confidence: safety net over Zod's .default("inferred")
+  for (const gap of cleanGaps) {
+    if (!gap.confidence) {
+      gap.confidence = teamSize != null ? "high" : "inferred";
+    }
+  }
 
   // Detect and break circular dependencies via proper DFS
   const stepMap = new Map(validated.steps.map((s) => [s.id, s]));
