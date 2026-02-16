@@ -68,7 +68,7 @@ export default function WorkflowInput({
 
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Decomposition failed");
+        throw new Error(err.error?.message || err.error || "Decomposition failed");
       }
 
       const workflow = await res.json();

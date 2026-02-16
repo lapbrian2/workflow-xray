@@ -10,6 +10,8 @@ import {
 import { decomposeWorkflow } from "@/lib/decompose";
 import { saveWorkflow } from "@/lib/db";
 import { stripBoilerplate, LOW_TEXT_THRESHOLD } from "@/lib/scrape-utils";
+import { AppError, errorResponse } from "@/lib/api-errors";
+import { CrawlSiteSchema } from "@/lib/validation";
 import type { Workflow, ExtractionSource } from "@/lib/types";
 
 // Allow up to 5 minutes for streaming (Vercel Pro)
@@ -23,68 +25,57 @@ interface CrawlEvent {
 }
 
 // ─── POST /api/crawl-site ───
-// Streams the full crawl pipeline: map → scrape → extract → decompose
+// Streams the full crawl pipeline: map -> scrape -> extract -> decompose
+// HYBRID: Pre-stream errors use structured JSON; in-stream errors use SSE events.
 
 export async function POST(request: NextRequest) {
+  // ── Pre-stream validation (returns structured JSON errors) ──
+
   // Rate limit: 3 crawls per minute per IP
   const ip = getClientIp(request);
   const rl = rateLimit(`crawl-site:${ip}`, 3, 60);
   if (!rl.allowed) {
-    return new Response(
-      JSON.stringify({ error: `Rate limit exceeded. Try again in ${rl.resetInSeconds}s.` }),
-      { status: 429, headers: { "Content-Type": "application/json", "Retry-After": String(rl.resetInSeconds) } }
-    );
+    const res = errorResponse("RATE_LIMITED", `Rate limit exceeded. Try again in ${rl.resetInSeconds}s.`, 429);
+    res.headers.set("Retry-After", String(rl.resetInSeconds));
+    return res;
   }
 
   // Validate API keys
   if (!process.env.FIRECRAWL_API_KEY) {
-    return new Response(
-      JSON.stringify({ error: "Firecrawl is not configured." }),
-      { status: 503, headers: { "Content-Type": "application/json" } }
-    );
+    return errorResponse("SERVICE_UNAVAILABLE", "Firecrawl is not configured.", 503);
   }
   if (!process.env.ANTHROPIC_API_KEY) {
-    return new Response(
-      JSON.stringify({ error: "Anthropic API key not configured." }),
-      { status: 503, headers: { "Content-Type": "application/json" } }
-    );
+    return errorResponse("SERVICE_UNAVAILABLE", "Anthropic API key not configured.", 503);
   }
 
-  // Parse body
-  let body: { url?: string; maxPages?: number };
+  // Parse & validate body with Zod
+  let body: { url: string; maxPages?: number; autoDecompose?: boolean };
   try {
-    body = await request.json();
+    const rawBody = await request.json();
+    const parsed = CrawlSiteSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return errorResponse(
+        "VALIDATION_ERROR",
+        "Input validation failed.",
+        400,
+        parsed.error.issues.map((i) => ({ path: i.path.join("."), message: i.message }))
+      );
+    }
+    body = parsed.data;
   } catch {
-    return new Response(
-      JSON.stringify({ error: "Invalid request body." }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
-    );
+    return errorResponse("INVALID_JSON", "Request body must be valid JSON.", 400);
   }
 
-  const { url } = body;
-  if (!url || typeof url !== "string") {
-    return new Response(
-      JSON.stringify({ error: "Missing or invalid 'url' field." }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
-    );
-  }
-
-  // Validate URL
+  // URL validation
   let parsed: URL;
   try {
-    parsed = new URL(url);
+    parsed = new URL(body.url);
   } catch {
-    return new Response(
-      JSON.stringify({ error: "Invalid URL format." }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
-    );
+    return errorResponse("VALIDATION_ERROR", "Invalid URL format.", 400);
   }
 
   if (!["http:", "https:"].includes(parsed.protocol)) {
-    return new Response(
-      JSON.stringify({ error: "Only HTTP and HTTPS URLs are supported." }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
-    );
+    return errorResponse("VALIDATION_ERROR", "Only HTTP and HTTPS URLs are supported.", 400);
   }
 
   // Block private/internal IPs (SSRF protection)
@@ -100,16 +91,15 @@ export async function POST(request: NextRequest) {
     hostname.startsWith("169.254.") ||
     /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
   if (isPrivate) {
-    return new Response(
-      JSON.stringify({ error: "Cannot crawl private or internal network addresses." }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
-    );
+    return errorResponse("VALIDATION_ERROR", "Cannot crawl private or internal network addresses.", 400);
   }
 
+  const url = body.url;
   const maxPages = Math.min(Math.max(body.maxPages || 20, 1), 50);
   const MAX_CONTENT_CHARS = 30_000;
 
-  // Create SSE stream
+  // ── SSE stream (in-stream errors use SSE error events) ──
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -146,9 +136,9 @@ export async function POST(request: NextRequest) {
         } catch (err) {
           console.error("[crawl-site] Map error:", err);
 
-          // Extract meaningful error from Firecrawl SdkError
+          // Extract meaningful error from Firecrawl SdkError (sanitized)
           const sdkErr = err as { message?: string; status?: number };
-          let errorDetail = "";
+          let errorDetail = "Site mapping failed";
           if (err instanceof Error) {
             if (sdkErr.status === 402) {
               errorDetail = "Firecrawl credits exhausted. Check your Firecrawl billing.";
@@ -156,9 +146,8 @@ export async function POST(request: NextRequest) {
               errorDetail = "Invalid Firecrawl API key.";
             } else if (sdkErr.status === 429) {
               errorDetail = "Firecrawl rate limit reached. Try again in a moment.";
-            } else {
-              errorDetail = err.message;
             }
+            // NOTE: Do NOT leak raw err.message for other error types
           }
 
           // Fallback: try scraping just the root URL
@@ -170,7 +159,7 @@ export async function POST(request: NextRequest) {
             totalPages: 1,
             pages,
             fallback: true,
-            fallbackReason: errorDetail || "Site mapping failed",
+            fallbackReason: errorDetail,
           });
         }
 
@@ -284,8 +273,8 @@ export async function POST(request: NextRequest) {
             }
 
             // Validate with Zod (graceful recovery)
-            const parsed = ExtractionResultSchema.safeParse(rawJson);
-            const result = parsed.success ? parsed.data : recoverPartialExtraction(rawJson);
+            const zodResult = ExtractionResultSchema.safeParse(rawJson);
+            const result = zodResult.success ? zodResult.data : recoverPartialExtraction(rawJson);
 
             if (result.workflows.length === 0) {
               send({
@@ -419,7 +408,7 @@ export async function POST(request: NextRequest) {
               type: "decompose_error",
               workflowId: tempId,
               workflowTitle: item.workflowTitle,
-              error: err instanceof Error ? err.message : "Decomposition failed",
+              error: "Decomposition failed",
               current: i + 1,
               total: allExtracted.length,
             });
@@ -443,7 +432,7 @@ export async function POST(request: NextRequest) {
         console.error("[crawl-site] Pipeline error:", err);
         send({
           type: "pipeline_error",
-          error: err instanceof Error ? err.message : "Pipeline failed unexpectedly.",
+          error: "Pipeline failed unexpectedly.",
         });
       } finally {
         try {

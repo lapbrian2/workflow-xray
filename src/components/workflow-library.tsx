@@ -131,9 +131,9 @@ export default function WorkflowLibrary() {
           try {
             err = await res.json();
           } catch {
-            err = { error: `Sync failed (${res.status})` };
+            err = { error: { message: `Sync failed (${res.status})` } };
           }
-          errors.push(`${w.decomposition.title}: ${err.error || "failed"}`);
+          errors.push(`${w.decomposition.title}: ${err.error?.message || err.error || "failed"}`);
         }
       } catch {
         errors.push(`${w.decomposition.title}: network error`);

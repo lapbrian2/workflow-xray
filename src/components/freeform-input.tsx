@@ -592,7 +592,7 @@ export default function FreeformInput({
         let errMsg = "Import failed";
         try {
           const err = await res.json();
-          errMsg = err.error || errMsg;
+          errMsg = err.error?.message || err.error || errMsg;
         } catch {
           errMsg = `Server error (${res.status}): ${res.statusText}`;
         }
@@ -743,7 +743,7 @@ export default function FreeformInput({
         let errMsg = `Request failed (${res.status})`;
         try {
           const err = await res.json();
-          errMsg = err.error || errMsg;
+          errMsg = err.error?.message || err.error || errMsg;
         } catch {
           errMsg = `Server error (${res.status}): ${res.statusText}`;
         }
@@ -1013,7 +1013,7 @@ export default function FreeformInput({
           let errMsg = "Failed to parse file";
           try {
             const err = await res.json();
-            errMsg = err.error || errMsg;
+            errMsg = err.error?.message || err.error || errMsg;
           } catch {
             // Response wasn't JSON — use status text
             errMsg = `Server error (${res.status}): ${res.statusText}`;
@@ -1146,7 +1146,7 @@ export default function FreeformInput({
         let errMsg = "Failed to fetch URL";
         try {
           const err = await res.json();
-          errMsg = err.error || errMsg;
+          errMsg = err.error?.message || err.error || errMsg;
         } catch {
           errMsg = `Server error (${res.status}): ${res.statusText}`;
         }
@@ -1193,7 +1193,7 @@ export default function FreeformInput({
         });
         if (!res.ok) {
           const err = await res.json();
-          throw new Error(err.error || "Extraction failed");
+          throw new Error(err.error?.message || err.error || "Extraction failed");
         }
         const data = await res.json();
         if (!data.workflows || data.workflows.length === 0) {
@@ -1287,7 +1287,7 @@ export default function FreeformInput({
           let errMsg = "Decomposition failed";
           try {
             const err = await res.json();
-            errMsg = err.error || errMsg;
+            errMsg = err.error?.message || err.error || errMsg;
           } catch {
             errMsg = `Server error (${res.status})`;
           }
@@ -1488,7 +1488,7 @@ export default function FreeformInput({
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Screenshot extraction failed");
+        throw new Error(err.error?.message || err.error || "Screenshot extraction failed");
       }
       const data = await res.json();
       if (!data.workflows || data.workflows.length === 0) {

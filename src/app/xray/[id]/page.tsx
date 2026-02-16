@@ -76,7 +76,7 @@ export default function XRayPage() {
         try {
           err = await res.json();
         } catch {
-          err = { error: `Sync failed with status ${res.status}` };
+          err = { error: { message: `Sync failed with status ${res.status}` } };
         }
         // If page was deleted (404), fall back to creating a new one
         if (res.status === 404 && notionPageId) {
@@ -85,7 +85,7 @@ export default function XRayPage() {
           setNotionUrl(null);
           throw new Error("Notion page was deleted. Click Sync again to create a new one.");
         }
-        throw new Error(err.error || "Sync failed");
+        throw new Error(err.error?.message || err.error || "Sync failed");
       }
       const data = await res.json();
       setSynced(true);

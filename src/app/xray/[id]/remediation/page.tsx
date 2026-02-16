@@ -164,7 +164,7 @@ export default function RemediationPage() {
 
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Failed to generate plan");
+        throw new Error(err.error?.message || err.error || "Failed to generate plan");
       }
 
       const data = await res.json();
@@ -215,7 +215,7 @@ export default function RemediationPage() {
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Sync failed");
+        throw new Error(err.error?.message || err.error || "Sync failed");
       }
       const data = await res.json();
       setSynced(true);

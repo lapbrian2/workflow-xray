@@ -1,38 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Client } from "@notionhq/client";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { withApiHandler } from "@/lib/api-handler";
+import { AppError } from "@/lib/api-errors";
+import { RemediationNotionSyncSchema } from "@/lib/validation";
+import type { RemediationNotionSyncInput } from "@/lib/validation";
 import type { RemediationPlan } from "@/lib/types";
 import { TASK_PRIORITY_LABELS, TASK_EFFORT_LABELS, GAP_LABELS } from "@/lib/types";
 
-export async function POST(request: NextRequest) {
-  try {
+export const POST = withApiHandler<RemediationNotionSyncInput>(
+  async (request, body) => {
     // Rate limit: 10 syncs per minute per IP
     const ip = getClientIp(request);
     const rl = rateLimit(`remediation-notion:${ip}`, 10, 60);
     if (!rl.allowed) {
-      return NextResponse.json(
-        { error: `Rate limit exceeded. Try again in ${rl.resetInSeconds}s.` },
-        { status: 429, headers: { "Retry-After": String(rl.resetInSeconds) } }
-      );
+      throw new AppError("RATE_LIMITED", `Rate limit exceeded. Try again in ${rl.resetInSeconds}s.`, 429);
     }
 
     const notionKey = process.env.NOTION_API_KEY;
     if (!notionKey) {
-      return NextResponse.json(
-        { error: "Notion integration not configured." },
-        { status: 503 }
-      );
+      throw new AppError("SERVICE_UNAVAILABLE", "Notion integration not configured.", 503);
     }
 
-    const body = await request.json();
-    const plan: RemediationPlan = body.plan;
+    const plan = body.plan as unknown as RemediationPlan;
     const gaps: { type: string; severity: string }[] = Array.isArray(body.gaps) ? body.gaps : [];
 
-    if (!plan || !plan.phases || !Array.isArray(plan.phases) || plan.phases.length === 0) {
-      return NextResponse.json(
-        { error: "Invalid remediation plan data. Plan must have at least one phase." },
-        { status: 400 }
-      );
+    if (!plan.phases || !Array.isArray(plan.phases) || plan.phases.length === 0) {
+      throw new AppError("VALIDATION_ERROR", "Invalid remediation plan data. Plan must have at least one phase.", 400);
     }
 
     const notion = new Client({ auth: notionKey });
@@ -41,7 +35,7 @@ export async function POST(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const children: any[] = [];
 
-    // ── Executive Summary ──
+    // -- Executive Summary --
     children.push({
       object: "block",
       type: "heading_2",
@@ -62,7 +56,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // ── Phase sections ──
+    // -- Phase sections --
     const totalTasks = plan.phases.reduce((s, p) => s + p.tasks.length, 0);
     children.push({
       object: "block",
@@ -183,7 +177,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── Projected Impact ──
+    // -- Projected Impact --
     if (plan.projectedImpact.length > 0) {
       children.push({
         object: "block",
@@ -208,7 +202,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── Footer ──
+    // -- Footer --
     children.push({
       object: "block",
       type: "divider",
@@ -235,10 +229,7 @@ export async function POST(request: NextRequest) {
     // Create page in the configured Notion database
     const databaseId = process.env.NOTION_XRAY_DATABASE_ID;
     if (!databaseId) {
-      return NextResponse.json(
-        { error: "Notion database not configured. Set NOTION_XRAY_DATABASE_ID." },
-        { status: 503 }
-      );
+      throw new AppError("SERVICE_UNAVAILABLE", "Notion database not configured. Set NOTION_XRAY_DATABASE_ID.", 503);
     }
 
     // Look up the database to get the title property name
@@ -259,16 +250,31 @@ export async function POST(request: NextRequest) {
     }
 
     // Create the page
-    const response = await notion.pages.create({
-      parent: { database_id: databaseId },
-      properties: {
-        [titlePropertyName]: {
-          title: [{ text: { content: plan.title } }],
+    let response;
+    try {
+      response = await notion.pages.create({
+        parent: { database_id: databaseId },
+        properties: {
+          [titlePropertyName]: {
+            title: [{ text: { content: plan.title } }],
+          },
         },
-      },
-      children: children.slice(0, 100), // Notion max 100 blocks per create
-      icon: { type: "emoji", emoji: "🔧" },
-    });
+        children: children.slice(0, 100), // Notion max 100 blocks per create
+        icon: { type: "emoji", emoji: "🔧" },
+      });
+    } catch (error) {
+      const notionError = error as { code?: string; status?: number };
+      if (notionError.code === "object_not_found" || notionError.status === 404) {
+        throw new AppError("NOT_FOUND", "Notion page not found. The parent X-Ray page may have been deleted.", 404);
+      }
+      if (notionError.status === 401) {
+        throw new AppError("UNAUTHORIZED", "Notion connection expired. Ask your admin to reconnect.", 401);
+      }
+      if (notionError.status === 403) {
+        throw new AppError("UNAUTHORIZED", "The integration doesn't have access to this Notion page.", 403);
+      }
+      throw new AppError("AI_ERROR", "Failed to sync remediation plan to Notion.", 502);
+    }
 
     const pageId = (response as { id: string }).id;
 
@@ -297,32 +303,6 @@ export async function POST(request: NextRequest) {
       notionUrl: `https://notion.so/${pageId.replace(/-/g, "")}`,
       pageId,
     });
-  } catch (error) {
-    console.error("Remediation Notion sync error:", error);
-
-    const notionError = error as { code?: string; status?: number };
-    if (notionError.code === "object_not_found" || notionError.status === 404) {
-      return NextResponse.json(
-        { error: "Notion page not found. The parent X-Ray page may have been deleted." },
-        { status: 404 }
-      );
-    }
-    if (notionError.status === 401) {
-      return NextResponse.json(
-        { error: "Notion connection expired. Ask your admin to reconnect." },
-        { status: 401 }
-      );
-    }
-    if (notionError.status === 403) {
-      return NextResponse.json(
-        { error: "The integration doesn't have access to this Notion page." },
-        { status: 403 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Failed to sync remediation plan to Notion." },
-      { status: 500 }
-    );
-  }
-}
+  },
+  { schema: RemediationNotionSyncSchema }
+);
