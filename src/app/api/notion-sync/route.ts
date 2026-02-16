@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Client } from "@notionhq/client";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { withApiHandler } from "@/lib/api-handler";
+import { AppError } from "@/lib/api-errors";
+import { NotionSyncSchema } from "@/lib/validation";
+import type { NotionSyncInput } from "@/lib/validation";
 import type { Workflow, GapType, Gap } from "@/lib/types";
 import { GAP_LABELS } from "@/lib/types";
 
@@ -27,12 +31,11 @@ function getBusiestOwner(steps: Workflow["decomposition"]["steps"]): string {
     counts[owner] = (counts[owner] || 0) + 1;
   }
   const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  if (sorted.length === 0) return "—";
+  if (sorted.length === 0) return "\u2014";
   return `${sorted[0][0]} (${sorted[0][1]} steps)`;
 }
 
 function getTopGap(gaps: Gap[]): string | null {
-  // Sort by severity: high > medium > low
   const severityOrder = { high: 3, medium: 2, low: 1 };
   const sorted = [...gaps].sort(
     (a, b) => severityOrder[b.severity] - severityOrder[a.severity]
@@ -53,41 +56,28 @@ function estimateROISummary(gaps: Gap[], costContext?: Workflow["costContext"]):
   const lowAnnual = Math.round(lowHrs * rate * 52);
   const highAnnual = Math.round(highHrs * rate * 52);
 
-  return `$${(lowAnnual / 1000).toFixed(0)}K–$${(highAnnual / 1000).toFixed(0)}K/yr savings potential`;
+  return `$${(lowAnnual / 1000).toFixed(0)}K\u2013$${(highAnnual / 1000).toFixed(0)}K/yr savings potential`;
 }
 
-export async function POST(request: NextRequest) {
-  try {
+export const POST = withApiHandler<NotionSyncInput>(
+  async (request, body) => {
     // Rate limit: 20 syncs per minute per IP
     const ip = getClientIp(request);
     const rl = rateLimit(`notion-sync:${ip}`, 20, 60);
     if (!rl.allowed) {
-      return NextResponse.json(
-        { error: `Rate limit exceeded. Try again in ${rl.resetInSeconds}s.` },
-        { status: 429, headers: { "Retry-After": String(rl.resetInSeconds) } }
-      );
+      throw new AppError("RATE_LIMITED", `Rate limit exceeded. Try again in ${rl.resetInSeconds}s.`, 429);
     }
 
     const notionKey = process.env.NOTION_API_KEY;
     const databaseId = process.env.NOTION_XRAY_DATABASE_ID;
 
     if (!notionKey || !databaseId) {
-      return NextResponse.json(
-        {
-          error: "Notion integration not configured. Add NOTION_API_KEY and NOTION_XRAY_DATABASE_ID to your environment variables.",
-        },
-        { status: 503 }
-      );
+      throw new AppError("SERVICE_UNAVAILABLE", "Notion integration not configured. Add NOTION_API_KEY and NOTION_XRAY_DATABASE_ID to your environment variables.", 503);
     }
 
-    const body = await request.json();
-    const workflow: Workflow = body.workflow;
-
+    const workflow = body.workflow as unknown as Workflow;
     if (!workflow || !workflow.decomposition) {
-      return NextResponse.json(
-        { error: "Invalid workflow data" },
-        { status: 400 }
-      );
+      throw new AppError("VALIDATION_ERROR", "Invalid workflow data.", 400);
     }
 
     const notion = new Client({ auth: notionKey });
@@ -112,7 +102,7 @@ export async function POST(request: NextRequest) {
         number: gaps.length,
       },
       "Automation %": {
-        number: health.automationPotential / 100, // Notion expects 0.49 not 49
+        number: health.automationPotential / 100,
       },
       Fragility: {
         number: health.fragility,
@@ -136,7 +126,7 @@ export async function POST(request: NextRequest) {
       },
       "Last Analyzed": {
         date: {
-          start: new Date(workflow.createdAt).toISOString().split("T")[0],
+          start: new Date(workflow.createdAt || new Date().toISOString()).toISOString().split("T")[0],
         },
       },
       "App Link": {
@@ -183,7 +173,7 @@ export async function POST(request: NextRequest) {
         s.layer ? `layer: ${s.layer}` : null,
       ]
         .filter(Boolean)
-        .join(" · ");
+        .join(" \u00B7 ");
 
       children.push({
         object: "block",
@@ -191,7 +181,7 @@ export async function POST(request: NextRequest) {
         numbered_list_item: {
           rich_text: [
             { type: "text", text: { content: s.name }, annotations: { bold: true } },
-            { type: "text", text: { content: ` — ${desc}` } },
+            { type: "text", text: { content: ` \u2014 ${desc}` } },
             { type: "text", text: { content: `\n${meta}` }, annotations: { italic: true, color: "gray" } },
           ],
         },
@@ -212,7 +202,7 @@ export async function POST(request: NextRequest) {
         const desc = g.description.length > 140
           ? g.description.slice(0, 140) + "..."
           : g.description;
-        const severityEmoji = g.severity === "high" ? "🔴" : g.severity === "medium" ? "🟡" : "🟢";
+        const severityEmoji = g.severity === "high" ? "\u{1F534}" : g.severity === "medium" ? "\u{1F7E1}" : "\u{1F7E2}";
 
         children.push({
           object: "block",
@@ -221,12 +211,11 @@ export async function POST(request: NextRequest) {
             rich_text: [
               { type: "text", text: { content: `${severityEmoji} ${GAP_LABELS[g.type]}` }, annotations: { bold: true } },
               { type: "text", text: { content: ` (${g.severity})` }, annotations: { italic: true } },
-              { type: "text", text: { content: ` — ${desc}` } },
+              { type: "text", text: { content: ` \u2014 ${desc}` } },
             ],
           },
         });
 
-        // Add suggestion as a nested child if available
         if (g.suggestion) {
           const suggText = g.suggestion.length > 200
             ? g.suggestion.slice(0, 200) + "..."
@@ -236,7 +225,7 @@ export async function POST(request: NextRequest) {
             type: "paragraph",
             paragraph: {
               rich_text: [
-                { type: "text", text: { content: "💡 " } },
+                { type: "text", text: { content: "\u{1F4A1} " } },
                 { type: "text", text: { content: suggText }, annotations: { italic: true, color: "gray" } },
               ],
             },
@@ -272,7 +261,7 @@ export async function POST(request: NextRequest) {
     ];
 
     for (const item of healthItems) {
-      const bar = "█".repeat(Math.round(item.value / 10)) + "░".repeat(10 - Math.round(item.value / 10));
+      const bar = "\u2588".repeat(Math.round(item.value / 10)) + "\u2591".repeat(10 - Math.round(item.value / 10));
       children.push({
         object: "block",
         type: "bulleted_list_item",
@@ -296,7 +285,7 @@ export async function POST(request: NextRequest) {
           rich_text: [
             { type: "text", text: { content: `ROI Estimate: ${roiSummary}` }, annotations: { bold: true } },
           ],
-          icon: { type: "emoji", emoji: "💰" },
+          icon: { type: "emoji", emoji: "\u{1F4B0}" },
           color: "yellow_background",
         },
       });
@@ -321,7 +310,7 @@ export async function POST(request: NextRequest) {
             },
           },
         ],
-        icon: { type: "emoji", emoji: "⚠️" },
+        icon: { type: "emoji", emoji: "\u26A0\uFE0F" },
         color: "gray_background",
       },
     });
@@ -350,7 +339,7 @@ export async function POST(request: NextRequest) {
           { type: "text", text: { content: "  |  " } },
           {
             type: "text",
-            text: { content: "Open in X-Ray →", link: { url: appUrl } },
+            text: { content: "Open in X-Ray \u2192", link: { url: appUrl } },
             annotations: { color: "blue" },
           },
           ...(workflow.promptVersion
@@ -372,61 +361,73 @@ export async function POST(request: NextRequest) {
 
     let responsePageId: string;
 
-    if (existingPageId) {
-      // Update existing page properties
-      await notion.pages.update({
-        page_id: existingPageId,
-        properties: properties as Record<string, never>,
-      });
-
-      // SAFE UPDATE: Append new blocks FIRST, then delete old ones.
-      // This way if the append fails, the page still has its old content.
-
-      // 1) Append new children (Notion allows max 100 per call)
-      for (let i = 0; i < children.length; i += 100) {
-        await notion.blocks.children.append({
-          block_id: existingPageId,
-          children: children.slice(i, i + 100),
+    try {
+      if (existingPageId) {
+        // Update existing page properties
+        await notion.pages.update({
+          page_id: existingPageId,
+          properties: properties as Record<string, never>,
         });
-      }
 
-      // 2) Collect ALL old block IDs (paginate past 100-block limit)
-      const oldBlockIds: string[] = [];
-      let cursor: string | undefined = undefined;
-      let hasMore = true;
-      while (hasMore) {
-        const page = await notion.blocks.children.list({
-          block_id: existingPageId,
-          start_cursor: cursor,
-          page_size: 100,
+        // SAFE UPDATE: Append new blocks FIRST, then delete old ones.
+        for (let i = 0; i < children.length; i += 100) {
+          await notion.blocks.children.append({
+            block_id: existingPageId,
+            children: children.slice(i, i + 100),
+          });
+        }
+
+        // Collect ALL old block IDs (paginate past 100-block limit)
+        const oldBlockIds: string[] = [];
+        let cursor: string | undefined = undefined;
+        let hasMore = true;
+        while (hasMore) {
+          const page = await notion.blocks.children.list({
+            block_id: existingPageId,
+            start_cursor: cursor,
+            page_size: 100,
+          });
+          for (const block of page.results) {
+            oldBlockIds.push((block as { id: string }).id);
+          }
+          hasMore = page.has_more;
+          cursor = page.next_cursor ?? undefined;
+        }
+
+        // Delete old blocks (everything except our freshly appended ones)
+        const toDelete = oldBlockIds.slice(0, oldBlockIds.length - children.length);
+        for (const blockId of toDelete) {
+          try {
+            await notion.blocks.delete({ block_id: blockId });
+          } catch {
+            // Some blocks may not be deletable — skip
+          }
+        }
+
+        responsePageId = existingPageId;
+      } else {
+        // Create a new page
+        const response = await notion.pages.create({
+          parent: { database_id: databaseId },
+          properties: properties as Record<string, never>,
+          children,
         });
-        for (const block of page.results) {
-          oldBlockIds.push((block as { id: string }).id);
-        }
-        hasMore = page.has_more;
-        cursor = page.next_cursor ?? undefined;
+        responsePageId = (response as { id: string }).id;
       }
+    } catch (error) {
+      console.error("Notion sync error:", error);
 
-      // 3) Delete old blocks (everything except our freshly appended ones)
-      // Our new blocks are the last `children.length` blocks
-      const toDelete = oldBlockIds.slice(0, oldBlockIds.length - children.length);
-      for (const blockId of toDelete) {
-        try {
-          await notion.blocks.delete({ block_id: blockId });
-        } catch {
-          // Some blocks may not be deletable — skip
-        }
+      const notionError = error as { code?: string; status?: number };
+      if (notionError.code === "object_not_found" || notionError.status === 404) {
+        throw new AppError("NOT_FOUND", "Notion page or database not found. It may have been deleted. Try syncing as a new page.", 404);
       }
-
-      responsePageId = existingPageId;
-    } else {
-      // Create a new page
-      const response = await notion.pages.create({
-        parent: { database_id: databaseId },
-        properties: properties as Record<string, never>,
-        children,
-      });
-      responsePageId = (response as { id: string }).id;
+      if (notionError.status === 401) {
+        throw new AppError("UNAUTHORIZED", "Notion connection expired. Ask your admin to reconnect the Workflow X-Ray integration.", 401);
+      }
+      if (notionError.status === 403) {
+        throw new AppError("UNAUTHORIZED", "The Workflow X-Ray integration doesn't have access to this Notion database.", 403);
+      }
+      throw new AppError("AI_ERROR", "Failed to sync to Notion. Please try again.", 502);
     }
 
     return NextResponse.json({
@@ -435,33 +436,6 @@ export async function POST(request: NextRequest) {
       pageId: responsePageId,
       updated: !!existingPageId,
     });
-  } catch (error) {
-    console.error("Notion sync error:", error);
-
-    // User-friendly error messages — don't leak internal details
-    const notionError = error as { code?: string; status?: number };
-    if (notionError.code === "object_not_found" || notionError.status === 404) {
-      return NextResponse.json(
-        { error: "Notion page or database not found. It may have been deleted. Try syncing as a new page." },
-        { status: 404 }
-      );
-    }
-    if (notionError.status === 401) {
-      return NextResponse.json(
-        { error: "Notion connection expired. Ask your admin to reconnect the Workflow X-Ray integration." },
-        { status: 401 }
-      );
-    }
-    if (notionError.status === 403) {
-      return NextResponse.json(
-        { error: "The Workflow X-Ray integration doesn't have access to this Notion database." },
-        { status: 403 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Failed to sync to Notion. Please try again." },
-      { status: 500 }
-    );
-  }
-}
+  },
+  { schema: NotionSyncSchema }
+);

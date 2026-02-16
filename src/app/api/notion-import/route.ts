@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Client } from "@notionhq/client";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { withApiHandler } from "@/lib/api-handler";
+import { AppError } from "@/lib/api-errors";
+import { NotionImportSchema } from "@/lib/validation";
+import type { NotionImportInput } from "@/lib/validation";
 
 /**
  * Extract page ID from a Notion URL or raw ID string.
@@ -149,7 +153,7 @@ function blocksToText(blocks: NotionBlock[], indent = 0): string {
         lines.push(`${prefix}> ${text}`);
         break;
       case "callout": {
-        const icon = block[blockType]?.icon?.emoji || "💡";
+        const icon = block[blockType]?.icon?.emoji || "\u{1F4A1}";
         lines.push(`${prefix}${icon} ${text}`);
         break;
       }
@@ -174,18 +178,18 @@ function blocksToText(blocks: NotionBlock[], indent = 0): string {
         break;
       }
       case "child_page":
-        lines.push(`${prefix}📄 ${block[blockType]?.title || "Untitled page"}`);
+        lines.push(`${prefix}\u{1F4C4} ${block[blockType]?.title || "Untitled page"}`);
         break;
       case "child_database":
         lines.push(
-          `${prefix}🗂️ ${block[blockType]?.title || "Untitled database"}`
+          `${prefix}\u{1F5C2}\uFE0F ${block[blockType]?.title || "Untitled database"}`
         );
         break;
       case "bookmark":
-        lines.push(`${prefix}🔗 ${block[blockType]?.url || ""}`);
+        lines.push(`${prefix}\u{1F517} ${block[blockType]?.url || ""}`);
         break;
       case "embed":
-        lines.push(`${prefix}📎 ${block[blockType]?.url || ""}`);
+        lines.push(`${prefix}\u{1F4CE} ${block[blockType]?.url || ""}`);
         break;
       case "image": {
         const caption =
@@ -210,19 +214,15 @@ function blocksToText(blocks: NotionBlock[], indent = 0): string {
         lines.push(`${prefix}$${block[blockType]?.expression || ""}$`);
         break;
       case "column_list":
-        // Columns — children will be processed below
         break;
       case "column":
-        // Individual column — children processed below
         break;
       case "synced_block":
-        // Synced block — children processed below
         break;
       case "table":
-        // Table — children (table_row) processed below
         break;
       case "link_to_page":
-        lines.push(`${prefix}→ [Linked page]`);
+        lines.push(`${prefix}\u2192 [Linked page]`);
         break;
       case "table_of_contents":
         lines.push(`${prefix}[Table of Contents]`);
@@ -251,55 +251,50 @@ function blocksToText(blocks: NotionBlock[], indent = 0): string {
   return lines.join("\n");
 }
 
-export async function POST(request: NextRequest) {
-  // Rate limit: 15 imports per minute per IP
-  const ip = getClientIp(request);
-  const rl = rateLimit(`notion-import:${ip}`, 15, 60);
-  if (!rl.allowed) {
-    return NextResponse.json(
-      { error: `Rate limit exceeded. Try again in ${rl.resetInSeconds}s.` },
-      { status: 429, headers: { "Retry-After": String(rl.resetInSeconds) } }
-    );
-  }
+export const POST = withApiHandler<NotionImportInput>(
+  async (request, body) => {
+    // Rate limit: 15 imports per minute per IP
+    const ip = getClientIp(request);
+    const rl = rateLimit(`notion-import:${ip}`, 15, 60);
+    if (!rl.allowed) {
+      throw new AppError("RATE_LIMITED", `Rate limit exceeded. Try again in ${rl.resetInSeconds}s.`, 429);
+    }
 
-  try {
     const notionKey = process.env.NOTION_API_KEY;
-
     if (!notionKey) {
-      return NextResponse.json(
-        {
-          error:
-            "Notion integration not configured. Add NOTION_API_KEY to your environment variables.",
-        },
-        { status: 503 }
-      );
+      throw new AppError("SERVICE_UNAVAILABLE", "Notion integration not configured. Add NOTION_API_KEY to your environment variables.", 503);
     }
 
-    const body = await request.json();
-    const { pageUrl } = body;
-
-    if (!pageUrl || typeof pageUrl !== "string") {
-      return NextResponse.json(
-        { error: "Provide a Notion page URL or ID" },
-        { status: 400 }
-      );
-    }
-
-    const pageId = extractPageId(pageUrl.trim());
+    const pageId = extractPageId(body.pageUrl.trim());
     if (!pageId) {
-      return NextResponse.json(
-        {
-          error:
-            "Could not extract a valid Notion page ID from the provided URL",
-        },
-        { status: 400 }
-      );
+      throw new AppError("VALIDATION_ERROR", "Could not extract a valid Notion page ID from the provided URL.", 400);
     }
 
-    const notion = new Client({ auth: notionKey });
+    let page;
+    let allBlocks: NotionBlock[];
+    try {
+      const notion = new Client({ auth: notionKey });
 
-    // Fetch page metadata (title)
-    const page = await notion.pages.retrieve({ page_id: pageId });
+      // Fetch page metadata (title)
+      page = await notion.pages.retrieve({ page_id: pageId });
+
+      // Recursively fetch ALL blocks including nested children
+      allBlocks = await fetchAllBlocks(notion, pageId);
+    } catch (error) {
+      console.error("Notion import error:", error);
+
+      const notionError = error as { code?: string; status?: number };
+      if (notionError.code === "object_not_found") {
+        throw new AppError("NOT_FOUND", "Page not found. Make sure the Workflow X-Ray integration has been added to this page (page menu \u2192 Connections \u2192 add 'Workflow X-Ray').", 404);
+      }
+      if (notionError.status === 401) {
+        throw new AppError("UNAUTHORIZED", "Notion connection expired. Ask your admin to reconnect the Workflow X-Ray integration.", 401);
+      }
+      if (notionError.status === 403) {
+        throw new AppError("UNAUTHORIZED", "The Workflow X-Ray integration doesn't have access to this page. Add it via page menu \u2192 Connections.", 403);
+      }
+      throw new AppError("AI_ERROR", "Failed to import from Notion. Please try again.", 502);
+    }
 
     let title = "Imported from Notion";
     const pageProps = (
@@ -319,9 +314,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Recursively fetch ALL blocks including nested children
-    const allBlocks = await fetchAllBlocks(notion, pageId);
-
     // Convert to readable text
     const content = blocksToText(allBlocks).trim();
 
@@ -336,28 +328,21 @@ export async function POST(request: NextRequest) {
     countBlocks(allBlocks);
 
     if (!content) {
-      return NextResponse.json(
-        {
-          error:
-            "The Notion page appears to be empty or contains only unsupported block types.",
-        },
-        { status: 422 }
-      );
+      throw new AppError("VALIDATION_ERROR", "The Notion page appears to be empty or contains only unsupported block types.", 422);
     }
 
     // Content size check — truncate at word/line boundary if too large
-    const MAX_CHARS = 30_000; // ~7,500 words — safe for Claude analysis
+    const MAX_CHARS = 30_000;
     const fullContent = `${title}\n\n${content}`;
     const truncated = fullContent.length > MAX_CHARS;
     let safeContent: string;
     if (truncated) {
-      // Find last newline before limit, else last space — avoid mid-word cuts
       let cutPoint = fullContent.lastIndexOf("\n", MAX_CHARS);
       if (cutPoint < MAX_CHARS * 0.8) {
         cutPoint = fullContent.lastIndexOf(" ", MAX_CHARS);
       }
       if (cutPoint < MAX_CHARS * 0.8) {
-        cutPoint = MAX_CHARS; // fallback if no good boundary found
+        cutPoint = MAX_CHARS;
       }
       safeContent =
         fullContent.slice(0, cutPoint) +
@@ -378,43 +363,6 @@ export async function POST(request: NextRequest) {
       truncated,
       originalLength: fullContent.length,
     });
-  } catch (error) {
-    console.error("Notion import error:", error);
-
-    const notionError = error as { code?: string; status?: number };
-    if (notionError.code === "object_not_found") {
-      return NextResponse.json(
-        {
-          error:
-            "Page not found. Make sure the Workflow X-Ray integration has been added to this page (page menu → Connections → add 'Workflow X-Ray').",
-        },
-        { status: 404 }
-      );
-    }
-
-    if (notionError.status === 401) {
-      return NextResponse.json(
-        {
-          error:
-            "Notion connection expired. Ask your admin to reconnect the Workflow X-Ray integration.",
-        },
-        { status: 401 }
-      );
-    }
-
-    if (notionError.status === 403) {
-      return NextResponse.json(
-        {
-          error:
-            "The Workflow X-Ray integration doesn't have access to this page. Add it via page menu \u2192 Connections.",
-        },
-        { status: 403 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Failed to import from Notion. Please try again." },
-      { status: 500 }
-    );
-  }
-}
+  },
+  { schema: NotionImportSchema }
+);

@@ -3,10 +3,14 @@ import { callClaudeRemediation, getRemediationPromptVersion, getModelId } from "
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { getWorkflow, saveWorkflow } from "@/lib/db";
 import { parseExtractionJson } from "@/lib/extraction-schemas";
+import { withApiHandler } from "@/lib/api-handler";
+import { AppError } from "@/lib/api-errors";
+import { RemediationInputSchema } from "@/lib/validation";
+import type { RemediationInput } from "@/lib/validation";
 import type { Workflow, RemediationPlan, RemediationPhase, ProjectedImpact } from "@/lib/types";
 import { z } from "zod";
 
-// ─── Zod schemas for validation ───
+// ─── Zod schemas for OUTPUT validation (Claude response) ───
 
 const TaskSchema = z.object({
   id: z.string(),
@@ -45,67 +49,53 @@ const RemediationResponseSchema = z.object({
   projectedImpact: z.array(ImpactSchema).default([]),
 });
 
-export async function POST(request: NextRequest) {
-  try {
+export const POST = withApiHandler<RemediationInput>(
+  async (request, body) => {
     // Rate limit: 10 remediation plans per minute per IP
     const ip = getClientIp(request);
     const rl = rateLimit(`remediation:${ip}`, 10, 60);
     if (!rl.allowed) {
-      return NextResponse.json(
-        { error: `Rate limit exceeded. Try again in ${rl.resetInSeconds}s.` },
-        { status: 429, headers: { "Retry-After": String(rl.resetInSeconds) } }
-      );
+      throw new AppError("RATE_LIMITED", `Rate limit exceeded. Try again in ${rl.resetInSeconds}s.`, 429);
     }
 
     if (!process.env.ANTHROPIC_API_KEY) {
-      return NextResponse.json(
-        { error: "API key not configured." },
-        { status: 503 }
-      );
-    }
-
-    let body;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid request body." },
-        { status: 400 }
-      );
-    }
-    const { workflowId, teamContext } = body;
-
-    if (!workflowId) {
-      return NextResponse.json(
-        { error: "workflowId is required." },
-        { status: 400 }
-      );
+      throw new AppError("SERVICE_UNAVAILABLE", "API key not configured.", 503);
     }
 
     // Load the workflow from storage
-    const workflow = await getWorkflow(workflowId);
+    const workflow = await getWorkflow(body.workflowId);
     if (!workflow) {
-      return NextResponse.json(
-        { error: "Workflow not found. It may have been deleted." },
-        { status: 404 }
-      );
+      throw new AppError("NOT_FOUND", "Workflow not found. It may have been deleted.", 404);
     }
 
     const { decomposition, costContext } = workflow;
 
     // Guard: no gaps = no remediation needed
     if (!decomposition.gaps || decomposition.gaps.length === 0) {
-      return NextResponse.json(
-        { error: "This workflow has no gaps to remediate. A remediation plan requires at least one identified gap." },
-        { status: 400 }
-      );
+      throw new AppError("VALIDATION_ERROR", "This workflow has no gaps to remediate. A remediation plan requires at least one identified gap.", 400);
     }
 
     // Build the user message with diagnostic data
-    const userMessage = buildRemediationPrompt(workflow, teamContext);
+    const userMessage = buildRemediationPrompt(workflow, body.teamContext);
 
     // Call Claude
-    const claudeResponse = await callClaudeRemediation(userMessage);
+    let claudeResponse;
+    try {
+      claudeResponse = await callClaudeRemediation(userMessage);
+    } catch (error) {
+      console.error("[Remediation] Claude call failed:", error);
+      const apiError = error as { status?: number; message?: string };
+      if (apiError.status === 429) {
+        throw new AppError("RATE_LIMITED", "AI service is busy. Please wait a moment and try again.", 429);
+      }
+      if (apiError.message?.includes("not found")) {
+        throw new AppError("SERVICE_UNAVAILABLE", "Server configuration error — prompt files missing. Please contact support.", 503);
+      }
+      if (apiError.status && apiError.status >= 400) {
+        throw new AppError("AI_ERROR", `AI service error. Please try again.`, 502);
+      }
+      throw new AppError("AI_ERROR", "Failed to generate remediation plan. Please try again.", 502);
+    }
 
     // Parse JSON from response (handles code fences, embedded objects, etc.)
     let parsed;
@@ -113,14 +103,20 @@ export async function POST(request: NextRequest) {
       parsed = parseExtractionJson(claudeResponse.text);
     } catch {
       console.error("[Remediation] Failed to parse Claude response as JSON:", claudeResponse.text.slice(0, 200));
-      return NextResponse.json(
-        { error: "Analysis failed — please try again." },
-        { status: 502 }
-      );
+      throw new AppError("AI_ERROR", "Analysis failed — please try again.", 502);
     }
 
     // Validate against schema
-    const validated = RemediationResponseSchema.parse(parsed);
+    let validated;
+    try {
+      validated = RemediationResponseSchema.parse(parsed);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        console.error("[Remediation] Schema validation failed:", error.issues);
+        throw new AppError("AI_ERROR", "Analysis produced invalid structure — please try again.", 502);
+      }
+      throw error;
+    }
 
     // Add status to all tasks (default: not_started)
     const phases: RemediationPhase[] = validated.phases.map((phase) => ({
@@ -143,7 +139,7 @@ export async function POST(request: NextRequest) {
       summary: validated.summary,
       phases,
       projectedImpact: validated.projectedImpact as ProjectedImpact[],
-      teamContext: teamContext || undefined,
+      teamContext: body.teamContext || undefined,
       createdAt: now,
       updatedAt: now,
       promptVersion: getRemediationPromptVersion(),
@@ -166,87 +162,39 @@ export async function POST(request: NextRequest) {
       success: true,
       plan,
     });
-  } catch (error) {
-    console.error("[Remediation] Error:", error);
-
-    if (error instanceof z.ZodError) {
-      console.error("[Remediation] Schema validation failed:", error.issues);
-      return NextResponse.json(
-        { error: "Analysis produced invalid structure — please try again." },
-        { status: 502 }
-      );
-    }
-
-    const apiError = error as { status?: number; code?: string; message?: string };
-    if (apiError.status === 429) {
-      return NextResponse.json(
-        { error: "AI service is busy. Please wait a moment and try again." },
-        { status: 429 }
-      );
-    }
-
-    // Surface prompt-loading errors clearly
-    if (apiError.message?.includes("not found")) {
-      console.error("[Remediation] Prompt file missing:", apiError.message);
-      return NextResponse.json(
-        { error: "Server configuration error — prompt files missing. Please contact support." },
-        { status: 503 }
-      );
-    }
-
-    // Surface Anthropic API errors
-    if (apiError.status && apiError.status >= 400) {
-      return NextResponse.json(
-        { error: `AI service error (${apiError.status}). Please try again.` },
-        { status: 502 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Failed to generate remediation plan. Please try again." },
-      { status: 500 }
-    );
-  }
-}
+  },
+  { schema: RemediationInputSchema }
+);
 
 // Also support GET to retrieve existing plan
-export async function GET(request: NextRequest) {
-  const ip = getClientIp(request);
-  const rl = rateLimit(`remediation-get:${ip}`, 60, 60);
-  if (!rl.allowed) {
-    return NextResponse.json(
-      { error: `Rate limit exceeded. Try again in ${rl.resetInSeconds}s.` },
-      { status: 429 }
-    );
-  }
+export const GET = withApiHandler(
+  async (request) => {
+    const ip = getClientIp(request);
+    const rl = rateLimit(`remediation-get:${ip}`, 60, 60);
+    if (!rl.allowed) {
+      throw new AppError("RATE_LIMITED", `Rate limit exceeded. Try again in ${rl.resetInSeconds}s.`, 429);
+    }
 
-  const { searchParams } = new URL(request.url);
-  const workflowId = searchParams.get("workflowId");
+    const { searchParams } = new URL(request.url);
+    const workflowId = searchParams.get("workflowId");
 
-  if (!workflowId) {
-    return NextResponse.json(
-      { error: "workflowId is required." },
-      { status: 400 }
-    );
-  }
+    if (!workflowId) {
+      throw new AppError("VALIDATION_ERROR", "workflowId is required.", 400);
+    }
 
-  const workflow = await getWorkflow(workflowId);
-  if (!workflow) {
-    return NextResponse.json(
-      { error: "Workflow not found." },
-      { status: 404 }
-    );
-  }
+    const workflow = await getWorkflow(workflowId);
+    if (!workflow) {
+      throw new AppError("NOT_FOUND", "Workflow not found.", 404);
+    }
 
-  if (!workflow.remediationPlan) {
-    return NextResponse.json(
-      { error: "No remediation plan exists for this workflow." },
-      { status: 404 }
-    );
-  }
+    if (!workflow.remediationPlan) {
+      throw new AppError("NOT_FOUND", "No remediation plan exists for this workflow.", 404);
+    }
 
-  return NextResponse.json({ plan: workflow.remediationPlan });
-}
+    return NextResponse.json({ plan: workflow.remediationPlan });
+  },
+  { bodyType: "none" }
+);
 
 function buildRemediationPrompt(
   workflow: Workflow,

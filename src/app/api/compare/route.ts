@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { withApiHandler } from "@/lib/api-handler";
+import { AppError } from "@/lib/api-errors";
+import { CompareSchema } from "@/lib/validation";
+import type { CompareInput } from "@/lib/validation";
 import type { Decomposition, CompareResult, Step, Gap } from "@/lib/types";
 
 // ── Fuzzy matching utilities ──
@@ -259,42 +263,20 @@ function compareDecompositions(
   };
 }
 
-export async function POST(request: NextRequest) {
-  // Rate limit: 20 comparisons per minute per IP
-  const ip = getClientIp(request);
-  const rl = rateLimit(`compare:${ip}`, 20, 60);
-  if (!rl.allowed) {
-    return NextResponse.json(
-      { error: `Rate limit exceeded. Try again in ${rl.resetInSeconds}s.` },
-      { status: 429, headers: { "Retry-After": String(rl.resetInSeconds) } }
-    );
-  }
-
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { error: "Invalid request body." },
-      { status: 400 }
-    );
-  }
-
-  try {
-    const { before, after } = body;
-    if (!before || !after) {
-      return NextResponse.json(
-        { error: "Both before and after decompositions are required" },
-        { status: 400 }
-      );
+export const POST = withApiHandler<CompareInput>(
+  async (request, body) => {
+    // Rate limit: 20 comparisons per minute per IP
+    const ip = getClientIp(request);
+    const rl = rateLimit(`compare:${ip}`, 20, 60);
+    if (!rl.allowed) {
+      throw new AppError("RATE_LIMITED", `Rate limit exceeded. Try again in ${rl.resetInSeconds}s.`, 429);
     }
-    const result = compareDecompositions(before, after);
-    return NextResponse.json(result);
-  } catch (error) {
-    console.error("Compare error:", error);
-    return NextResponse.json(
-      { error: "Comparison failed" },
-      { status: 500 }
+
+    const result = compareDecompositions(
+      body.before as unknown as Decomposition,
+      body.after as unknown as Decomposition
     );
-  }
-}
+    return NextResponse.json(result);
+  },
+  { schema: CompareSchema }
+);
