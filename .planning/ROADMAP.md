@@ -28,12 +28,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. A spoofed auth cookie (valid hex format but wrong value) is rejected and the user is redirected to login
   3. Submitting malformed or oversized JSON to any write endpoint returns a structured error response with a clear message, not a 500 or silent acceptance
   4. Every API route returns errors in a consistent JSON structure (error code, message, details) rather than inconsistent formats or raw stack traces
-**Plans**: TBD
+**Plans:** 4 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
-- [ ] 01-03: TBD
+- [ ] 01-01-PLAN.md -- Storage hardening (fail-hard + KV race condition fix) and auth security (proxy.ts migration)
+- [ ] 01-02-PLAN.md -- Error handling foundation (AppError, withApiHandler wrapper, Zod validation schemas)
+- [ ] 01-03-PLAN.md -- Route migration batch 1: auth, decompose, workflows, compare, remediation, notion-import, notion-sync
+- [ ] 01-04-PLAN.md -- Route migration batch 2: remaining 6 routes (including SSE + FormData special cases) + frontend error parsing update
 
 ### Phase 2: Team-Size-Aware Analysis
 **Goal**: Users provide team size during submission and receive health scores, gap severities, and recommendations that reflect whether they have 3 people or 50
@@ -88,7 +89,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Infrastructure & Security | 0/3 | Not started | - |
+| 1. Infrastructure & Security | 0/4 | Planned | - |
 | 2. Team-Size-Aware Analysis | 0/3 | Not started | - |
 | 3. AI Reliability | 0/3 | Not started | - |
 | 4. Reporting & Export | 0/2 | Not started | - |
