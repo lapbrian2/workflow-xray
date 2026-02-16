@@ -29,6 +29,8 @@ export interface Step {
   dependencies: string[]; // step IDs
 }
 
+export type ConfidenceLevel = "high" | "inferred";
+
 export interface Gap {
   type: GapType;
   severity: Severity;
@@ -38,6 +40,7 @@ export interface Gap {
   timeWaste?: string;         // e.g. "~6 hrs/week"
   effortLevel?: "quick_win" | "incremental" | "strategic";  // quick_win=1 week, incremental=1 month, strategic=3+ months
   impactedRoles?: string[];   // e.g. ["IC", "manager"]
+  confidence?: ConfidenceLevel; // per-gap confidence indicator
 }
 
 export interface HealthMetrics {
@@ -45,6 +48,8 @@ export interface HealthMetrics {
   fragility: number; // 0-100
   automationPotential: number; // 0-100
   teamLoadBalance: number; // 0-100
+  teamSize?: number; // team size used for calibration (if provided)
+  confidence?: { level: ConfidenceLevel; reason: string }; // whether scores are calibrated or using defaults
 }
 
 export interface Decomposition {
