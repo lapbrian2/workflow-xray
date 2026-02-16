@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Gap } from "@/lib/types";
 import { GAP_LABELS, SEVERITY_COLORS } from "@/lib/types";
+import ConfidenceBadge from "./confidence-badge";
 
 interface GapCardProps {
   gap: Gap;
@@ -124,6 +125,14 @@ export default function GapCard({ gap, index }: GapCardProps) {
           >
             {GAP_LABELS[gap.type]}
           </span>
+          {gap.confidence && (
+            <ConfidenceBadge
+              level={gap.confidence}
+              context={gap.confidence === "high"
+                ? "This gap is clearly evidenced from the workflow description"
+                : "This gap is estimated based on typical patterns"}
+            />
+          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span
