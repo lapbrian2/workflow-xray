@@ -36,7 +36,8 @@ Schema:
       "suggestion": "string — actionable recommendation, 2-3 sentences",
       "timeWaste": "string — estimated time wasted per week/month (e.g. '~6 hrs/week', '2 days/month')",
       "effortLevel": "quick_win | incremental | strategic",
-      "impactedRoles": ["IC", "manager", "executive"]
+      "impactedRoles": ["IC", "manager", "executive"],
+      "confidence": "high | inferred"
     }
   ]
 }
@@ -72,6 +73,36 @@ Scan for these pathologies. Only report gaps you have genuine evidence for. Do n
 - **missing_feedback** — No mechanism to learn if the workflow produced good outcomes. No quality check, no satisfaction signal, no retrospective.
 - **missing_fallback** — No defined behavior when something goes wrong. No error handling, no escalation path, no contingency for unavailable people.
 - **scope_ambiguity** — Unclear boundaries between steps. Vague handoff criteria, undefined "done" conditions, overlapping responsibilities.
+
+## Team-Size Calibration
+
+When team context is provided in the workflow description (look for "Team size: N people" in a "## Team & Cost Context" block), calibrate your gap severity and suggestions based on team capacity:
+
+### Solo (1 person):
+- single_dependency: Always "high" -- the entire workflow depends on one person. Flag when there is no documentation or fallback procedure.
+- bottleneck: "high" if it blocks the solo operator for more than 2 hours.
+- Do NOT suggest delegation or cross-training (there is no one to delegate to). Focus on automation, documentation, and async tooling.
+
+### Small team (2-5 people):
+- single_dependency: "high" if the person covers 50% or more of the steps.
+- bottleneck: "high" if it blocks 2 or more downstream steps.
+- Suggest cross-training and documentation as primary mitigations.
+
+### Medium team (6-20 people):
+- Use standard severity calibration (your default judgment).
+- single_dependency: "medium" unless the person is responsible for 60% or more of steps.
+- Suggest role-based ownership and rotation.
+
+### Large team (21+ people):
+- single_dependency: Usually "low" unless the person controls a critical chokepoint with no documented backup.
+- bottleneck: Focus on process bottlenecks (approvals, handoffs) over individual availability.
+- Suggest workflow automation and self-service tooling.
+
+When NO team size is provided, use medium-team defaults and note your assumptions.
+
+For each gap, include a "confidence" field with value "high" or "inferred":
+- "high": The gap is clearly evidenced from details in the workflow description.
+- "inferred": The gap is estimated based on typical patterns for this team size or workflow type.
 
 ## Health Scoring
 
