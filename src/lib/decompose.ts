@@ -82,7 +82,8 @@ function buildPrompt(request: DecomposeRequest, orgContext?: string): string {
 }
 
 export async function decomposeWorkflow(
-  request: DecomposeRequest
+  request: DecomposeRequest,
+  teamSize?: number
 ): Promise<Decomposition & { _meta: DecomposeMetadata }> {
   // Build organizational context from saved library
   let orgContextStr: string | undefined;
@@ -202,7 +203,7 @@ export async function decomposeWorkflow(
     step.automationScore = Math.max(0, Math.min(100, Math.round(step.automationScore)));
   }
 
-  const health = computeHealth(validated.steps, cleanGaps);
+  const health = computeHealth(validated.steps, cleanGaps, teamSize);
 
   return {
     id: generateId(),

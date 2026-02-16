@@ -1,6 +1,13 @@
 import type { Step, Gap, HealthMetrics } from "./types";
+import { getThresholds } from "./team-calibration";
 
-export function computeHealth(steps: Step[], gaps: Gap[]): HealthMetrics {
+export function computeHealth(
+  steps: Step[],
+  gaps: Gap[],
+  teamSize?: number
+): HealthMetrics {
+  const thresholds = getThresholds(teamSize);
+
   // Complexity: based on number of steps, dependencies, and layer variety
   const stepCount = steps.length;
   const depCount = steps.reduce((sum, s) => sum + s.dependencies.length, 0);
@@ -11,20 +18,21 @@ export function computeHealth(steps: Step[], gaps: Gap[]): HealthMetrics {
   );
 
   // Fragility: based on single dependencies, bottlenecks, and low automation
+  // Apply team-tier multiplier (1.0 for medium = no change = backward compatible)
   const highSeverityGaps = gaps.filter((g) => g.severity === "high").length;
   const mediumSeverityGaps = gaps.filter((g) => g.severity === "medium").length;
   const singleDepGaps = gaps.filter(
     (g) => g.type === "single_dependency"
   ).length;
   const lowAutoSteps = steps.filter((s) => s.automationScore < 30).length;
+  const rawFragility =
+    highSeverityGaps * 20 +
+    mediumSeverityGaps * 10 +
+    singleDepGaps * 15 +
+    lowAutoSteps * 5;
   const fragility = Math.min(
     100,
-    Math.round(
-      highSeverityGaps * 20 +
-        mediumSeverityGaps * 10 +
-        singleDepGaps * 15 +
-        lowAutoSteps * 5
-    )
+    Math.round(rawFragility * thresholds.fragilityMultiplier)
   );
 
   // Automation potential: average automation score
@@ -36,11 +44,12 @@ export function computeHealth(steps: Step[], gaps: Gap[]): HealthMetrics {
       : 0;
 
   // Team load balance: how evenly distributed owners are
+  // Uses team-tier baseline instead of hardcoded values
   const owners = steps.map((s) => s.owner).filter(Boolean) as string[];
   let teamLoadBalance: number;
   if (owners.length === 0) {
-    // No ownership assigned — can't evaluate balance; use neutral score
-    teamLoadBalance = 50;
+    // No ownership assigned — use team-tier baseline
+    teamLoadBalance = thresholds.loadBalanceBaseline;
   } else {
     const ownerCounts: Record<string, number> = {};
     owners.forEach((o) => {
@@ -50,8 +59,11 @@ export function computeHealth(steps: Step[], gaps: Gap[]): HealthMetrics {
     const uniqueOwners = counts.length;
 
     if (uniqueOwners === 1) {
-      // Single owner for all steps — worst balance
-      teamLoadBalance = Math.min(30, Math.round(100 / owners.length));
+      // Single owner for all steps — worst balance, capped at tier baseline
+      teamLoadBalance = Math.min(
+        thresholds.loadBalanceBaseline,
+        Math.round(100 / owners.length)
+      );
     } else {
       const max = Math.max(...counts);
       const min = Math.min(...counts);
@@ -67,5 +79,9 @@ export function computeHealth(steps: Step[], gaps: Gap[]): HealthMetrics {
     fragility,
     automationPotential: avgAutomation,
     teamLoadBalance,
+    ...(teamSize !== undefined ? { teamSize } : {}),
+    confidence: teamSize !== undefined
+      ? { level: "high" as const, reason: "Team size was explicitly provided" }
+      : { level: "inferred" as const, reason: "No team size specified; using medium-team defaults" },
   };
 }
