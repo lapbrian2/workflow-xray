@@ -88,27 +88,27 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFR-01 | — | Pending |
-| INFR-02 | — | Pending |
-| INFR-03 | — | Pending |
-| INFR-04 | — | Pending |
-| TEAM-01 | — | Pending |
-| TEAM-02 | — | Pending |
-| TEAM-03 | — | Pending |
-| TEAM-04 | — | Pending |
-| TEAM-05 | — | Pending |
-| AIRE-01 | — | Pending |
-| AIRE-02 | — | Pending |
-| AIRE-03 | — | Pending |
-| REPT-01 | — | Pending |
-| REPT-02 | — | Pending |
-| REPT-03 | — | Pending |
+| INFR-01 | Phase 1 | Pending |
+| INFR-02 | Phase 1 | Pending |
+| INFR-03 | Phase 1 | Pending |
+| INFR-04 | Phase 1 | Pending |
+| TEAM-01 | Phase 2 | Pending |
+| TEAM-02 | Phase 2 | Pending |
+| TEAM-03 | Phase 2 | Pending |
+| TEAM-04 | Phase 2 | Pending |
+| TEAM-05 | Phase 2 | Pending |
+| AIRE-01 | Phase 3 | Pending |
+| AIRE-02 | Phase 3 | Pending |
+| AIRE-03 | Phase 3 | Pending |
+| REPT-01 | Phase 4 | Pending |
+| REPT-02 | Phase 4 | Pending |
+| REPT-03 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 15 total
-- Mapped to phases: 0
-- Unmapped: 15
+- Mapped to phases: 15
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-16*
-*Last updated: 2026-02-16 after initial definition*
+*Last updated: 2026-02-16 after roadmap creation*
