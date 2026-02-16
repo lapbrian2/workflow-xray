@@ -46,12 +46,12 @@ Plans:
   3. Gap analysis results show severity levels that account for team capacity (a single-dependency gap is flagged as critical for a 2-person team but moderate for a 20-person team)
   4. Analysis output clearly displays the team size context alongside scores, gaps, and recommendations so the user understands what calibration was applied
   5. Each section of the analysis output shows a confidence indicator (high-confidence vs. inferred) so users know where the AI is certain vs. estimating
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
-- [ ] 02-03: TBD
+- [ ] 02-01-PLAN.md -- Team calibration engine (TDD): team-tier classification, threshold multipliers, scoring updates, type extensions
+- [ ] 02-02-PLAN.md -- Prompt engineering + API wiring: team-size calibration in system prompt, GapSchema confidence field, teamSize threading
+- [ ] 02-03-PLAN.md -- UI display layer: ConfidenceBadge component, team context banners, per-gap confidence indicators
 
 ### Phase 3: AI Reliability
 **Goal**: Claude API interactions are resilient -- transient failures retry automatically, malformed output degrades gracefully to partial results, and users see meaningful progress instead of blank spinners
@@ -89,7 +89,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Infrastructure & Security | 0/4 | Planned | - |
-| 2. Team-Size-Aware Analysis | 0/3 | Not started | - |
+| 1. Infrastructure & Security | 4/4 | Complete | 2026-02-16 |
+| 2. Team-Size-Aware Analysis | 0/3 | Planned | - |
 | 3. AI Reliability | 0/3 | Not started | - |
 | 4. Reporting & Export | 0/2 | Not started | - |
