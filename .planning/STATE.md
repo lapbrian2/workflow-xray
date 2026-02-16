@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-02-16)
 ## Current Position
 
 Phase: 2 of 4 (Team-Size-Aware Analysis)
-Plan: 1 of 3 in current phase
-Status: Plan 02-01 complete, ready for 02-02
-Last activity: 2026-02-16 -- Completed 02-01 team-size-aware scoring engine
+Plan: 2 of 3 in current phase
+Status: Plan 02-02 complete, ready for 02-03
+Last activity: 2026-02-16 -- Completed 02-02 AI prompt pipeline threading
 
-Progress: [###░░░░░░░] 25%
+Progress: [####░░░░░░] 33%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 9 min
-- Total execution time: 0.15 hours
+- Total plans completed: 2
+- Average duration: 6 min
+- Total execution time: 0.20 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 02-team-size-aware-analysis | 1 | 9 min | 9 min |
+| 02-team-size-aware-analysis | 2 | 12 min | 6 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 (9 min)
-- Trend: baseline
+- Last 5 plans: 02-01 (9 min), 02-02 (3 min)
+- Trend: improving
 
 *Updated after each plan completion*
 
@@ -48,6 +48,8 @@ Recent decisions affecting current work:
 - [02-01]: Medium tier uses 1.0 multipliers as neutral baseline for backward compatibility
 - [02-01]: Confidence metadata always returned (inferred or high) so consumers never need null checks
 - [02-01]: getThresholds accepts null in addition to undefined for defensive caller patterns
+- [02-02]: Prompt calibration uses 4 tiers: solo (1), small (2-5), medium (6-20), large (21+)
+- [02-02]: Confidence defaults to "high" when teamSize provided, "inferred" when absent -- safety net beyond Zod default
 
 ### Pending Todos
 
@@ -61,5 +63,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 02-01-PLAN.md (team-size-aware scoring engine)
+Stopped at: Completed 02-02-PLAN.md (AI prompt pipeline threading)
 Resume file: None
