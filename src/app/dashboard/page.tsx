@@ -8,6 +8,8 @@ import { listWorkflowsLocal, mergeWithServer } from "@/lib/client-db";
 import ScoreRing from "@/components/score-ring";
 import Breadcrumb from "@/components/breadcrumb";
 import { useToast } from "@/components/toast";
+import { computeHealthTrends } from "@/lib/chart-data";
+import HealthTrendChart from "@/components/health-trend-chart";
 
 export default function DashboardPage() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
@@ -168,6 +170,11 @@ export default function DashboardPage() {
     return Object.entries(buckets)
       .map(([date, count]) => ({ date, count }))
       .sort((a, b) => a.date.localeCompare(b.date));
+  }, [workflows]);
+
+  // Health metric trends over time
+  const healthTrends = useMemo(() => {
+    return computeHealthTrends(workflows);
   }, [workflows]);
 
   if (loading) {
@@ -767,6 +774,19 @@ export default function DashboardPage() {
           </div>
         )}
       </Section>
+
+      {/* ── Health Trends ── */}
+      {healthTrends.length >= 2 && (
+        <div style={{ marginTop: 32 }}>
+          <Section
+            title="Health Trends"
+            subtitle={`Health scores across ${healthTrends.reduce((sum, p) => sum + p.count, 0)} workflows over ${healthTrends.length} periods`}
+            fullWidth
+          >
+            <HealthTrendChart data={healthTrends} />
+          </Section>
+        </div>
+      )}
 
       {/* ── Workflow Volume ── */}
       {volumeByWeek.length > 1 && (
