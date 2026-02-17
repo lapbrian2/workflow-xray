@@ -6,6 +6,7 @@ import {
   TASK_EFFORT_LABELS,
   GAP_LABELS,
 } from "./types";
+import { PDF_COLORS } from "./pdf-shared";
 
 export async function exportRemediationPdf(
   plan: RemediationPlan,
@@ -31,16 +32,11 @@ export async function exportRemediationPdf(
     const contentWidth = pageWidth - margin * 2;
     let y = margin;
 
-    // ── Color Palette ──
-    const dark: [number, number, number] = [28, 37, 54];
-    const bodyText: [number, number, number] = [64, 75, 94];
-    const muted: [number, number, number] = [136, 149, 167];
-    const accent: [number, number, number] = [232, 85, 58];
-    const border: [number, number, number] = [222, 226, 231];
-    const bgLight: [number, number, number] = [247, 248, 250];
-    const white: [number, number, number] = [255, 255, 255];
-    const green: [number, number, number] = [23, 165, 137];
-    const blue: [number, number, number] = [45, 125, 210];
+    // ── Color Palette (from shared module, with orange accent override) ──
+    const { dark, bodyText, muted, border, bgLight, white } = PDF_COLORS;
+    const accent = PDF_COLORS.orange; // Remediation uses orange accent
+    const green = PDF_COLORS.green;
+    const blue = PDF_COLORS.blue;
 
     const priorityColors: Record<string, [number, number, number]> = {
       critical: [232, 85, 58],

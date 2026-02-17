@@ -2,6 +2,7 @@
 
 import type { Decomposition, CompareResult, Step } from "./types";
 import { LAYER_LABELS, LAYER_COLORS, GAP_LABELS, SEVERITY_COLORS } from "./types";
+import { PDF_COLORS, parseHexColor } from "./pdf-shared";
 
 export async function exportComparePdf(
   before: Decomposition,
@@ -22,16 +23,10 @@ export async function exportComparePdf(
   const contentWidth = pageWidth - margin * 2;
   let y = margin;
 
-  // ── Color Palette ──
-  const dark: [number, number, number] = [28, 37, 54];
-  const bodyText: [number, number, number] = [64, 75, 94];
-  const muted: [number, number, number] = [136, 149, 167];
-  const accent: [number, number, number] = [45, 125, 210];
-  const border: [number, number, number] = [222, 226, 231];
-  const bgLight: [number, number, number] = [247, 248, 250];
-  const white: [number, number, number] = [255, 255, 255];
+  // ── Color Palette (from shared module) ──
+  const { dark, bodyText, muted, accent, border, bgLight, white } = PDF_COLORS;
 
-  // Diff colors
+  // Diff colors (unique to compare export)
   const addedGreen: [number, number, number] = [23, 165, 137];
   const addedBg: [number, number, number] = [232, 250, 244];
   const removedRed: [number, number, number] = [220, 68, 55];
@@ -40,10 +35,10 @@ export async function exportComparePdf(
   const modifiedBg: [number, number, number] = [255, 248, 225];
 
   // Metric colors
-  const colorBlue: [number, number, number] = [45, 125, 210];
-  const colorRed: [number, number, number] = [220, 68, 55];
-  const colorGreen: [number, number, number] = [23, 165, 137];
-  const colorPurple: [number, number, number] = [142, 68, 173];
+  const colorBlue = PDF_COLORS.blue;
+  const colorRed = PDF_COLORS.red;
+  const colorGreen = PDF_COLORS.green;
+  const colorPurple = PDF_COLORS.purple;
 
   // ── Helpers ──
   function checkPageBreak(needed: number) {
@@ -71,13 +66,6 @@ export async function exportComparePdf(
     doc.setLineWidth(0.6);
     doc.line(margin, y, margin + 30, y);
     y += 6;
-  }
-
-  function parseHexColor(hex: string): [number, number, number] {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return [r, g, b] as [number, number, number];
   }
 
   function formatDelta(value: number): string {

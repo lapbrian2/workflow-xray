@@ -1,7 +1,8 @@
 "use client";
 
 import type { Decomposition, Gap, Step, CostContext } from "./types";
-import { LAYER_LABELS, LAYER_COLORS, GAP_LABELS, SEVERITY_COLORS } from "./types";
+import { LAYER_LABELS, GAP_LABELS } from "./types";
+import { PDF_COLORS, parseSeverityColor, parseLayerColor } from "./pdf-shared";
 
 /**
  * Estimate ROI using ranges (low–high) with explicit assumptions.
@@ -134,38 +135,12 @@ export async function exportToPdf(decomposition: Decomposition, costContext?: Co
   const contentWidth = pageWidth - margin * 2;
   let y = margin;
 
-  // ── Color Palette ──
-  const dark: [number, number, number] = [28, 37, 54];
-  const bodyText: [number, number, number] = [64, 75, 94];
-  const muted: [number, number, number] = [136, 149, 167];
-  const accent: [number, number, number] = [45, 125, 210];
-  const border: [number, number, number] = [222, 226, 231];
-  const bgLight: [number, number, number] = [247, 248, 250];
-  const white: [number, number, number] = [255, 255, 255];
-
-  // Health metric colors
-  const colorBlue: [number, number, number] = [45, 125, 210];
-  const colorRed: [number, number, number] = [220, 68, 55];
-  const colorGreen: [number, number, number] = [23, 165, 137];
-  const colorPurple: [number, number, number] = [142, 68, 173];
-
-  // Severity colors parsed
-  function parseSeverityColor(severity: "low" | "medium" | "high"): [number, number, number] {
-    const hex = SEVERITY_COLORS[severity];
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return [r, g, b] as [number, number, number];
-  }
-
-  // Layer color parser
-  function parseLayerColor(layer: keyof typeof LAYER_COLORS): [number, number, number] {
-    const hex = LAYER_COLORS[layer];
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return [r, g, b] as [number, number, number];
-  }
+  // ── Color Palette (from shared module) ──
+  const { dark, bodyText, muted, accent, border, bgLight, white } = PDF_COLORS;
+  const colorBlue = PDF_COLORS.blue;
+  const colorRed = PDF_COLORS.red;
+  const colorGreen = PDF_COLORS.green;
+  const colorPurple = PDF_COLORS.purple;
 
   // ── Helpers ──
   function checkPageBreak(needed: number) {
