@@ -283,7 +283,7 @@ export default function HealthCard({
                 fontWeight: 600,
                 color: "var(--color-info)",
               }}>
-                Scores calibrated for {teamSize}-person team
+                Scores calibrated for {teamSize}-person client team
               </span>
             )}
             {confidence && (

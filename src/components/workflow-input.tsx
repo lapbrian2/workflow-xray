@@ -276,7 +276,7 @@ export default function WorkflowInput({
                   marginBottom: 4,
                 }}
               >
-                Team Size
+                Client Team Size
               </label>
               <input
                 type="number"
@@ -316,7 +316,7 @@ export default function WorkflowInput({
                   marginBottom: 4,
                 }}
               >
-                Team Context
+                Client Team Context
               </label>
               <input
                 type="text"
@@ -356,7 +356,7 @@ export default function WorkflowInput({
             }}
           >
             Each field is optional. Team size and context help Claude tailor
-            recommendations to your team. Cost data improves ROI estimates.
+            recommendations to the client&apos;s team. Cost data improves ROI estimates.
             Without these, the analysis uses conservative defaults.
           </p>
         )}

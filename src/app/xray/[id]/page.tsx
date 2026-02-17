@@ -601,7 +601,7 @@ export default function XRayPage() {
             fontWeight: 600,
             color: "var(--color-info)",
           }}>
-            Calibrated for {workflow.costContext.teamSize}-person team
+            Analysis calibrated for {workflow.costContext.teamSize}-person client team
           </span>
           {workflow.costContext.teamContext && (
             <span style={{

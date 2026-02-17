@@ -53,7 +53,7 @@ export default function GapAnalysis({ gaps, teamSize, teamContext }: GapAnalysis
           fontSize: 11,
         }}>
           <span style={{ fontWeight: 600, color: "var(--color-info)" }}>
-            Gap severity calibrated for {teamSize}-person team
+            Gap severity calibrated for {teamSize}-person client team
           </span>
           {teamContext && (
             <span style={{ color: "var(--color-muted)", fontFamily: "var(--font-body)" }}>

@@ -12,8 +12,8 @@ This milestone hardens Workflow X-Ray from a working prototype into a reliable, 
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Infrastructure & Security** - Eliminate data loss, auth bypass, and inconsistent error handling across all API routes
-- [ ] **Phase 2: Team-Size-Aware Analysis** - Users specify team size and receive analysis calibrated to their team's capacity
+- [x] **Phase 1: Infrastructure & Security** - Eliminate data loss, auth bypass, and inconsistent error handling across all API routes
+- [x] **Phase 2: Team-Size-Aware Analysis** - Users specify team size and receive analysis calibrated to their team's capacity
 - [ ] **Phase 3: AI Reliability** - Claude integration retries failures, recovers partial results, and shows meaningful progress
 - [ ] **Phase 4: Reporting & Export** - Professional PDF exports and dashboard visualizations for consulting deliverables
 
@@ -31,10 +31,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 4 plans
 
 Plans:
-- [ ] 01-01-PLAN.md -- Storage hardening (fail-hard + KV race condition fix) and auth security (proxy.ts migration)
-- [ ] 01-02-PLAN.md -- Error handling foundation (AppError, withApiHandler wrapper, Zod validation schemas)
-- [ ] 01-03-PLAN.md -- Route migration batch 1: auth, decompose, workflows, compare, remediation, notion-import, notion-sync
-- [ ] 01-04-PLAN.md -- Route migration batch 2: remaining 6 routes (including SSE + FormData special cases) + frontend error parsing update
+- [x] 01-01-PLAN.md -- Storage hardening (fail-hard + KV race condition fix) and auth security (proxy.ts migration)
+- [x] 01-02-PLAN.md -- Error handling foundation (AppError, withApiHandler wrapper, Zod validation schemas)
+- [x] 01-03-PLAN.md -- Route migration batch 1: auth, decompose, workflows, compare, remediation, notion-import, notion-sync
+- [x] 01-04-PLAN.md -- Route migration batch 2: remaining 6 routes (including SSE + FormData special cases) + frontend error parsing update
 
 ### Phase 2: Team-Size-Aware Analysis
 **Goal**: Users provide team size during submission and receive health scores, gap severities, and recommendations that reflect whether they have 3 people or 50
@@ -49,9 +49,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- Team calibration engine (TDD): team-tier classification, threshold multipliers, scoring updates, type extensions
-- [ ] 02-02-PLAN.md -- Prompt engineering + API wiring: team-size calibration in system prompt, GapSchema confidence field, teamSize threading
-- [ ] 02-03-PLAN.md -- UI display layer: ConfidenceBadge component, team context banners, per-gap confidence indicators
+- [x] 02-01-PLAN.md -- Team calibration engine (TDD): team-tier classification, threshold multipliers, scoring updates, type extensions
+- [x] 02-02-PLAN.md -- Prompt engineering + API wiring: team-size calibration in system prompt, GapSchema confidence field, teamSize threading
+- [x] 02-03-PLAN.md -- UI display layer: ConfidenceBadge component, team context banners, per-gap confidence indicators
 
 ### Phase 3: AI Reliability
 **Goal**: Claude API interactions are resilient -- transient failures retry automatically, malformed output degrades gracefully to partial results, and users see meaningful progress instead of blank spinners
@@ -90,6 +90,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Infrastructure & Security | 4/4 | Complete | 2026-02-16 |
-| 2. Team-Size-Aware Analysis | 0/3 | Planned | - |
+| 2. Team-Size-Aware Analysis | 3/3 | Complete | 2026-02-16 |
 | 3. AI Reliability | 0/3 | Not started | - |
 | 4. Reporting & Export | 0/2 | Not started | - |
