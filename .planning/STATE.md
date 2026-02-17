@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-16)
 
 **Core value:** Teams can submit any workflow description and receive an accurate, actionable diagnostic -- with team-size-aware analysis -- that reveals bottlenecks, gaps, and automation opportunities they couldn't see before.
-**Current focus:** Phase 4: Reporting & Export — Plan 02 complete
+**Current focus:** Phase 4: Reporting & Export — COMPLETE
 
 ## Current Position
 
-Phase: 4 of 4 (Reporting & Export)
-Plan: 2 of 2 in current phase
-Status: Phase 4, Plan 02 complete (health trend charts)
-Last activity: 2026-02-17 -- Plan 04-02 executed: recharts health trend charts on dashboard
+Phase: 4 of 4 (Reporting & Export) — COMPLETE
+Plan: 2 of 2 in current phase (all complete)
+Status: All 4 phases complete. Project v1 finished.
+Last activity: 2026-02-17 -- Plan 04-01 executed: shared PDF helpers, flow capture, flow diagram in PDF
 
-Progress: [████████░░] 85%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10 (4 Phase 1 + 3 Phase 2 + 2 Phase 3 + 1 Phase 4)
-- Average duration: ~7 min/plan
-- Total execution time: ~78 min
+- Total plans completed: 11 (4 Phase 1 + 3 Phase 2 + 2 Phase 3 + 2 Phase 4)
+- Average duration: ~8 min/plan
+- Total execution time: ~92 min
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [████████░░] 85%
 | 01-infrastructure-security | 4 | ~30 min | ~8 min |
 | 02-team-size-aware-analysis | 3 | 16 min | 5 min |
 | 03-ai-reliability | 2 | ~12 min | ~6 min |
-| 04-reporting-export | 1 | 11 min | 11 min |
+| 04-reporting-export | 2 | 25 min | ~13 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-03 (4 min), 03-01 (~5 min), 03-02 (~7 min), 04-02 (11 min)
-- Trend: Slightly longer for charting/visualization work
+- Last 5 plans: 03-01 (~5 min), 03-02 (~7 min), 04-02 (11 min), 04-01 (14 min)
+- Trend: Slightly longer for charting/PDF visualization work
 
 *Updated after each plan completion*
 
@@ -59,6 +59,10 @@ Recent decisions affecting current work:
 - [03-01]: Partial recovery function self-contained in decompose.ts (pattern from extraction-schemas.ts, fields differ)
 - [03-02]: Hybrid SSE pattern: pre-stream validation returns JSON, in-stream uses SSE events
 - [03-02]: Partial results navigate with ?partial=true for downstream UI handling
+- [04-01]: Minimal-risk refactor: import PDF_COLORS and parse utilities, keep local helpers closing over mutable y
+- [04-01]: html-to-image pinned to 1.11.11 (newer versions have confirmed export bugs per React Flow docs)
+- [04-01]: Flow diagram section placed between Health Score Dashboard and Workflow Steps
+- [04-01]: 2x capture resolution (2048x1200) for sharp text in printed PDF output
 - [04-02]: Per-period averages (not cumulative) for health trend data to show actual changes per time bucket
 - [04-02]: Recharts 3.7.0 with CSS variables for design system consistency
 - [04-02]: Health trend chart renders only when 2+ time periods exist (matches volumeByWeek pattern)
@@ -75,5 +79,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 04-02-PLAN.md (health trend charts)
+Stopped at: Completed 04-01-PLAN.md (shared PDF helpers + flow diagram). All phases complete.
 Resume file: None
