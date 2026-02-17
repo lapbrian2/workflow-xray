@@ -13,6 +13,8 @@ interface AppState {
   setIsDecomposing: (v: boolean) => void;
   error: string | null;
   setError: (e: string | null) => void;
+  progressMessage: string | null;
+  setProgressMessage: (msg: string | null) => void;
 
   // X-Ray view
   selectedNodeId: string | null;
@@ -34,6 +36,8 @@ export const useStore = create<AppState>((set) => ({
   setIsDecomposing: (v) => set({ isDecomposing: v }),
   error: null,
   setError: (e) => set({ error: e }),
+  progressMessage: null,
+  setProgressMessage: (msg) => set({ progressMessage: msg }),
 
   selectedNodeId: null,
   setSelectedNodeId: (id) => set({ selectedNodeId: id }),

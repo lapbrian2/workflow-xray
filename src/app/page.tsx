@@ -176,7 +176,7 @@ function ScanLine() {
 
 /* ----- Main Home Content ----- */
 function HomeContent() {
-  const { error, isDecomposing, setError } = useStore();
+  const { error, isDecomposing, setError, progressMessage } = useStore();
   const searchParams = useSearchParams();
   const reanalyzeId = searchParams.get("reanalyze");
 
@@ -204,18 +204,16 @@ function HomeContent() {
   }, [isDecomposing]);
 
   const loadingMessage = useMemo(() => {
-    if (elapsed < 5) return "Analyzing workflow structure...";
-    if (elapsed < 12) return "Mapping dependencies and layers...";
-    if (elapsed < 25) return "Identifying gaps and scoring health...";
-    if (elapsed < 45) return "Almost there — finalizing analysis...";
-    if (elapsed < 90) return "This is taking longer than usual. Hang tight...";
-    return "Still working — complex workflows take longer. Please wait...";
-  }, [elapsed]);
+    if (progressMessage) return progressMessage;
+    // Fallback: time-based messages for the brief period before first SSE event arrives
+    if (elapsed < 5) return "Connecting to analysis engine...";
+    if (elapsed < 15) return "Waiting for server response...";
+    return "Still connecting...";
+  }, [progressMessage, elapsed]);
 
   const loadingSubtext = useMemo(() => {
-    if (elapsed < 8) return "This usually takes 5\u201315 seconds.";
-    if (elapsed < 30) return `${elapsed}s elapsed`;
-    return `${elapsed}s elapsed \u2014 large workflows may take up to 2 minutes.`;
+    if (elapsed < 3) return "";
+    return `${elapsed}s elapsed`;
   }, [elapsed]);
 
   const [reanalyzeWorkflow, setReanalyzeWorkflow] = useState<Workflow | null>(

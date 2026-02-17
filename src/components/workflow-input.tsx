@@ -4,7 +4,6 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { saveWorkflowLocal } from "@/lib/client-db";
-import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 import type { StageInput, CostContext } from "@/lib/types";
 import FreeformInput from "./freeform-input";
 import StructuredForm from "./structured-form";
@@ -19,7 +18,7 @@ export default function WorkflowInput({
   reanalyzeParentId,
 }: WorkflowInputProps = {}) {
   const router = useRouter();
-  const { inputMode, setInputMode, isDecomposing, setIsDecomposing, setError } =
+  const { inputMode, setInputMode, isDecomposing, setIsDecomposing, setError, setProgressMessage } =
     useStore();
 
   const [text, setText] = useState(initialText || "");
@@ -49,36 +48,75 @@ export default function WorkflowInput({
               )
               .join("\n");
 
-      const res = await fetchWithTimeout(
-        "/api/decompose",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            description,
-            stages: inputMode === "structured" ? stages : undefined,
-            ...(reanalyzeParentId ? { parentId: reanalyzeParentId } : {}),
-            ...(costContext.hourlyRate || costContext.hoursPerStep || costContext.teamSize || costContext.teamContext
-              ? { costContext }
-              : {}),
-          }),
-        },
-        120000 // 2 min timeout — Claude decomposition can take a while
-      );
+      const res = await fetch("/api/decompose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description,
+          stages: inputMode === "structured" ? stages : undefined,
+          ...(reanalyzeParentId ? { parentId: reanalyzeParentId } : {}),
+          ...(costContext.hourlyRate || costContext.hoursPerStep || costContext.teamSize || costContext.teamContext
+            ? { costContext }
+            : {}),
+        }),
+      });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error?.message || err.error || "Decomposition failed");
+      // Check for pre-stream errors (non-SSE JSON responses)
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("text/event-stream")) {
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error?.message || err.error || "Decomposition failed");
+        }
+        // Unexpected non-SSE success — handle gracefully
+        const workflow = await res.json();
+        saveWorkflowLocal(workflow);
+        router.push(`/xray/${workflow.id}`);
+        return;
       }
 
-      const workflow = await res.json();
-      // Persist to localStorage for immediate availability
-      saveWorkflowLocal(workflow);
-      router.push(`/xray/${workflow.id}`);
+      // SSE stream consumption
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() || "";
+
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+
+            if (event.type === "progress") {
+              setProgressMessage(event.message);
+            } else if (event.type === "complete") {
+              saveWorkflowLocal(event.workflow);
+              router.push(`/xray/${event.workflow.id}`);
+            } else if (event.type === "partial") {
+              saveWorkflowLocal(event.workflow);
+              router.push(`/xray/${event.workflow.id}?partial=true`);
+            } else if (event.type === "error") {
+              throw new Error(event.message);
+            }
+          } catch (parseErr) {
+            if (parseErr instanceof Error && parseErr.message !== "Unexpected end of JSON input") {
+              throw parseErr;
+            }
+          }
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setIsDecomposing(false);
+      setProgressMessage(null);
       submitLock.current = false;
     }
   };
