@@ -61,12 +61,11 @@ Plans:
   1. When a Claude API call times out or hits a rate limit, the app automatically retries (with backoff) and the user does not see an error unless all retries are exhausted
   2. When Claude returns malformed or incomplete JSON, the app displays whatever valid partial results it recovered rather than showing a full error page
   3. During AI analysis (which takes 10-30 seconds), the user sees step-by-step progress messages (e.g., "Decomposing workflow...", "Analyzing gaps...", "Generating recommendations...") instead of a generic spinner
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
-- [ ] 03-03: TBD
+- [ ] 03-01-PLAN.md -- SDK retry configuration (maxRetries=3) + typed error classification + partial JSON recovery in decompose pipeline
+- [ ] 03-02-PLAN.md -- SSE streaming decompose endpoint with server-driven progress events + client SSE consumer + progress UI
 
 ### Phase 4: Reporting & Export
 **Goal**: PDF exports are programmatically generated for consistent, professional output, and the team dashboard shows health metric trends with data visualizations
@@ -91,5 +90,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Infrastructure & Security | 4/4 | Complete | 2026-02-16 |
 | 2. Team-Size-Aware Analysis | 3/3 | Complete | 2026-02-16 |
-| 3. AI Reliability | 0/3 | Not started | - |
+| 3. AI Reliability | 0/2 | Not started | - |
 | 4. Reporting & Export | 0/2 | Not started | - |
