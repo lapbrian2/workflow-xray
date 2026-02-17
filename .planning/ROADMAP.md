@@ -75,11 +75,11 @@ Plans:
   1. PDF exports render identically across Chrome, Firefox, and Safari -- no browser-specific layout differences or missing elements
   2. Exported PDFs contain structured sections: executive summary, flow diagram, gap analysis table, and phased recommendations -- not a flat screenshot
   3. The team dashboard displays health metric trends as visual charts (not just numbers) showing how scores change across workflows
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [ ] 04-01-PLAN.md -- Shared PDF utility extraction, flow diagram capture utility, and flow diagram embedding in single-workflow PDF export
+- [ ] 04-02-PLAN.md -- Health trend data derivation and recharts trend chart integration in team dashboard
 
 ## Progress
 
