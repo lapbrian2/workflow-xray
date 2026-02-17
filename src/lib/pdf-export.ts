@@ -113,7 +113,11 @@ function generateActionPlan(gaps: Gap[], steps: Step[]): { phase: string; items:
   return plan;
 }
 
-export async function exportToPdf(decomposition: Decomposition, costContext?: CostContext): Promise<void> {
+export async function exportToPdf(
+  decomposition: Decomposition,
+  costContext?: CostContext,
+  flowImageDataUrl?: string
+): Promise<void> {
   let jsPDF;
   try {
     ({ jsPDF } = await import("jspdf"));
@@ -444,6 +448,28 @@ export async function exportToPdf(decomposition: Decomposition, costContext?: Co
   });
 
   y += 4;
+
+  // ── Flow Diagram (optional) ──
+  if (flowImageDataUrl) {
+    drawHorizontalRule();
+    drawSectionHeader("Flow Diagram");
+
+    // Calculate image dimensions maintaining 1024:600 aspect ratio (~1.707:1)
+    const pdfImgWidth = contentWidth; // ~170mm on A4
+    const pdfImgHeight = pdfImgWidth / 1.707; // ~100mm
+
+    checkPageBreak(pdfImgHeight + 12);
+
+    // Embed the flow diagram image
+    doc.addImage(flowImageDataUrl, "PNG", margin, y, pdfImgWidth, pdfImgHeight);
+
+    // Draw a subtle border around the diagram
+    doc.setDrawColor(...border);
+    doc.setLineWidth(0.3);
+    doc.rect(margin, y, pdfImgWidth, pdfImgHeight, "S");
+
+    y += pdfImgHeight + 8;
+  }
 
   // ── Workflow Steps ──
   drawHorizontalRule();
