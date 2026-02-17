@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-16)
 
 **Core value:** Teams can submit any workflow description and receive an accurate, actionable diagnostic -- with team-size-aware analysis -- that reveals bottlenecks, gaps, and automation opportunities they couldn't see before.
-**Current focus:** Phase 2: Team-Size-Aware Analysis — COMPLETE
+**Current focus:** Phase 3: AI Reliability — COMPLETE
 
 ## Current Position
 
-Phase: 2 of 4 (Team-Size-Aware Analysis) — COMPLETE
-Plan: 3 of 3 in current phase
-Status: Phase 2 complete, ready for Phase 3 (AI Reliability)
-Last activity: 2026-02-16 -- Phase 2 fully executed: team calibration engine, prompt engineering, UI display layer
+Phase: 3 of 4 (AI Reliability) — COMPLETE
+Plan: 2 of 2 in current phase
+Status: Phase 3 complete, ready for Phase 4 (Reporting & Export)
+Last activity: 2026-02-17 -- Phase 3 fully executed: SDK retry config, partial JSON recovery, SSE streaming, progress UI
 
-Progress: [█████░░░░░] 50%
+Progress: [███████░░░] 75%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7 (4 Phase 1 + 3 Phase 2)
+- Total plans completed: 9 (4 Phase 1 + 3 Phase 2 + 2 Phase 3)
 - Average duration: ~6 min/plan
-- Total execution time: ~55 min
+- Total execution time: ~67 min
 
 **By Phase:**
 
@@ -29,10 +29,11 @@ Progress: [█████░░░░░] 50%
 |-------|-------|-------|----------|
 | 01-infrastructure-security | 4 | ~30 min | ~8 min |
 | 02-team-size-aware-analysis | 3 | 16 min | 5 min |
+| 03-ai-reliability | 2 | ~12 min | ~6 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-03, 01-04, 02-01 (9 min), 02-02 (3 min), 02-03 (4 min)
-- Trend: Accelerating (Wave 2 parallel execution halved wall time)
+- Last 5 plans: 02-01 (9 min), 02-02 (3 min), 02-03 (4 min), 03-01 (~5 min), 03-02 (~7 min)
+- Trend: Consistent ~6 min/plan
 
 *Updated after each plan completion*
 
@@ -53,6 +54,10 @@ Recent decisions affecting current work:
 - [02-02]: Confidence defaults to "high" when teamSize provided, "inferred" when absent -- safety net beyond Zod default
 - [02-03]: ConfidenceBadge uses cursor:help when context tooltip is provided for discoverability
 - [02-03]: All team context rendering is conditional to maintain backward compatibility with pre-existing workflows
+- [03-01]: Used classifyClaudeError helper instead of re-exporting SDK error classes (centralizes classification)
+- [03-01]: Partial recovery function self-contained in decompose.ts (pattern from extraction-schemas.ts, fields differ)
+- [03-02]: Hybrid SSE pattern: pre-stream validation returns JSON, in-stream uses SSE events
+- [03-02]: Partial results navigate with ?partial=true for downstream UI handling
 
 ### Pending Todos
 
@@ -65,6 +70,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-16
-Stopped at: Completed 02-03-PLAN.md (team-size UI layer) -- Phase 02 complete
+Last session: 2026-02-17
+Stopped at: Phase 3 complete (03-01 + 03-02), ready for Phase 4
 Resume file: None
