@@ -86,6 +86,7 @@ export function getModelId(): string {
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
+  maxRetries: 3,
 });
 
 export interface ClaudeResponse {
@@ -197,6 +198,28 @@ export async function callClaudeRemediation(userMessage: string): Promise<Claude
     inputTokens,
     outputTokens,
   };
+}
+
+// ─── Error classification for typed catch blocks ───
+
+export function classifyClaudeError(error: unknown): {
+  type: "rate_limit" | "timeout" | "connection" | "api_error" | "unknown";
+  status: number | null;
+  retryable: boolean;
+} {
+  if (error instanceof Anthropic.RateLimitError) {
+    return { type: "rate_limit", status: 429, retryable: false };
+  }
+  if (error instanceof Anthropic.APIConnectionTimeoutError) {
+    return { type: "timeout", status: null, retryable: false };
+  }
+  if (error instanceof Anthropic.APIConnectionError) {
+    return { type: "connection", status: null, retryable: false };
+  }
+  if (error instanceof Anthropic.APIError) {
+    return { type: "api_error", status: (error as InstanceType<typeof Anthropic.APIError>).status ?? null, retryable: false };
+  }
+  return { type: "unknown", status: null, retryable: false };
 }
 
 // ─── Vision extraction (screenshot → workflow) ───
