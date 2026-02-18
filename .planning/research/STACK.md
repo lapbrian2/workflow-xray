@@ -1,215 +1,200 @@
-# Stack Research: Workflow X-Ray Hardening
+# Stack Research: v1.1 Quality & Intelligence
 
-**Domain:** AI-powered workflow analysis / operational diagnostics (existing app augmentation)
-**Researched:** 2026-02-16
-**Confidence:** HIGH (versions verified via npm registry; Next.js docs verified via official site)
+**Domain:** Testing infrastructure, analysis caching, advanced analytics for AI-powered workflow diagnostic tool
+**Researched:** 2026-02-18
+**Confidence:** HIGH (all versions verified via `npm view` against live npm registry)
 
 ## Existing Stack (NOT Re-researched)
 
-Already in place and working. Listed for context only:
+Already in place and working. Listed for integration context only:
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| Next.js | 16.1.6 | App framework |
+| Next.js | 16.1.6 | App framework (App Router) |
 | React | 19.2.3 | UI library |
-| TypeScript | ^5 | Type safety |
+| TypeScript | ^5 | Type safety (strict mode enabled) |
 | Tailwind CSS | ^4 | Styling |
-| @anthropic-ai/sdk | ^0.74.0 | Claude API access |
+| @anthropic-ai/sdk | ^0.74.0 | Claude API (maxRetries=3, prompt caching) |
 | @xyflow/react | ^12.10.0 | Flow visualization |
 | Zustand | ^5.0.11 | State management |
-| @vercel/kv | ^3.0.0 | Key-value storage |
-| @vercel/blob | ^2.2.0 | Blob storage |
-| Zod | ^4.3.6 | Schema validation |
-| jsPDF + html2canvas | ^4.1.0 / ^1.4.1 | PDF export |
-| Mammoth / pdf-parse / xlsx | various | File parsing |
-| @mendable/firecrawl-js | ^4.12.1 | Web crawling |
-| @notionhq/client | ^5.9.0 | Notion integration |
+| @vercel/kv | ^3.0.0 | Primary KV storage |
+| @vercel/blob | ^2.2.0 | Blob storage fallback |
+| Zod | ^4.3.6 | Schema validation (v4 syntax) |
+| jsPDF | ^4.1.0 | PDF generation |
+| Recharts | ^3.7.0 | Charting (React 19 compatible) |
+| html-to-image | ^1.11.11 | Flow diagram capture |
+| Node.js | 25.6.1 | Runtime |
+
+**Key existing patterns:**
+- `createHash("sha256")` from Node.js `crypto` already used in `claude.ts` for prompt versioning
+- Multi-tier storage: KV > Blob > Memory (with fail-hard on no config)
+- SSE streaming for decompose endpoint
+- `withApiHandler` + `AppError` error handling on all 13 API routes
+- `@/*` path aliases via tsconfig `paths`
 
 ---
 
-## Recommended Additions
+## Recommended Additions for v1.1
 
-### Testing Infrastructure (Priority 1 -- Zero Coverage Today)
+### 1. Unit & Integration Testing (Vitest)
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| vitest | 4.0.18 | Unit/integration test runner | Next.js 16 official recommendation. Faster than Jest, native ESM, TS-first. Vite-based so no Babel config needed. |
-| @vitejs/plugin-react | 5.1.4 | React transform for Vitest | Required by Vitest to handle JSX in test environment. Official plugin. |
-| jsdom | 28.1.0 | DOM environment for unit tests | Vitest's recommended browser-like environment for component tests. Lighter than happy-dom for this use case. |
-| vite-tsconfig-paths | 6.1.1 | Path alias resolution | Resolves `@/` imports in Vitest that match Next.js tsconfig paths. Without this, every aliased import breaks in tests. |
-| @testing-library/react | 16.3.2 | Component test utilities | De facto standard for React component testing. Supports React 19 (peer dep: `^18.0.0 \|\| ^19.0.0`). |
-| @testing-library/dom | 10.4.1 | DOM query utilities | Peer dependency of @testing-library/react. Must be installed explicitly. |
-| @testing-library/user-event | 14.6.1 | User interaction simulation | More realistic than fireEvent -- simulates actual user behavior (click, type, tab). Essential for form testing. |
-| @testing-library/jest-dom | 6.9.1 | Custom DOM matchers | Adds `.toBeVisible()`, `.toHaveTextContent()`, etc. Makes test assertions readable. |
-| @vitest/coverage-v8 | 4.0.18 | Code coverage | V8-native coverage (faster than Istanbul). Same version as vitest required. Reports coverage gaps to target. |
-| @playwright/test | 1.58.2 | E2E testing | Next.js 16 official recommendation for E2E. Tests actual browser flows: input submission, PDF export, flow visualization. |
-| msw | 2.12.10 | API mocking | Intercepts fetch at the network level. Mock Claude API responses without hitting real API. Mock Vercel KV/Blob in tests. Only peer dep is TypeScript >=4.8. |
+| Technology | Version | Purpose | Why This, Not Something Else |
+|------------|---------|---------|------------------------------|
+| vitest | 4.0.18 | Unit/integration test runner | Next.js 16 officially recommends Vitest. Native ESM + TypeScript without Babel. Vite-based = instant startup. Compatible with the existing `@/*` path aliases via vite-tsconfig-paths. |
+| @vitejs/plugin-react | 5.1.4 | JSX transform for Vitest | Required by Vitest to handle `.tsx` files. Uses the same SWC/esbuild path Next.js uses, so test behavior matches production. |
+| jsdom | 28.1.0 | DOM environment for component-adjacent tests | Vitest's recommended browser-like environment. Needed for any test that touches DOM APIs (e.g., testing `cn()` utility with class merging). Lighter than spinning up a real browser. |
+| vite-tsconfig-paths | 6.1.1 | Path alias resolution in Vitest | Resolves `@/lib/scoring`, `@/lib/types`, etc. in tests. Without this, every `@/` import fails in the Vitest environment. One line in vitest config. |
+| @vitest/coverage-v8 | 4.0.18 | Code coverage reporting | V8-native coverage (faster than Istanbul). Must match vitest major.minor.patch exactly. Reports which of the 73 source files have test coverage. |
 
-**Confidence:** HIGH -- Vitest and Playwright are both recommended in the official Next.js 16.1.6 testing documentation (verified via nextjs.org/docs). RTL 16.x confirmed React 19 support via npm peer deps.
+**Why NOT @testing-library/react for v1.1:** The PROJECT.md explicitly defers component tests -- "Vitest units + Playwright E2E sufficient for v1.1." The 22K LOC codebase has zero tests today; the priority is covering pure logic functions (`scoring.ts`, `decompose.ts`, `team-calibration.ts`, `chart-data.ts`) that are testable without DOM. Component tests can be added in v1.2 by simply installing `@testing-library/react@16.3.2` + `@testing-library/dom@10.4.1` later. No architectural decisions need to change.
 
-### Reporting and Visualization Upgrades (Priority 2)
+**What to test first (zero DOM needed):**
+- `scoring.ts` -- `computeHealth()` is a pure function taking steps + gaps + teamSize
+- `team-calibration.ts` -- `getTeamTier()` and `getThresholds()` are pure lookup functions
+- `chart-data.ts` -- `computeHealthTrends()` is a pure data transformation
+- `decompose.ts` -- `extractJsonFromResponse()` and `recoverPartialDecomposition()` are pure parsers
+- `validation.ts` -- Zod schema parsing is trivially testable
+- `utils.ts` -- `cn()`, `truncate()`, `formatDate()` are pure string functions
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| recharts | 3.7.0 | Data visualization charts | For health metric dashboards, gap severity distributions, team load balance visuals, and before/after comparisons. React 19 compatible (verified). SVG-based so charts render crisply in PDF exports. |
-| @react-pdf/renderer | 4.3.2 | Programmatic PDF generation | Replace html2canvas+jsPDF approach. Renders React components directly to PDF with proper fonts, vector graphics, and pagination. No screenshots needed. React 19 compatible (verified). Deterministic output. |
-| date-fns | 4.1.0 | Date formatting/manipulation | Lightweight (tree-shakeable) date library for report timestamps, version timelines, remediation timeframes. No global mutation like Moment.js. |
+### 2. End-to-End Testing (Playwright)
 
-**Confidence:** HIGH for recharts (well-established, verified compat). MEDIUM for @react-pdf/renderer -- it is a significant architectural change from the html2canvas approach but produces far better output. The migration can be incremental (new reports use react-pdf, old approach remains as fallback).
+| Technology | Version | Purpose | Why This, Not Something Else |
+|------------|---------|---------|------------------------------|
+| @playwright/test | 1.58.2 | E2E browser testing | Next.js 16 official recommendation for E2E. Tests real browser flows. Multi-browser support (Chromium, Firefox, WebKit). Built-in auto-waiting eliminates flaky selectors. |
 
-### Production Hardening (Priority 3)
+**No additional dependencies.** Playwright is self-contained. The `npx playwright install` command downloads browser binaries. No React/Next.js peer deps.
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| @sentry/nextjs | 10.39.0 | Error monitoring and tracing | Catches unhandled errors in both client and server. The existing ErrorBoundary catches React errors but logs to console only. Sentry captures stack traces, breadcrumbs, and performance data. Supports Next.js 16 (peer dep: `^13.2.0 \|\| ^14.0 \|\| ^15.0.0-rc.0 \|\| ^16.0.0-0`). |
-| pino | 10.3.1 | Structured server-side logging | Replace scattered console.log/error with structured JSON logs. Fastest Node.js logger. Vercel's log drain can parse structured output. Essential for debugging Claude API failures in production. |
-| pino-pretty | 13.1.3 | Dev-mode log formatting | Human-readable pino output during development. Dev dependency only. |
+**Key E2E flows to cover:**
+1. Submit workflow description -> SSE stream -> analysis appears
+2. View analysis -> export PDF -> file downloads
+3. Library page -> search/filter -> navigate to analysis
 
-**Confidence:** HIGH for Sentry (verified Next.js 16 peer dep support). MEDIUM for pino -- standard choice for Node.js structured logging, but need to verify behavior in Next.js edge runtime (pino works in Node.js runtime, not Edge).
+### 3. API Mocking (MSW)
 
-### Code Quality Tooling (Priority 4)
+| Technology | Version | Purpose | Why This, Not Something Else |
+|------------|---------|---------|------------------------------|
+| msw | 2.12.10 | Network-level API mocking | Intercepts `fetch()` at the network level. Works with Next.js API routes, Anthropic SDK, Vercel KV client. Single peer dep: TypeScript >= 4.8 (project has ^5). No patching of Node internals like nock does. |
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| prettier | 3.8.1 | Code formatting | Eliminates formatting debates. Existing project has ESLint but no formatter. Prettier + ESLint together = consistent codebase. |
-| husky | 9.1.7 | Git hooks | Runs linting and formatting on pre-commit. Prevents broken code from entering the repo. |
-| lint-staged | 16.2.7 | Staged file linting | Only lint/format files being committed, not entire codebase. Fast pre-commit checks. |
+**MSW integration points in this codebase:**
 
-**Confidence:** HIGH -- These are standard, mature tools with no compatibility concerns.
+1. **Claude API mock** -- Intercept `https://api.anthropic.com/v1/messages` to return canned decomposition responses. Eliminates $0.003-0.01 per test run.
 
-### Future Extensibility (Priority 5 -- Prep for Flow Builder)
+2. **Vercel KV mock** -- The `@vercel/kv` client makes HTTP calls to `KV_REST_API_URL`. MSW can intercept these, or tests can use `ALLOW_MEMORY_STORAGE=true` to bypass KV entirely (existing fallback in `db.ts`).
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| @dnd-kit/core | 6.3.1 | Drag and drop framework | For future flow builder where users drag steps to reorder or create workflows manually. React 19 compatible. Accessible by default (keyboard DnD). |
-| @dnd-kit/sortable | 10.0.0 | Sortable lists/grids | Extends @dnd-kit/core for ordered lists (remediation task reordering, phase reorganization). |
-| @dnd-kit/utilities | 3.2.2 | DnD transform helpers | CSS transform utilities for smooth drag animations. Required companion to core. |
-| @tanstack/react-table | 8.21.3 | Headless data tables | For structured comparison views, gap analysis tables, team workload matrices. Headless = full style control with Tailwind. React 19 compatible. |
-| nanoid | 5.1.6 | ID generation | Compact, URL-safe unique IDs for new entities (reasoning cells, flow builder nodes). Smaller and faster than uuid. Already works in Edge runtime. |
+3. **Playwright + MSW** -- For E2E tests, MSW can run in the browser context to mock the SSE decompose endpoint, making E2E tests fast and deterministic.
 
-**Confidence:** HIGH for @dnd-kit (verified React 19 compat). HIGH for @tanstack/react-table. These are "install when needed" -- no cost to defer, but good to have the decision made.
+**MSW handler pattern for this app:**
+```typescript
+import { http, HttpResponse } from 'msw'
+import { setupServer } from 'msw/node'
 
----
+// Mock Claude API -- return a valid decomposition
+const handlers = [
+  http.post('https://api.anthropic.com/v1/messages', () => {
+    return HttpResponse.json({
+      content: [{ type: 'text', text: JSON.stringify({
+        title: 'Test Workflow',
+        steps: [{ id: 'step_1', name: 'Step 1', /* ... */ }],
+        gaps: [],
+      })}],
+      usage: { input_tokens: 100, output_tokens: 200 },
+    })
+  }),
+]
 
-## Development Tools
+export const server = setupServer(...handlers)
+```
 
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| @next/bundle-analyzer | 16.1.6 | Bundle size analysis | Same version as Next.js. Identifies bloat from xlsx, mammoth, etc. Configure via `ANALYZE=true next build`. |
-| typescript (strict mode) | ^5 | Strictness upgrade | Enable `"strict": true`, `"noUncheckedIndexedAccess": true` in tsconfig. Current project may have loose settings. |
+### 4. Analysis Caching (Content Hash -- No New Libraries)
+
+**No npm packages needed.** The codebase already imports `createHash` from Node.js `crypto` in `claude.ts` for prompt version hashing. The same approach works for content-based deduplication.
+
+**Implementation pattern:**
+```typescript
+import { createHash } from 'crypto'
+
+/**
+ * Generate a deterministic cache key for a workflow analysis.
+ * Combines: normalized description + team size + prompt version.
+ * Two identical submissions produce the same hash = cache hit.
+ */
+export function computeAnalysisCacheKey(
+  description: string,
+  teamSize?: number,
+  promptVersion?: string
+): string {
+  const normalized = description
+    .replace(/\r\n/g, '\n')  // OS-agnostic line endings
+    .trim()
+    .toLowerCase()
+
+  const payload = JSON.stringify({
+    d: normalized,
+    t: teamSize ?? null,
+    p: promptVersion ?? 'unknown',
+  })
+
+  return createHash('sha256').update(payload).digest('hex').slice(0, 16)
+}
+```
+
+**Storage strategy:** Use existing Vercel KV with a `cache:` key prefix:
+- Key: `cache:{hash}` -> Value: workflow ID
+- Before calling Claude, compute hash and check KV
+- If hit: load the cached workflow and return it (clone with new ID + timestamps)
+- If miss: call Claude, save result, store cache entry
+
+**Why this approach:**
+- Zero new dependencies
+- KV already has the infrastructure (fail-hard, multi-tier)
+- SHA-256 is collision-resistant for this use case
+- 16-char hex prefix = 64 bits of entropy = effectively no collision risk at workflow scale
+- Cache invalidation: prompt version is part of the hash, so upgrading the system prompt automatically invalidates stale cache entries
+
+### 5. Advanced Analytics (Dashboard Enhancements -- No New Libraries)
+
+**No npm packages needed.** Recharts 3.7.0 is already installed and handles all visualization needs.
+
+**What Recharts already supports for v1.1 analytics:**
+- `<LineChart>` -- already used for health trends; extend for time-series tracking across versions
+- `<BarChart>` -- batch comparison (before/after health deltas across multiple workflows)
+- `<RadarChart>` -- multi-dimensional health comparison (complexity vs fragility vs automation vs load balance)
+- `<ComposedChart>` -- combine line + bar for trend-over-count visualization
+- `<AreaChart>` -- cumulative metrics over time
+
+**Data flow for advanced analytics:**
+1. `chart-data.ts` already has `computeHealthTrends()` grouping by week/month
+2. Extend with: `computeBatchComparison()` for side-by-side workflow analysis
+3. Extend with: `computeVersionDelta()` for tracking a single workflow across revisions
+4. All pure functions -- no state management changes, no new API routes
+
+**What the existing `Workflow` type already provides for analytics:**
+- `createdAt` / `updatedAt` -- time-series ordering
+- `parentId` / `version` -- version chain traversal
+- `decomposition.health` -- all four health metrics
+- `decomposition.gaps` -- gap type and severity distribution
+- `tokenUsage` -- cost tracking over time
+- `costContext.teamSize` -- team-size segmented analytics
 
 ---
 
 ## Installation
 
 ```bash
-# Testing (Priority 1)
-npm install -D vitest@^4.0.18 @vitejs/plugin-react@^5.1.4 jsdom@^28.1.0 vite-tsconfig-paths@^6.1.1 @testing-library/react@^16.3.2 @testing-library/dom@^10.4.1 @testing-library/user-event@^14.6.1 @testing-library/jest-dom@^6.9.1 @vitest/coverage-v8@^4.0.18 @playwright/test@^1.58.2 msw@^2.12.10
+# Testing infrastructure (all dev dependencies)
+npm install -D vitest@^4.0.18 @vitejs/plugin-react@^5.1.4 jsdom@^28.1.0 vite-tsconfig-paths@^6.1.1 @vitest/coverage-v8@^4.0.18 @playwright/test@^1.58.2 msw@^2.12.10
 
-# After Playwright install, get browser binaries
-npx playwright install
-
-# Reporting (Priority 2)
-npm install recharts@^3.7.0 @react-pdf/renderer@^4.3.2 date-fns@^4.1.0
-
-# Production Hardening (Priority 3)
-npm install @sentry/nextjs@^10.39.0 pino@^10.3.1
-npm install -D pino-pretty@^13.1.3
-
-# Code Quality (Priority 4)
-npm install -D prettier@^3.8.1 husky@^9.1.7 lint-staged@^16.2.7
-
-# Bundle Analysis (optional)
-npm install -D @next/bundle-analyzer@16.1.6
-
-# Future -- install when flow builder phase begins
-npm install @dnd-kit/core@^6.3.1 @dnd-kit/sortable@^10.0.0 @dnd-kit/utilities@^3.2.2 @tanstack/react-table@^8.21.3 nanoid@^5.1.6
+# Download Playwright browser binaries
+npx playwright install --with-deps chromium
 ```
 
----
-
-## Alternatives Considered
-
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|-------------------------|
-| Vitest | Jest | Never for this project. Jest requires Babel config for ESM/TS, slower, and Next.js 16 officially recommends Vitest. |
-| Playwright | Cypress | If team already has Cypress expertise. Otherwise Playwright is faster, supports 3 browsers, and is Next.js-recommended. |
-| @react-pdf/renderer | jsPDF + html2canvas (current) | Keep current approach for quick patches. But for new reporting features, react-pdf produces deterministic, professional PDFs without screenshot artifacts. |
-| recharts | Chart.js / react-chartjs-2 | If you need 3D charts or WebGL rendering. recharts is simpler, React-native, SVG-based, and sufficient for health metrics and gap analysis. |
-| recharts | D3.js direct | If you need highly custom visualizations beyond standard charts. D3 has a steep learning curve and imperative API that fights React's declarative model. recharts wraps D3 internals. |
-| pino | winston | Never for this project. Winston is slower, heavier, and designed for long-running processes. Pino is optimized for serverless/short-lived functions. |
-| @sentry/nextjs | LogRocket / Datadog | If you need session replay (LogRocket) or full APM (Datadog). Sentry is the best fit for error monitoring in a Vercel-deployed Next.js app at this scale. |
-| @dnd-kit/core | react-beautiful-dnd | Never. react-beautiful-dnd is deprecated/unmaintained (Atlassian dropped it). @dnd-kit is the active successor with accessibility built in. |
-| @tanstack/react-table | AG Grid | If you need Excel-like editing, 100K+ rows, or enterprise features. AG Grid is heavy (300KB+) and overkill for diagnostic tables. |
-| msw | nock | Never for this project. nock patches Node.js http module directly -- doesn't work with fetch() in Next.js API routes. msw intercepts at the network level and works everywhere. |
-| date-fns | dayjs | Either is fine. date-fns is tree-shakeable by default and has better TypeScript types. dayjs is smaller if you only need formatting. |
-| nanoid | uuid | If you need RFC 4122 compliance. nanoid is smaller (130B), faster, and URL-safe by default. |
-| Prettier | Biome | If you want a single tool for lint+format. Biome is faster but has less ecosystem support (no Tailwind class sorting plugin yet). Stick with Prettier + ESLint for now. |
+**That is it.** No production dependencies change for v1.1. All additions are devDependencies.
 
 ---
 
-## What NOT to Use
+## Configuration Files
 
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| Jest | Requires babel-jest transforms, slower startup, poor ESM support, not recommended by Next.js 16 docs | Vitest |
-| react-beautiful-dnd | Deprecated by Atlassian, no React 19 support, unmaintained | @dnd-kit/core |
-| Moment.js | Massive bundle (300KB), mutable API, officially in maintenance mode | date-fns |
-| nock | Patches Node.js http internals; breaks with fetch()-based APIs in Next.js | msw |
-| Enzyme | Dead project. No React 18+ support, let alone React 19 | @testing-library/react |
-| winston | Designed for long-running servers, not serverless. Heavier, slower than pino | pino |
-| Vercel AI SDK (ai package) | Adds unnecessary abstraction layer. The app already uses @anthropic-ai/sdk directly with custom prompt management and token tracking. The AI SDK would require rewriting the Claude integration for no benefit. | Keep @anthropic-ai/sdk direct |
-| @upstash/ratelimit | Requires Upstash Redis. The existing in-memory rate limiter works fine for Vercel's per-instance model. Only consider if the app scales to multiple concurrent instances needing shared rate limit state. | Keep current in-memory rate-limit.ts |
-| next-safe-action | Adds ceremony (server actions wrapper) without clear benefit. The existing API route pattern with Zod validation is clean and working. Server actions are useful for form mutations, but this app's AI analysis calls are long-running and better suited to API routes with streaming. | Keep API routes + Zod |
-
----
-
-## Stack Patterns by Variant
-
-**If adding team-size-aware analysis:**
-- No new libraries needed. Extend existing `CostContext` type with richer team modeling.
-- Use recharts for team workload visualization (bar charts showing load distribution across team members).
-- The scoring algorithm in `scoring.ts` already accounts for owner distribution; extend it with team-size-weighted calculations.
-
-**If upgrading PDF reports:**
-- Phase 1: Keep jsPDF+html2canvas for existing reports
-- Phase 2: Build new report templates with @react-pdf/renderer
-- Phase 3: Migrate old reports to react-pdf, remove html2canvas dependency
-- Use recharts SVG output embedded in react-pdf documents for charts in PDFs
-
-**If building flow builder (future):**
-- @xyflow/react already handles visualization
-- Add @dnd-kit for drag-to-create interactions (dragging step templates onto the canvas)
-- Use Zustand for flow builder state (already the state management choice)
-
-**If adding reasoning cells (future):**
-- No new stack additions needed
-- Extend the existing Layer type (`"cell"` layer already exists in types.ts)
-- Use existing @anthropic-ai/sdk with structured outputs for cell decomposition
-
----
-
-## Version Compatibility Matrix
-
-| Package | Compatible With | Notes |
-|---------|-----------------|-------|
-| vitest@4.0.18 | @vitest/coverage-v8@4.0.18 | Must match exact major.minor.patch |
-| @testing-library/react@16.3.2 | react@^19.0.0, @testing-library/dom@^10.0.0 | Verified React 19 peer dep |
-| @react-pdf/renderer@4.3.2 | react@^19.0.0 | Verified React 19 peer dep |
-| recharts@3.7.0 | react@^19.0.0, react-dom@^19.0.0 | Also requires react-is as peer dep |
-| @sentry/nextjs@10.39.0 | next@^16.0.0-0 | Verified Next.js 16 peer dep |
-| @playwright/test@1.58.2 | (standalone) | No React/Next peer deps; tests via browser |
-| msw@2.12.10 | typescript@>=4.8 | No React peer deps; works at network level |
-| @dnd-kit/core@6.3.1 | react@>=16.8.0 | Broad React compat including 19 |
-| @tanstack/react-table@8.21.3 | react@>=16.8, react-dom@>=16.8 | Headless; no DOM-specific peer deps |
-| pino@10.3.1 | Node.js runtime only | Does NOT work in Edge runtime. Use Node.js runtime for API routes that need logging. |
-| recharts@3.7.0 | requires react-is peer | Install react-is alongside recharts if not already present |
-
----
-
-## Configuration Notes
-
-### Vitest Config (vitest.config.mts)
+### vitest.config.mts
 
 ```typescript
 import { defineConfig } from 'vitest/config'
@@ -222,17 +207,25 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
-      include: ['src/lib/**', 'src/components/**'],
-      exclude: ['src/test/**', '**/*.d.ts'],
+      include: ['src/lib/**/*.ts'],
+      exclude: ['src/test/**', '**/*.d.ts', 'src/lib/types.ts'],
+      thresholds: {
+        // Start low, ratchet up as tests are added
+        statements: 40,
+        branches: 30,
+        functions: 40,
+        lines: 40,
+      },
     },
   },
 })
 ```
 
-### Playwright Config (playwright.config.ts)
+### playwright.config.ts
 
 ```typescript
 import { defineConfig } from '@playwright/test'
@@ -241,42 +234,252 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: process.env.CI ? 'github' : 'html',
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
+    timeout: 30_000,
   },
   use: {
     baseURL: 'http://localhost:3000',
+    trace: 'on-first-retry',
   },
+  projects: [
+    { name: 'chromium', use: { browserName: 'chromium' } },
+  ],
 })
 ```
 
-### MSW Handler Pattern (for mocking Claude API)
+### src/test/setup.ts (Vitest global setup)
+
+```typescript
+import { beforeAll, afterEach, afterAll } from 'vitest'
+import { server } from './mocks/server'
+
+// Start MSW server before all tests
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+
+// Reset handlers between tests (so per-test overrides don't leak)
+afterEach(() => server.resetHandlers())
+
+// Clean shutdown
+afterAll(() => server.close())
+```
+
+### src/test/mocks/server.ts (MSW setup)
+
+```typescript
+import { setupServer } from 'msw/node'
+import { handlers } from './handlers'
+
+export const server = setupServer(...handlers)
+```
+
+### src/test/mocks/handlers.ts (MSW handlers)
 
 ```typescript
 import { http, HttpResponse } from 'msw'
 
 export const handlers = [
+  // Mock Claude decomposition API
   http.post('https://api.anthropic.com/v1/messages', () => {
     return HttpResponse.json({
-      content: [{ type: 'text', text: '{"steps": [...], "gaps": [...]}' }],
-      usage: { input_tokens: 100, output_tokens: 200 },
+      id: 'msg_test',
+      type: 'message',
+      role: 'assistant',
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          title: 'Test Workflow Analysis',
+          steps: [{
+            id: 'step_1', name: 'Receive Request',
+            description: 'Customer submits request',
+            owner: 'Support', layer: 'human',
+            inputs: ['request'], outputs: ['ticket'],
+            tools: ['Zendesk'], automationScore: 30,
+            dependencies: [],
+          }],
+          gaps: [{
+            type: 'manual_overhead', severity: 'medium',
+            stepIds: ['step_1'],
+            description: 'Manual ticket creation',
+            suggestion: 'Automate intake with form',
+            confidence: 'high',
+          }],
+        }),
+      }],
+      usage: { input_tokens: 150, output_tokens: 300 },
     })
   }),
 ]
 ```
 
+### package.json scripts additions
+
+```json
+{
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
+  }
+}
+```
+
+---
+
+## Alternatives Considered
+
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|-------------------------|
+| Vitest 4.0 | Jest | Never for this project. Jest needs Babel for ESM + TS. Vitest is Vite-native, sub-second startup, and Next.js 16's official recommendation. |
+| Playwright 1.58 | Cypress | Only if team has existing Cypress expertise. Playwright is faster (parallel by default), supports 3 browser engines, has better Next.js integration, and is Next.js-recommended. |
+| MSW 2.12 | nock | Never. nock patches Node.js `http` module internals. It breaks with `fetch()` API (used by Anthropic SDK, Vercel KV client, Next.js internals). MSW intercepts at the network level and works with all request clients. |
+| Node.js crypto (SHA-256) | External hash library (xxhash, murmurhash) | Only if hashing millions of documents per second. For workflow-scale (tens per day), SHA-256 is fast enough, already imported, and cryptographically sound. Zero dependency cost. |
+| KV-based cache | Redis with TTL | Only if cache needs automatic expiration. For v1.1, manual invalidation via prompt-version-in-hash is cleaner. Adding a TTL layer would require Upstash Redis directly, bypassing the @vercel/kv abstraction. |
+| Recharts (existing) | Nivo / Victory / Chart.js | No reason to switch. Recharts 3.7 is already installed, React 19 compatible, handles all chart types needed, and the team has patterns for it. Switching costs for zero benefit. |
+| jsdom | happy-dom | happy-dom is faster but has edge cases with some DOM APIs. jsdom is the safer default and Vitest's recommended choice. If test speed becomes an issue (unlikely with pure-logic tests), swap later -- it is a one-line config change. |
+
+---
+
+## What NOT to Add
+
+| Do Not Add | Why | What Exists Instead |
+|------------|-----|---------------------|
+| @testing-library/react | Deferred to v1.2 per PROJECT.md. v1.1 focuses on pure-logic unit tests + Playwright E2E. Adding RTL now creates scope creep with no payoff for the priority test targets (scoring, decompose, chart-data). | Vitest for units, Playwright for UI |
+| date-fns / dayjs | No date manipulation needed for v1.1. `new Date().toISOString()` and `toLocaleDateString()` already handle all date formatting. Chart-data bucketing uses native Date arithmetic. | Native Date API (already working) |
+| Redis / ioredis | The cache layer uses existing Vercel KV. Adding a separate Redis client creates two storage abstractions and complicates deployment. | @vercel/kv (already installed) |
+| uuid / nanoid | `crypto.randomUUID()` already used in `utils.ts` for ID generation. Works in Node 25.6.1. No external library needed. | `crypto.randomUUID()` |
+| @sentry/nextjs | Explicitly deferred to v1.2 in PROJECT.md ("not blocking current usage"). | `console.error` + AppError pattern |
+| prettier / husky / lint-staged | Code quality tooling is nice-to-have but not in v1.1 scope. The project has ESLint already. | ESLint (existing) |
+| @react-pdf/renderer | PDF system works with jsPDF. Switching mid-milestone adds risk for no v1.1 requirement. | jsPDF + pdf-shared.ts (existing) |
+
+---
+
+## Version Compatibility Matrix
+
+| Package | Version | Compatible With | Verification |
+|---------|---------|-----------------|--------------|
+| vitest | 4.0.18 | @vitest/coverage-v8@4.0.18 | Must match exact version. Peer dep: `4.0.18` |
+| vitest | 4.0.18 | @types/node@^20.0.0 or ^22.0.0 or >=24.0.0 | Project has @types/node@^20 -- compatible |
+| vitest | 4.0.18 | jsdom@* (any version) | Wildcard peer dep |
+| @vitejs/plugin-react | 5.1.4 | vitest 4.x | Plugin API stable across Vite 6.x |
+| vite-tsconfig-paths | 6.1.1 | vitest 4.x | Vite plugin, version-agnostic |
+| @playwright/test | 1.58.2 | (standalone) | No React/Next.js peer deps |
+| msw | 2.12.10 | typescript >= 4.8 | Project has TypeScript ^5 -- compatible |
+| jsdom | 28.1.0 | vitest 4.x | Vitest accepts any jsdom version |
+
+**No conflicts with existing stack.** All additions are devDependencies that do not affect the production bundle.
+
+---
+
+## Caching Architecture Detail
+
+### Cache Key Composition
+
+The cache key must change when any input that affects the analysis changes:
+
+| Component | Why Included | What Invalidates |
+|-----------|--------------|------------------|
+| Normalized description | Different workflows produce different analyses | User changes the description text |
+| teamSize | Team tier changes scoring multipliers in `team-calibration.ts` | User submits same workflow with different team size |
+| Prompt version | `claude.ts` already hashes the system prompt with SHA-256 | Developer updates `decompose-system.md` prompt file |
+
+**Deliberately NOT included in cache key:**
+- `costContext.hourlyRate` / `hoursPerStep` -- These are display-only metadata, not analysis inputs
+- `costContext.teamContext` -- Free-text field appended to description; already captured in description normalization
+- `stages` / `context` -- These are included in the description string when enriched in the decompose route
+- Model ID -- Tied to prompt version in practice (model changes coincide with prompt updates)
+
+### Cache Storage Layout (Vercel KV)
+
+```
+cache:{hash16}  ->  { workflowId: string, createdAt: string, tokensSaved: number }
+```
+
+- `hash16` = first 16 hex chars of SHA-256 (64 bits, effectively collision-free at workflow scale)
+- `workflowId` = points to the canonical analysis in `workflow:{id}`
+- `tokensSaved` = accumulated token savings for cost monitoring
+- No TTL needed -- prompt version in hash auto-invalidates on prompt changes
+
+### Cache Integration Point
+
+The cache check goes in the decompose API route (`src/app/api/decompose/route.ts`), between validation and the Claude call:
+
+```
+1. Validate input (existing)
+2. Compute cache key from (description + teamSize + promptVersion)  <-- NEW
+3. Check KV for cache:{key}                                          <-- NEW
+4. If hit: load cached workflow, clone with new ID/timestamps, save, return  <-- NEW
+5. If miss: call Claude (existing), save result, store cache entry   <-- NEW (store step)
+6. Return result via SSE (existing)
+```
+
+---
+
+## Analytics Data Model Extension
+
+### What Already Exists
+
+`chart-data.ts` has `computeHealthTrends()` that groups workflows by week/month and computes per-period averages. The `Workflow` type has `parentId`, `version`, `tokenUsage`, and `costContext` -- all the data needed for advanced analytics.
+
+### New Pure Functions Needed (No New Types Required)
+
+| Function | Input | Output | Purpose |
+|----------|-------|--------|---------|
+| `computeBatchComparison(workflows[])` | Array of workflows | Array of `{ title, health, gapCounts }` | Side-by-side health comparison for dashboard |
+| `computeVersionDelta(versions[])` | Workflows sharing a parentId | Array of `{ version, healthDelta, gapsResolved, gapsNew }` | Track how a single workflow improves over revisions |
+| `computeTokenCostTrend(workflows[])` | Array of workflows with tokenUsage | Array of `{ date, totalTokens, cachedCount, apiCount }` | Token spend monitoring (validates caching ROI) |
+| `computeGapDistribution(workflows[])` | Array of workflows | `{ [gapType]: count }` | Aggregate gap type frequency across all analyses |
+
+All of these are pure data transformations on existing types. No new API routes, no new state management, no new libraries.
+
+### Dashboard Recharts Components
+
+| Chart Type | Recharts Component | Data Source | Already Available? |
+|------------|-------------------|-------------|-------------------|
+| Health trends over time | `<LineChart>` | `computeHealthTrends()` | Yes (existing) |
+| Batch health comparison | `<BarChart>` | `computeBatchComparison()` | Recharts installed, function needed |
+| Gap type distribution | `<BarChart>` or `<PieChart>` | `computeGapDistribution()` | Recharts installed, function needed |
+| Version improvement | `<LineChart>` | `computeVersionDelta()` | Recharts installed, function needed |
+| Token spend trend | `<AreaChart>` | `computeTokenCostTrend()` | Recharts installed, function needed |
+| Multi-metric radar | `<RadarChart>` | Existing health metrics | Recharts installed, component needed |
+
+---
+
+## Testing Strategy by Module
+
+Priority order based on risk and testability:
+
+| Module | File | Test Type | Complexity | Why This Priority |
+|--------|------|-----------|------------|-------------------|
+| Scoring | `scoring.ts` | Vitest unit | Low | Pure function, core business logic, 4 team tiers to validate |
+| Team calibration | `team-calibration.ts` | Vitest unit | Low | Pure lookups, easy to cover all branches |
+| Chart data | `chart-data.ts` | Vitest unit | Low | Pure transformation, critical for dashboard correctness |
+| Decompose parser | `decompose.ts` | Vitest unit | Medium | `extractJsonFromResponse` + `recoverPartialDecomposition` are pure; `decomposeWorkflow` needs MSW mock |
+| Validation | `validation.ts` | Vitest unit | Low | Zod schemas are trivially testable with `.safeParse()` |
+| Cache logic | New `cache.ts` | Vitest unit | Low | Pure hash function + KV lookup (mock KV) |
+| Analytics | New functions in `chart-data.ts` | Vitest unit | Low | Pure data transformations |
+| Submit flow | E2E | Playwright | High | Full user flow: input -> stream -> result display |
+| Export flow | E2E | Playwright | Medium | Click export -> PDF downloads |
+| Library | E2E | Playwright | Medium | Search, filter, navigate |
+
 ---
 
 ## Sources
 
-- **Next.js 16.1.6 Testing Docs (Vitest)** -- https://nextjs.org/docs/app/building-your-application/testing/vitest -- Verified 2026-02-16, doc version 16.1.6. Confirms Vitest + @testing-library/react as recommended setup. HIGH confidence.
-- **Next.js 16.1.6 Testing Docs (Playwright)** -- https://nextjs.org/docs/app/building-your-application/testing/playwright -- Verified 2026-02-16, doc version 16.1.6. Confirms Playwright for E2E. HIGH confidence.
-- **npm registry** -- All version numbers and peer dependencies verified via `npm view [package] version peerDependencies` on 2026-02-16. HIGH confidence.
-- **Existing codebase analysis** -- Read package.json, types.ts, store.ts, claude.ts, rate-limit.ts, scoring.ts, pdf-export.ts, error-boundary.tsx to understand current patterns and identify gaps. HIGH confidence.
+- **npm registry** -- All versions and peer dependencies verified via `npm view [package] version peerDependencies` on 2026-02-18. HIGH confidence.
+- **Existing codebase** -- Read `package.json`, `tsconfig.json`, `claude.ts`, `decompose.ts`, `scoring.ts`, `team-calibration.ts`, `chart-data.ts`, `db.ts`, `store.ts`, `utils.ts`, `validation.ts`, `api/decompose/route.ts` to map integration points. HIGH confidence.
+- **v1.0 STACK.md** -- Referenced previous research for consistency. Versions re-verified against npm registry (all match). HIGH confidence.
+- **PROJECT.md (v1.1 scope)** -- Used to determine what is in-scope vs deferred. Explicit deferrals: component tests (RTL), Sentry, code quality tooling. HIGH confidence.
+- **Next.js testing docs** -- Vitest and Playwright recommended by Next.js 16 official docs (verified in v1.0 research, versions still current). HIGH confidence.
+- **Node.js crypto** -- `createHash('sha256')` verified working on Node 25.6.1 via direct test execution. HIGH confidence.
 
 ---
 
-*Stack research for: Workflow X-Ray production hardening milestone*
-*Researched: 2026-02-16*
+*Stack research for: Workflow X-Ray v1.1 Quality & Intelligence milestone*
+*Researched: 2026-02-18*

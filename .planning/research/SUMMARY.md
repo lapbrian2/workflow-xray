@@ -1,296 +1,240 @@
 # Project Research Summary
 
-**Project:** Workflow X-Ray Production Hardening
-**Domain:** AI-powered workflow analysis / operational diagnostics for consulting teams
-**Researched:** 2026-02-16
+**Project:** Workflow X-Ray v1.1 — Quality & Intelligence
+**Domain:** AI-powered workflow analysis tool — testing infrastructure, analysis caching, advanced analytics
+**Researched:** 2026-02-18
 **Confidence:** HIGH
 
 ## Executive Summary
 
-Workflow X-Ray is an AI-powered workflow analysis tool for consulting teams that uses Claude Sonnet to decompose workflows, identify 7 types of gaps, compute 4-dimensional health metrics, and generate phased remediation plans. The application has a solid technical foundation built on Next.js 16, React 19, and @anthropic-ai/sdk with rich features including multi-source extraction, visual flow diagrams, version comparison, and Notion integration. However, critical production gaps exist in authentication, data persistence, rate limiting, and testing that must be addressed before team-wide deployment.
+Workflow X-Ray v1.1 focuses on production readiness through four parallel objectives: (1) closing three display-layer debt items from v1.0, (2) establishing comprehensive test coverage, (3) implementing content-based analysis caching to reduce API costs, and (4) extending analytics with time-series health tracking and batch comparison capabilities. The existing architecture is well-suited for these additions — all features can be implemented with devDependencies only, no production stack changes required.
 
-Research reveals this product occupies a unique market position. Unlike workflow management tools (Process Street, Kissflow) that focus on execution, or diagramming tools (Lucidchart) that focus on visualization, Workflow X-Ray provides AI-powered diagnostic analysis—automated gap identification and health scoring—that no mainstream competitor offers. The hardening strategy should strengthen this diagnostic advantage rather than expanding into workflow execution or collaborative editing features that competitors already own.
+The recommended approach leverages Next.js 16's officially supported testing tools (Vitest + Playwright + MSW) and reuses existing infrastructure patterns (Node.js crypto for content hashing, Vercel KV for cache storage, Recharts for new visualizations). The test infrastructure should be built first to create a safety net before modifying the critical decompose route for caching. Analytics components are additive and should come last, as they depend on the `cacheHit` field added during the caching phase.
 
-The recommended approach follows three sequential phases: Foundation (infrastructure and security fixes that prevent data loss and unauthorized access), Reliability (team-size-aware analysis, testing infrastructure, and graceful AI failure handling), and Polish (performance optimization, consulting-grade exports, and accessibility). Seven critical pitfalls were identified, with the most severe being silent data loss from in-memory storage fallback, auth bypass via format-only cookie validation, and per-isolate rate limiting that provides zero actual protection in production.
+Key risks center on maintaining test speed and avoiding brittle integration tests. The mitigation strategy is clear architectural separation: pure business logic tests (scoring, decompose, chart-data) use no mocks and run in milliseconds; API route tests use MSW to intercept Claude calls at the network level, preserving the full validation pipeline; E2E tests use an environment variable toggle to bypass real API calls. This layered approach ensures tests remain fast, deterministic, and maintainable as the codebase grows.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The existing stack is production-ready (Next.js 16.1.6, React 19, TypeScript, Tailwind, @anthropic-ai/sdk, @xyflow/react, Zustand, Vercel KV/Blob). Research identified four priority areas for additions: testing infrastructure (highest priority—zero coverage today), reporting upgrades, production hardening, and code quality tooling.
+**No production dependencies change for v1.1.** All additions are devDependencies. The existing stack (Next.js 16, React 19, TypeScript, Claude Sonnet 4, Vercel KV/Blob, Zustand, Recharts) handles all v1.1 requirements without modification.
 
-**Core additions (Priority 1—Testing):**
-- Vitest 4.0.18 — Next.js 16 official recommendation, faster than Jest, native ESM support
-- @testing-library/react 16.3.2 — React 19 compatible, de facto standard for component testing
-- @playwright/test 1.58.2 — Next.js 16 recommended E2E framework
-- msw 2.12.10 — Network-level API mocking for testing Claude responses without API costs
+**Core additions (testing infrastructure):**
+- **Vitest 4.0.18** — Unit/integration test runner — Next.js 16 official recommendation, native ESM/TypeScript support, sub-second startup, works with existing `@/*` path aliases via vite-tsconfig-paths
+- **Playwright 1.58.2** — E2E browser testing — Next.js 16 official recommendation, multi-browser support, built-in auto-waiting eliminates flaky tests
+- **MSW 2.12.10** — Network-level API mocking — Intercepts `fetch()` calls to Anthropic API and Vercel KV at network layer, works with all HTTP clients without patching Node internals
+- **jsdom 28.1.0** — DOM environment for Vitest — Lightweight browser-like environment for testing DOM APIs without spinning up a real browser
+- **@vitest/coverage-v8 4.0.18** — Code coverage reporting — V8-native coverage (faster than Istanbul), must match Vitest version exactly
 
-**Priority 2 (Reporting):**
-- recharts 3.7.0 — Data visualization for health metric dashboards, SVG-based for crisp PDF exports
-- @react-pdf/renderer 4.3.2 — Programmatic PDF generation, replaces html2canvas for consistent output
-- date-fns 4.1.0 — Lightweight date formatting for report timestamps
+**Analysis caching (no new libraries):**
+- **Node.js crypto (SHA-256)** — Already imported in `claude.ts` for prompt versioning; same pattern works for content-based deduplication; zero dependency cost
+- **Vercel KV with `cache:` prefix** — Reuses existing storage infrastructure; fast lookup, TTL support for auto-expiration, same multi-tier fallback pattern
 
-**Priority 3 (Production hardening):**
-- @sentry/nextjs 10.39.0 — Error monitoring with Next.js 16 support, captures production failures
-- pino 10.3.1 — Structured server-side logging for debugging Claude API failures
-
-**Priority 4 (Code quality):**
-- prettier 3.8.1, husky 9.1.7, lint-staged 16.2.7 — Consistent formatting, pre-commit hooks
-
-**Note:** Avoid Jest (slower, requires Babel config), react-beautiful-dnd (deprecated), Moment.js (maintenance mode), and Vercel AI SDK (adds unnecessary abstraction over the existing direct Claude integration).
+**Advanced analytics (no new libraries):**
+- **Recharts 3.7.0 (existing)** — Already installed and handles all v1.1 chart types: LineChart for version health trajectories, BarChart for batch comparisons, AreaChart for cumulative metrics, RadarChart for multi-dimensional health views
+- **Pure functions in chart-data.ts** — `computeVersionChainTrends()`, `computeBatchComparison()`, `computeTokenCostTrend()` — client-side computations on existing Workflow type
 
 ### Expected Features
 
-The application already implements extensive functionality: workflow decomposition, multi-source extraction (text, URL, file, screenshot, Notion, crawl), visual flow diagrams, gap analysis, health metrics, remediation planning, version comparison, PDF export, team dashboard, and password auth. Research identified three feature categories for hardening.
+**v1.1 target features (from milestone spec):**
 
-**Must have (table stakes for consulting-grade tool):**
-- Test coverage — Zero tests today means zero confidence for client-facing tool
-- Team-size-aware analysis calibration — A 1-person workflow and 50-person workflow need different gap analysis; current scoring ignores team context
-- Graceful AI failure handling — Claude sometimes returns malformed JSON, hallucinates step IDs, or times out; needs retry logic and partial result display
-- Consistent error handling across API routes — Some routes have rich handling, others have bare try/catch
-- Data persistence reliability — In-memory fallback loses data on cold start; needs explicit warnings and localStorage-to-server sync robustness
+**Must have (core deliverables):**
+- **Debt closure** — Fix 3 display-layer gaps identified in v1.0 audit (not documented in current research, assumed from milestone context)
+- **Vitest unit tests** — Cover pure business logic: scoring.ts (computeHealth), team-calibration.ts (team tiers), chart-data.ts (trend computation), decompose.ts (JSON extraction, integrity checks), validation.ts (Zod schemas)
+- **Playwright E2E tests** — Critical user flows: submit workflow to SSE stream to analysis display; export PDF; library search/filter
+- **MSW API mocks** — Claude API fixtures for deterministic testing, KV storage mocks for integration tests
+- **Analysis caching** — Content hash deduplication (SHA-256 of normalized description + team size + prompt version); cache stored in Vercel KV with 7-day TTL; reduces API costs 40-60% for iterative workflows
+- **Time-series health tracking** — Health metric trends across workflow versions (complexity, fragility, automationPotential, teamLoadBalance deltas over time)
+- **Batch comparison trends** — Aggregate comparison insights across multiple workflow pairs; "engagement reduced total fragility by 34%" analytics
 
-**Should have (competitive advantage):**
-- Team-size-adaptive scoring engine — Health metrics that change meaning based on team size (e.g., fragility score of 70 means "concerning" for 20-person team but "expected" for solo operator)
-- AI analysis caching and deduplication — Same workflow description should not cost another API call; cache by content hash
-- Time-series health tracking — Show how workflow health changes across versions over time
-- Confidence indicators per analysis section — Show where AI is confident vs. guessing
+**Should have (polish if time permits):**
+- **Force re-analyze option** — Optional `skipCache` parameter to bypass cache and always call Claude (for when users edit descriptions and need fresh analysis)
+- **Cache hit indicators** — Display badge showing "This analysis used cached results" with token savings
 
-**Defer (v2+):**
-- Batch engagement comparison — Compare client's workflows at intake vs. after remediation across ALL workflows
-- Consulting-grade PDF export — Current PDF works but needs structured generation, company logo, executive summary
-- Role-based analysis perspectives — Executive view (ROI, risk) vs. operator view (tasks, tools)
-- Industry/domain templates — Pre-loaded workflow templates for common consulting verticals
-
-**Anti-features (commonly requested but problematic):**
-- Real-time collaborative editing — Consulting work is deliberate/asynchronous, not real-time; adds 5x infrastructure complexity
-- Custom AI model selection — Multi-model support triples maintenance burden; Claude Sonnet is best for this use case
-- Workflow execution/automation engine — This is a diagnostic tool, not an orchestration platform; different product entirely
+**Defer (v1.2+):**
+- **Component tests with @testing-library/react** — PROJECT.md explicitly defers component tests; Vitest units + Playwright E2E sufficient for v1.1
+- **Advanced error monitoring (Sentry)** — Deferred to v1.2 per PROJECT.md; console.error + AppError pattern adequate for v1.1
 
 ### Architecture Approach
 
-The current architecture follows Next.js App Router conventions with clean separation of concerns. The system has three tiers: client (React with Zustand for UI state, localStorage cache), server (13 API routes with shared libraries for Claude, storage, scoring, validation), and external services (Claude API, Firecrawl, Notion, Vercel KV/Blob). The architecture is well-suited for consulting team scale (1-10 users) and requires minimal structural changes.
+The v1.1 features integrate cleanly into the existing three-layer architecture (client to server API routes to storage/external services) without structural changes. Testing infrastructure reads existing code without modification. Caching inserts a single check-and-write layer in the decompose route before and after the Claude call. Analytics are pure client-side computations that extend the existing dashboard page with new components.
 
 **Major components:**
-1. **API Routes (src/app/api/)** — 13 endpoints handle decompose, remediation, extraction, comparison, Notion sync, PDF export, auth; each independently manages rate limiting and validation
-2. **Claude Integration (src/lib/claude.ts)** — Four prompt-specific wrapper functions with system prompt versioning via content hashing; implements prompt caching to reduce costs
-3. **Multi-tier Storage (src/lib/db.ts)** — Strategy pattern for KV > Blob > Memory fallback; abstracts backend selection from callers
-4. **Defensive AI Processing (src/lib/decompose.ts)** — Three-stage pipeline: JSON extraction → Zod validation → referential integrity repair; prevents malformed AI output from corrupting workflow library
-5. **Client State Management** — Zustand for UI-only state (input mode, loading, selected node), localStorage for optimistic workflow caching with merge-on-load
 
-**Key architectural improvements (additive, not rewrites):**
-1. **Layered error handling** — Add Next.js error.tsx files at strategic levels (global, app, xray/[id]) for route-specific error UX; current ErrorBoundary is client-only
-2. **API route standardization** — Extract shared api-utils.ts for error responses, rate limit wrapper, body parsing; eliminates 5-8 lines of duplicated boilerplate per route
-3. **Team context integration** — Create shared team-context.ts for prompt building; enhance decompose-system.md with team-size-aware instructions
-4. **Testing infrastructure** — Refactor for testable seams before writing tests (AIClient interface, StorageProvider interface, pure functions for business logic)
-5. **Structured logging** — Add lightweight logger utility with request ID tracking across multi-step operations for production debugging
+1. **Testing layer (new)** — `__tests__/` directory at project root mirroring `src/` structure; Vitest config with path aliases and Node environment (server-side tests, not jsdom); MSW server setup in `__tests__/mocks/` with Claude API fixtures; Playwright config with webServer auto-start; no existing source files modified (tests are read-only consumers)
 
-**Anti-patterns identified and avoided:**
-- Duplicated rate limit boilerplate across routes (extract to shared utility)
-- Inline error message mapping (create apiErrorFromException classifier)
-- Missing route-level error boundaries (add error.tsx at page levels)
-- No input sanitization standard (define constants for size limits)
+2. **Cache layer (new)** — `src/lib/analysis-cache.ts` module computing SHA-256 content hashes from normalized input; `computeAnalysisHash()` function using `crypto.createHash()` (already imported in claude.ts); cache entries stored in Vercel KV with `cache:{hash16}` key pattern; decompose route modified to check cache before calling Claude and write cache after validation; cache HIT returns pre-validated Decomposition object (post-Zod, post-integrity-check) for instant response
+
+3. **Advanced analytics (new)** — `src/lib/analytics.ts` with pure functions for cross-workflow computations; `chart-data.ts` extended with `computeVersionChainTrends()` for version-over-version health deltas; new dashboard components in `src/components/analytics/` (version-trajectory, cost-breakdown, gap-heatmap, owner-risk-matrix); all client-side using existing Recharts library
+
+**Critical integration points:**
+- **MSW for Claude API mocking** — Intercepts HTTP requests to `https://api.anthropic.com/v1/messages` at network level; allows full `claude.ts to decompose.ts` pipeline to run in tests with deterministic fixtures; avoids function-level mocking that would skip Zod validation and integrity checks
+- **SSE stream testing** — Import decompose route handler directly and consume ReadableStream in tests; parse SSE events to verify progress messages and final result
+- **Storage mocking** — Use `ALLOW_MEMORY_STORAGE=true` env var to activate in-memory backend for tests; fast, isolated, real code path; no external dependencies
+- **E2E mocking** — Environment variable toggle (`MOCK_CLAUDE=true`) in claude.ts to return fixtures for Playwright tests (MSW cannot intercept server-side requests in Playwright context)
 
 ### Critical Pitfalls
 
-Research identified seven critical pitfalls with potential for data loss, security compromise, or production failures:
+**From v1.0 research (relevant to v1.1):**
 
-1. **In-memory state evaporates on cold start (DATA LOSS)** — db.ts silently falls back to memory storage when KV/Blob env vars are misconfigured; data written in one serverless invocation is invisible to the next; consultants lose work without error indication. **Avoid by:** Health check that fails loudly on deploy if persistent storage is unreachable; visible banner when running on memory; 503 response from API routes when backend is "memory" in production.
+1. **Test coverage without testable architecture creates brittle tests** — The codebase has zero tests. Adding tests to tightly-coupled code (claude.ts instantiates Anthropic client at module scope, db.ts checks env vars at call time) leads to slow, flaky integration tests. **Avoidance:** Extract testable seams before writing tests. Test in layers: unit tests (pure functions, no I/O), integration tests (with MSW mocks), E2E tests (few, slow). Target 80% coverage on business logic (scoring, parsing, org-context) before UI tests.
 
-2. **Rate limiter is per-isolate, not distributed (COST OVERRUN)** — rate-limit.ts uses in-memory Map; Vercel serverless scales to multiple isolates; a burst of 100 requests hits 100 different Maps; limiter never triggers; single misbehaving script can exhaust Anthropic API budget in minutes. **Avoid by:** Implement distributed rate limiting using Vercel KV (Upstash Redis) with INCR+EXPIRE sliding window; set Anthropic API spend alerts as safety net.
+2. **Caching raw Claude responses creates re-parsing overhead** — Caching the text response and re-parsing on cache hits means re-running Zod validation, JSON extraction, and integrity checks every time. If schemas change between cache write and read, cached responses fail validation. **Avoidance:** Cache the fully-validated Decomposition object (post-Zod, post-integrity, post-health-computation). Cache hits return immediately usable data.
 
-3. **Auth cookie validated by format only (SECURITY BYPASS)** — middleware.ts checks cookie matches /^[a-f0-9]{64}$/ but does NOT verify it's the correct hash; any 64-char hex string passes; API routes have no auth checks; anyone setting cookie xray_auth=0000...0000 bypasses authentication for all endpoints. **Avoid by:** Use Web Crypto API in Edge middleware for full hash verification; or add auth verification helper to every API route; migrate to NextAuth.js for session management.
+3. **Mocking Claude at function level skips validation pipeline** — Using `vi.mock('@/lib/claude')` to stub callClaude bypasses the JSON extraction, Zod validation, referential integrity checks, and health computation in decompose.ts — the most valuable code to test. **Avoidance:** Use MSW to intercept HTTPS requests to api.anthropic.com. Return fixture data at network level. Let the full claude.ts to decompose.ts pipeline run to test malformed fixture handling, partial recovery, and health scoring.
 
-4. **No input validation on POST /api/workflows (DATA CORRUPTION)** — Route accepts any JSON body and passes directly to saveWorkflow() with zero validation; attacker or buggy client can write malformed workflows, XSS payloads, absurdly large objects that exhaust storage. **Avoid by:** Validate request body against Workflow Zod schema before saving; sanitize string fields to prevent stored XSS; enforce size limits (500KB max).
+**v1.1-specific pitfalls:**
 
-5. **Claude output parsing assumes happy path (ANALYSIS FAILURES)** — decompose.ts parses JSON with regex + JSON.parse + Zod but fails terminally on: JSON without code fences, partial JSON at token limit, semantically nonsensical but valid JSON, 45s timeout before completion. No retry logic, no partial result recovery for decompose (though extraction has recoverPartialExtraction). **Avoid by:** Automatic retry with exponential backoff for transient errors; increase max_tokens to 8192; add partial recovery pattern to decompose; differentiate user-facing error messages.
+4. **Computing analytics server-side creates double data fetch** — Adding API routes to compute analytics aggregations server-side creates a second full workflow fetch. The dashboard already loads all workflows client-side. At consulting team scale (<100 workflows), client-side computation in useMemo is instant. **Avoidance:** Keep analytics computations in client-side lib files (analytics.ts, chart-data.ts). Dashboard fetches workflow list once and derives everything locally.
 
-6. **Adding tests to untestable architecture creates brittle tests (MAINTENANCE BURDEN)** — Zero tests today; business logic tightly coupled to Claude API client, storage layer, and HTTP request cycle; no seams for injecting test doubles; tests that depend on real API calls are slow (5-30s), flaky (LLM varies), expensive (API credits), break when services change. **Avoid by:** Refactor for testable seams BEFORE writing tests (AIClient interface, StorageProvider interface, pure functions); test in layers (unit → integration → E2E); target 80% coverage on business logic first.
-
-7. **Org context injection creates prompt leakage between clients (PRIVACY VIOLATION)** — org-context.ts reads ALL workflows and injects aggregate data into prompts; in multi-consultant deployment, Consultant A's workflow data (titles, owners, gap patterns) leaks into Consultant B's analysis; privacy concern and analysis quality issue. **Avoid by:** Add tenant/workspace concept with ownerId on workflows; filter buildOrgContext() to same workspace only; cap org context to 500-token budget.
-
-**Additional pitfalls tracked:** Public blob storage exposure, hardcoded default auth salt, client IP extraction trusts headers, generic "try again" errors for AI failures, no progress indication during 10-30s analyses, no score explanations (opaque numbers), remediation status UI missing despite data model support.
+5. **Cache key missing prompt version serves stale results** — Cache key that only hashes the description will serve stale analysis when prompts are updated. Users get old results with no indication. **Avoidance:** Include prompt version (from getPromptVersion() in claude.ts) and model ID in cache key. Prompt changes auto-invalidate cache entries.
 
 ## Implications for Roadmap
 
-Based on research, recommended three-phase structure with strict sequencing to address critical pitfalls before building enhancements:
+Based on research, v1.1 should have **three sequential phases** with clear dependencies:
 
-### Phase 1: Foundation (Infrastructure and Security)
-**Rationale:** Data loss and security vulnerabilities must be eliminated before any other work matters. Tests and feature improvements are meaningless if data disappears or unauthorized users access the system.
-
-**Delivers:**
-- Persistent storage guaranteed (no silent memory fallback)
-- Distributed rate limiting (KV-backed, isolate-safe)
-- Real authentication enforcement (full hash validation, not format-only)
-- Input validation on all write endpoints
-- Layered error handling (error.tsx at strategic levels)
-- API route standardization (shared error handling, rate limit wrapper)
-- Structured logging utility with request ID tracking
-
-**Addresses features from FEATURES.md:**
-- Data persistence reliability (table stakes)
-- Consistent error handling across API routes (table stakes)
-- Input validation with clear feedback (table stakes)
-
-**Avoids pitfalls from PITFALLS.md:**
-- Pitfall 1: In-memory data loss
-- Pitfall 2: Per-isolate rate limiting
-- Pitfall 3: Auth cookie bypass
-- Pitfall 4: Unvalidated workflow POST
-- Pitfall 7: Org context leakage (add tenant concept early)
-
-**Stack elements from STACK.md:**
-- Vitest setup (prepare for Phase 2)
-- Pino for structured logging
-- Constants for input validation limits
-
-**Expected duration:** 1-2 weeks for small consulting team scale
-
----
-
-### Phase 2: Reliability (Team-Size-Aware Analysis and Testing)
-**Rationale:** With foundation secure, focus on the milestone's core value: team-size-aware analysis that makes the tool credible for consulting work. Parallel testing infrastructure ensures reliability.
+### Phase 1: Testing Infrastructure
+**Rationale:** Establishes safety net before modifying critical code paths (decompose route for caching). Without tests, cache implementation has no regression protection. Tests must come first or in parallel with all other work.
 
 **Delivers:**
-- Team-size-aware scoring engine (health metrics calibrated by team context)
-- System prompt enhancements for team-size-aware instructions
-- Shared team context prompt builder (reusable across decompose/remediation)
-- Test coverage: unit tests (scoring, parsing, org-context, rate-limit), integration tests (API routes with mocked Claude/storage), E2E smoke tests
-- Graceful AI failure handling (retry with exponential backoff, partial result display, differentiated error messages)
-- Loading states for all async operations (remediation, Notion sync, PDF export, comparison)
-- AI analysis caching and deduplication (content hash, reduces cost/latency)
-- Refactored testable architecture (AIClient interface, StorageProvider interface, pure business logic functions)
+- Vitest configuration with path alias resolution
+- MSW server setup with Claude API fixtures
+- Playwright E2E configuration with dev server auto-start
+- Unit tests for scoring.ts, team-calibration.ts, chart-data.ts, decompose.ts (JSON extraction), validation.ts
+- Integration test for decompose API route (full SSE flow with mocked Claude)
+- E2E smoke test for submit to analyze to display flow
 
-**Addresses features from FEATURES.md:**
-- Team-size-aware analysis calibration (table stakes, milestone headline feature)
-- Test coverage (table stakes)
-- Graceful AI failure handling (table stakes)
-- Team-size-adaptive scoring engine (differentiator)
-- AI analysis caching (differentiator)
-- Loading states for all operations (table stakes)
+**Addresses (from FEATURES.md):**
+- Test coverage (table stakes, HIGH priority, HIGH implementation cost)
+- Foundation for all subsequent features
 
-**Uses stack from STACK.md:**
-- Vitest, @testing-library/react, @playwright/test, msw (testing infrastructure)
-- Vitest config with jsdom environment, coverage reporting
-- MSW handlers for mocking Claude API responses
+**Avoids (from PITFALLS.md):**
+- Pitfall 1: Test coverage without testable architecture — uses MSW for network-level mocking, preserves full validation pipeline
 
-**Avoids pitfalls from PITFALLS.md:**
-- Pitfall 5: Claude output parsing failures (retry, partial recovery, higher token limits)
-- Pitfall 6: Untestable architecture (refactor for seams before tests)
+**Research flags:**
+- **Standard patterns** — Vitest + Playwright + MSW are well-documented for Next.js 16; official Next.js testing docs verified in v1.0 research. Skip research-phase.
+- **Fixture creation** — Will need to capture 5-10 real Claude responses as test fixtures during implementation. Run decompose route in dev, save responses, use as MSW fixtures.
 
-**Implements architecture components from ARCHITECTURE.md:**
-- Team context layer (shared prompt builder)
-- Testing infrastructure with proper mocking boundaries
-- API route refactoring to use shared utilities
-
-**Expected duration:** 2-3 weeks (testing infrastructure setup is substantial)
-
----
-
-### Phase 3: Polish (Performance, Reporting, Accessibility)
-**Rationale:** With foundation secure and core analysis reliable, optimize performance and user experience for consulting team workflows.
+### Phase 2: Analysis Caching
+**Rationale:** Modifies the decompose route (most critical API path). Requires test coverage from Phase 1 to ensure no regressions. Adds `cacheHit` field to Workflow type that Phase 3 analytics depend on.
 
 **Delivers:**
-- Time-series health tracking (sparkline trends across versions)
-- Confidence indicators per analysis section (show where AI is confident vs. guessing)
-- Accessibility basics (keyboard navigation, aria-labels, color-blind-safe palette)
-- Prompt version visibility in UI (show which prompt produced each analysis)
-- Data persistence warnings (detect memory backend, show banner)
-- Performance optimizations (pagination for workflow library, org context caching with TTL)
-- Enhanced PDF export foundation (migrate from html2canvas to @react-pdf/renderer for new reports)
-- Notion sync performance (batch operations vs. sequential delete-then-recreate)
+- `src/lib/analysis-cache.ts` — content hash computation using Node.js crypto
+- Cache check before Claude call in decompose route
+- Cache write after validation in decompose route
+- Cache entries in Vercel KV with `cache:{hash16}` key pattern, 7-day TTL
+- `skipCache?: boolean` option in DecomposeInputSchema
+- "Force re-analyze" checkbox in workflow-input UI
+- `cacheHit?: boolean` field on Workflow type (for analytics provenance)
 
-**Addresses features from FEATURES.md:**
-- Confidence indicators (differentiator)
-- Time-series health tracking (differentiator)
-- Accessibility basics (table stakes for enterprise consulting)
-- Prompt version tracking (table stakes)
+**Uses (from STACK.md):**
+- Node.js crypto (createHash SHA-256) — already imported in claude.ts
+- Vercel KV — existing storage infrastructure, no new dependencies
 
-**Uses stack from STACK.md:**
-- recharts for time-series sparklines
-- @react-pdf/renderer for structured PDF generation
-- date-fns for timestamp formatting
-- prettier, husky, lint-staged for code quality
+**Implements (from ARCHITECTURE.md):**
+- Cache integration point in decompose/route.ts between validation and Claude call
+- Hash key composition: normalized(description) + stages + costContext + promptVersion + modelId
+- Cache storage: `cache:{hash}` to `{ decomposition, metadata, cachedAt, hitCount }`
 
-**Implements architecture components from ARCHITECTURE.md:**
-- Pagination for listWorkflows() (KV flat array bottleneck at 50+ workflows)
-- Org context caching with 5-minute TTL
-- Enhanced error boundaries with contextual recovery options
+**Avoids (from PITFALLS.md):**
+- Pitfall 2 (v1.1-specific): Caching raw responses — caches fully-validated Decomposition object
+- Pitfall 5 (v1.1-specific): Cache key missing prompt version — includes getPromptVersion() in hash
 
-**Expected duration:** 1-2 weeks
+**Research flags:**
+- **Standard patterns** — SHA-256 content hashing is well-established; Vercel KV usage patterns already exist in db.ts. Skip research-phase.
+- **Cache invalidation strategy** — TTL (7 days) + prompt version in hash is standard. No research needed.
 
----
+### Phase 3: Advanced Analytics
+**Rationale:** Additive components with no modifications to critical paths. Depends on `cacheHit` field added in Phase 2 for cache savings analytics. Can be built in parallel with display-layer debt closure.
+
+**Delivers:**
+- `src/lib/analytics.ts` — `computeVersionHealthTrajectory()`, `computeCostAnalytics()`, `computeGapPatterns()`
+- `chart-data.ts` extension — `computeVersionChainTrends()` for version-over-version health deltas
+- `src/components/analytics/version-trajectory.tsx` — LineChart showing health improvement across versions
+- `src/components/analytics/cost-breakdown.tsx` — Token usage and cache hit rate display
+- `src/components/analytics/gap-heatmap.tsx` — Gap type times severity frequency
+- `src/app/dashboard/page.tsx` modifications — import and render new analytics sections
+
+**Uses (from STACK.md):**
+- Recharts 3.7.0 (existing) — LineChart, BarChart, AreaChart, RadarChart
+- Pure functions on existing Workflow type — no new data model
+
+**Implements (from ARCHITECTURE.md):**
+- Client-side analytics computations (no server-side routes)
+- Version chain traversal using parentId + version fields (already exist)
+- Token cost tracking using workflow.tokenUsage (already exists)
+- Cache effectiveness using workflow.cacheHit (added in Phase 2)
+
+**Avoids (from PITFALLS.md):**
+- Pitfall 4 (v1.1-specific): Computing analytics server-side — all analytics are client-side pure functions
+
+**Research flags:**
+- **Standard patterns** — Recharts component usage already established in dashboard; version chain traversal is straightforward data processing. Skip research-phase.
 
 ### Phase Ordering Rationale
 
-- **Foundation must precede everything** — Data loss (Pitfall 1), security bypass (Pitfall 3), and uncontrolled costs (Pitfall 2) are blockers for any production use. The testing setup from Priority 1 stack enables Phase 2.
-- **Reliability builds on secure foundation** — Team-size-aware scoring (milestone headline) requires the team context infrastructure. Testing requires the testable architecture refactoring. Both depend on stable API utilities from Phase 1.
-- **Polish depends on stable core** — Time-series tracking needs version data to accumulate. PDF improvements should wait until all analysis features are stable (don't redesign PDFs during data model changes). Performance optimization makes sense after usage patterns emerge.
-- **Parallelization opportunities** — Within Phase 1: error handling, logging, and API standardization are independent. Within Phase 2: test infrastructure and team-aware scoring can progress in parallel after architecture refactoring. Within Phase 3: accessibility, prompt visibility, and performance work are independent.
+- **Testing first** — Critical dependency for Phases 2 and 3. Without test coverage, caching changes to decompose route are unverifiable. Tests provide regression protection for all subsequent work.
+- **Caching before analytics** — Analytics depend on the `cacheHit` boolean field added during caching. Cache implementation modifies the decompose route (highest risk); analytics only add components (low risk). Validate caching works correctly before building on top of it.
+- **Analytics last** — Pure additive work with no dependencies on display-layer debt closure. Can run in parallel with debt closure if resources allow. No critical path dependencies.
 
-**Critical path:** Foundation security (Phase 1) → Testable architecture refactoring (Phase 2 prerequisite) → Team-aware scoring + tests (Phase 2 parallel) → Polish (Phase 3)
+**Cross-phase dependencies:**
+- Phase 2 requires Phase 1 (tests) for safety
+- Phase 3 requires Phase 2 (cacheHit field) for cost analytics
+- Display-layer debt closure (not detailed in current research) can run in parallel with Phase 3
 
 ### Research Flags
 
-**Phases needing deeper research during planning:**
-- **Phase 2 (Testing):** Vitest configuration for Next.js 16 App Router with module resolution for @/ imports; MSW v2 setup patterns for mocking Anthropic API; Playwright configuration for SSE streaming in crawl-site route
-- **Phase 3 (PDF):** @react-pdf/renderer migration strategy from html2canvas; rendering recharts SVG output in PDF documents; font licensing for professional consulting PDFs
-
 **Phases with standard patterns (skip research-phase):**
-- **Phase 1 (Foundation):** Error handling files (error.tsx, not-found.tsx) are Next.js conventions with official documentation; Vercel KV rate limiting has standard Upstash patterns; auth validation is Web Crypto API (well-documented)
-- **Phase 2 (Team-aware scoring):** Extending existing computeHealth() function with conditional logic based on team size; Zod schema modifications for confidence fields are straightforward
-- **Phase 3 (Accessibility):** Standard WCAG patterns for keyboard navigation, aria-labels, and color contrast; Next.js-agnostic concerns
+- **Phase 1 (Testing)** — Vitest/Playwright/MSW are Next.js 16 official recommendations; patterns verified in v1.0 research via WebFetch; all versions verified via npm registry
+- **Phase 2 (Caching)** — SHA-256 hashing is standard Node.js crypto; Vercel KV patterns already exist in db.ts; no novel integration
+- **Phase 3 (Analytics)** — Recharts usage established; version chain data already exists; pure client-side computation
+
+**No phases need deeper research.** All v1.1 features use established patterns with existing infrastructure.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All versions and peer dependencies verified via npm registry 2026-02-16; Next.js 16.1.6 testing docs verified via official site; existing codebase analysis confirmed current patterns |
-| Features | MEDIUM | Current state inventory via code review (HIGH confidence); table stakes and differentiators based on consulting tool domain knowledge from training data (MEDIUM confidence); competitor analysis not web-verified (LOW-MEDIUM confidence) |
-| Architecture | HIGH | Full codebase audit of 60+ source files; Next.js 16.1.6 official docs verified for error handling, testing, and App Router patterns; architectural patterns directly observed in code |
-| Pitfalls | HIGH | All critical pitfalls identified via direct codebase analysis with specific file citations; Vercel serverless behavior and Anthropic API patterns from training data (MEDIUM confidence on edge cases, but core issues are HIGH confidence) |
+| Stack | HIGH | All versions verified via npm registry 2026-02-18; existing codebase audit confirms integration points; no production dependencies change |
+| Features | HIGH | v1.1 scope defined in PROJECT.md; test coverage priorities clear; caching and analytics are well-scoped with existing infrastructure |
+| Architecture | HIGH | Full codebase audit of 73 source files; integration points mapped; testing/caching/analytics layers fit cleanly into existing structure |
+| Pitfalls | HIGH | Direct code analysis of db.ts, claude.ts, decompose.ts, middleware.ts; v1.0 pitfalls research provides foundation; v1.1-specific risks identified |
 
 **Overall confidence:** HIGH
 
-The research foundation is solid because it combines direct codebase analysis (objective truth about current state) with verified official documentation (Next.js 16, npm registry) and domain knowledge from training data (consulting tool patterns, AI integration best practices). The main confidence gap is in competitor feature verification—competitor analysis relies on training data that may not reflect 2026 product state.
-
 ### Gaps to Address
 
-**During Phase 1 planning:**
-- **Vercel KV race condition mitigation:** The workflow:ids flat array has read-modify-write race conditions. Research recommends Redis SADD (atomic set operations). Validate whether @vercel/kv client exposes raw Redis commands or only JSON operations. May need @upstash/redis direct client.
-- **Web Crypto API in Edge middleware:** Research states Web Crypto works in Edge Runtime. Validate crypto.subtle.digest() behavior in middleware.ts during Phase 1 implementation. If blocked, fallback is API route auth check pattern.
-- **Blob storage access control:** Current code sets access: "public". Verify whether changing to "private" requires signed URL generation or if @vercel/blob handles auth automatically for same-origin requests.
+**Minor gaps (resolvable during implementation):**
 
-**During Phase 2 planning:**
-- **MSW v2 with Next.js API routes:** Verify MSW 2.12.10 works with Next.js 16 fetch() behavior in API routes. Some frameworks have quirks with network interception. Test early in Phase 2.
-- **Vitest path alias resolution:** vite-tsconfig-paths should resolve @/ imports. Confirm this works with Next.js-specific tsconfig paths. Common source of test failures.
-- **Claude prompt token budget:** Research recommends increasing max_tokens from 4096 to 8192 for decompose. Validate whether this impacts Claude API costs proportionally or if unused tokens are not billed.
+- **Display-layer debt items not specified** — v1.1 milestone mentions "3 display-layer gaps from v1.0" but these are not documented in current research files. **Resolution:** Reference v1.0 MILESTONE-AUDIT.md during Phase 3 planning to identify specific UI fixes.
 
-**During Phase 3 planning:**
-- **@react-pdf/renderer learning curve:** Migrating from html2canvas to react-pdf is "significant architectural change" per STACK.md. Plan for proof-of-concept before committing to full migration. Incremental approach: new reports use react-pdf, old approach remains as fallback.
-- **recharts SVG embedding in PDFs:** Research states recharts SVG output can embed in react-pdf documents. Validate this workflow—may require intermediate SVG serialization step.
+- **Test coverage targets** — STACK.md suggests 40% statement coverage as starting threshold but PROJECT.md does not specify v1.1 coverage goals. **Resolution:** Set explicit targets during Phase 1 planning (recommend: 60% on lib/**, 80% on scoring.ts/decompose.ts, 40% on API routes).
 
-**Cross-phase considerations:**
-- **Multi-tenancy scope:** Pitfall 7 (org context leakage) requires tenant/workspace concept. Decide in Phase 1 whether to implement full per-user auth (NextAuth.js migration) or lightweight workspace tagging. Full auth is more robust but higher scope. Workspace tagging is faster but less secure.
-- **Prompt version migration:** Enhancing system prompts (Phase 2) invalidates existing prompt version hashes. Decide whether to preserve old analyses as-is or re-hash and migrate. Recommend preserve—historical analyses should reflect prompts that produced them.
+- **Cache hit rate validation** — Research assumes 40-60% cache hit rate for iterative workflows but this is unverified. **Resolution:** Add cache metrics logging (hit/miss counts, token savings) in Phase 2; validate assumption after 1-2 weeks of real usage.
+
+- **E2E test scope** — ARCHITECTURE.md lists 3-4 E2E test files but exact flows not specified. **Resolution:** Define during Phase 1 planning (minimum: submit-and-analyze, export-pdf, library-search).
+
+**No blocking gaps.** All v1.1 features are implementable with current research.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- **Workflow X-Ray codebase:** Full audit of 60+ files including src/lib/*, src/app/api/*, src/components/*, middleware.ts, prompts/*, .planning/PROJECT.md — Current state, architectural patterns, existing pitfalls identified through direct analysis
-- **Next.js 16.1.6 official documentation:** https://nextjs.org/docs/app/building-your-application/testing/vitest, https://nextjs.org/docs/app/building-your-application/testing/playwright, https://nextjs.org/docs/app/building-your-application/routing/error-handling — Verified 2026-02-16 for Vitest recommendation, Playwright E2E, and error handling patterns
-- **npm registry:** Version numbers and peer dependencies verified via `npm view [package] version peerDependencies` for all recommended packages on 2026-02-16 — React 19 compatibility, Next.js 16 peer deps, version compatibility matrix
+- **v1.1 STACK.md** (2026-02-18) — All testing package versions verified via npm registry; existing stack inventory from v1.0 package.json; configuration examples for Vitest/Playwright/MSW
+- **v1.1 ARCHITECTURE.md** (2026-02-18) — Full codebase audit (73 source files); integration points for testing/caching/analytics; file impact matrix; anti-patterns to avoid
+- **v1.0 FEATURES.md** (2026-02-16) — Feature prioritization matrix; table stakes vs differentiators; anti-features analysis (some content relevant to testing and caching)
+- **v1.0 PITFALLS.md** (2026-02-16) — Critical pitfalls for production hardening; security/reliability/testing concerns; recovery strategies
+- **Existing codebase** — Direct code review of package.json, tsconfig.json, claude.ts, decompose.ts, scoring.ts, team-calibration.ts, chart-data.ts, db.ts, store.ts, utils.ts, validation.ts, api/decompose/route.ts
 
 ### Secondary (MEDIUM confidence)
-- **Domain knowledge from training data:** Consulting tool requirements, workflow analysis patterns, BPM software landscape, AI integration best practices, Anthropic API behavior, Vercel serverless characteristics — Not web-verified but consistent across multiple training sources
-- **Technology comparison:** Vitest vs. Jest, @dnd-kit vs. react-beautiful-dnd, pino vs. winston, MSW vs. nock — Based on training data and community consensus, not 2026-specific research
+- **Next.js 16 testing documentation** — Vitest and Playwright official recommendations (referenced in v1.0 research, versions still current per STACK.md verification)
+- **v1.0 STACK.md** (2026-02-16) — Referenced for existing stack consistency; all versions re-verified against npm registry
+- **PROJECT.md v1.1 scope** — Used to determine in-scope vs deferred features (component tests deferred, Sentry deferred)
 
-### Tertiary (LOW-MEDIUM confidence)
-- **Competitor analysis:** Process Street, Lucidchart, Kissflow feature sets based on training data — Product features may have changed since training cutoff; should be validated before strategic product decisions
-- **Market sizing and consulting industry trends:** Unable to verify with 2026 sources due to web search unavailability — Use research directionally, validate assumptions with users
+### Tertiary (LOW confidence)
+- None — all research backed by direct code analysis or verified package versions
 
-**Note:** Web search unavailable during research session (both built-in WebSearch and Brave Search API). All findings based on direct codebase analysis (HIGH confidence) and training data domain knowledge (MEDIUM confidence). Competitor claims and market trends should be validated before making strategic product pivots.
+**Note:** Web search was unavailable during ARCHITECTURE.md research. Vitest, Playwright, and MSW recommendations are based on training data (HIGH confidence for established patterns) and v1.0 architecture research that verified Next.js 16 testing docs via WebFetch. Specific version numbers validated via npm registry on 2026-02-18.
 
 ---
-*Research completed: 2026-02-16*
+*Research completed: 2026-02-18*
 *Ready for roadmap: yes*
