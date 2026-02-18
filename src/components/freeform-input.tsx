@@ -1269,7 +1269,7 @@ export default function FreeformInput({
       }));
 
       try {
-        // 1. Decompose with AbortController signal
+        // 1. Decompose via SSE stream (same endpoint as single submit)
         const res = await fetchWithTimeout(
           "/api/decompose",
           {
@@ -1283,18 +1283,81 @@ export default function FreeformInput({
 
         if (abort.signal.aborted) break;
 
-        if (!res.ok) {
-          let errMsg = "Decomposition failed";
-          try {
-            const err = await res.json();
-            errMsg = err.error?.message || err.error || errMsg;
-          } catch {
-            errMsg = `Server error (${res.status})`;
+        // Check for pre-stream errors (non-SSE JSON responses)
+        const contentType = res.headers.get("content-type") || "";
+        if (!contentType.includes("text/event-stream")) {
+          if (!res.ok) {
+            let errMsg = "Decomposition failed";
+            try {
+              const err = await res.json();
+              errMsg = err.error?.message || err.error || errMsg;
+            } catch {
+              errMsg = `Server error (${res.status})`;
+            }
+            throw new Error(errMsg);
           }
-          throw new Error(errMsg);
+          throw new Error("Unexpected response format");
         }
 
-        const workflow = await res.json();
+        // Parse SSE stream to extract workflow from complete/partial event
+        const reader = res.body?.getReader();
+        if (!reader) throw new Error("No response stream");
+
+        let workflow: Workflow | null = null;
+        let sseError: string | null = null;
+
+        try {
+          const decoder = new TextDecoder();
+          let buffer = "";
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            const parts = buffer.split("\n\n");
+            buffer = parts.pop() || "";
+
+            for (const part of parts) {
+              const lines = part.trim().split("\n");
+              const dataLine = lines.find((l) => l.startsWith("data: "));
+              if (!dataLine) continue;
+              try {
+                const event = JSON.parse(dataLine.slice(6));
+                if (event.type === "complete" || event.type === "partial") {
+                  workflow = event.workflow;
+                } else if (event.type === "error") {
+                  sseError = event.message || "Decomposition failed";
+                }
+              } catch {
+                // Skip malformed SSE lines
+              }
+            }
+          }
+
+          // Process remaining buffer
+          if (buffer.trim()) {
+            const lines = buffer.trim().split("\n");
+            const dataLine = lines.find((l) => l.startsWith("data: "));
+            if (dataLine) {
+              try {
+                const event = JSON.parse(dataLine.slice(6));
+                if (event.type === "complete" || event.type === "partial") {
+                  workflow = event.workflow;
+                } else if (event.type === "error") {
+                  sseError = event.message || "Decomposition failed";
+                }
+              } catch {
+                // Skip
+              }
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+
+        if (sseError) throw new Error(sseError);
+        if (!workflow) throw new Error("No workflow received from analysis");
 
         // Attach extraction source metadata with correct source type
         const resolvedType = srcType === "text" ? "manual" : (srcType || "manual");
@@ -1308,16 +1371,16 @@ export default function FreeformInput({
         };
         workflow.extractionSource = extractionSource;
 
-        // 2. Save to server — with error handling
-        const saveRes = await fetch("/api/workflows", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(workflow),
-          signal: abort.signal,
-        });
-
-        if (!saveRes.ok) {
-          throw new Error(`Failed to save (${saveRes.status})`);
+        // 2. Update server with extraction source metadata
+        try {
+          await fetch("/api/workflows", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(workflow),
+            signal: abort.signal,
+          });
+        } catch {
+          // Non-critical — workflow already saved by decompose route
         }
 
         // 3. Save to local IndexedDB
