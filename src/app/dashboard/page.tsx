@@ -10,11 +10,17 @@ import Breadcrumb from "@/components/breadcrumb";
 import { useToast } from "@/components/toast";
 import { computeHealthTrends } from "@/lib/chart-data";
 import HealthTrendChart from "@/components/health-trend-chart";
+import { computeVersionTrajectory, computeBatchTrends, computeCostAnalytics, computeGapPatterns } from "@/lib/analytics";
+import VersionTrajectoryChart from "@/components/analytics/version-trajectory";
+import BatchTrendsChart from "@/components/analytics/batch-trends";
+import CostBreakdown from "@/components/analytics/cost-breakdown";
+import GapHeatmap from "@/components/analytics/gap-heatmap";
 
 export default function DashboardPage() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTrajectoryId, setSelectedTrajectoryId] = useState<string | null>(null);
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -176,6 +182,39 @@ export default function DashboardPage() {
   const healthTrends = useMemo(() => {
     return computeHealthTrends(workflows);
   }, [workflows]);
+
+  // Version trajectory for selected workflow
+  const versionTrajectory = useMemo(() => {
+    if (!selectedTrajectoryId) return [];
+    return computeVersionTrajectory(workflows, selectedTrajectoryId);
+  }, [workflows, selectedTrajectoryId]);
+
+  // Batch trends across all workflows
+  const batchTrends = useMemo(() => {
+    return computeBatchTrends(workflows);
+  }, [workflows]);
+
+  // Cost analytics
+  const costAnalytics = useMemo(() => {
+    return computeCostAnalytics(workflows);
+  }, [workflows]);
+
+  // Gap patterns
+  const gapPatterns = useMemo(() => {
+    return computeGapPatterns(workflows);
+  }, [workflows]);
+
+  // Workflows with version chains (for the trajectory dropdown)
+  const versionedWorkflows = useMemo(() => {
+    return workflows.filter(w => w.parentId || workflows.some(other => other.parentId === w.id));
+  }, [workflows]);
+
+  // Auto-select first versioned workflow
+  useEffect(() => {
+    if (versionedWorkflows.length > 0 && !selectedTrajectoryId) {
+      setSelectedTrajectoryId(versionedWorkflows[0].id);
+    }
+  }, [versionedWorkflows, selectedTrajectoryId]);
 
   if (loading) {
     return (
@@ -796,6 +835,68 @@ export default function DashboardPage() {
           </Section>
         </div>
       )}
+
+      {/* ── Advanced Analytics ── */}
+      <div style={{ marginTop: 48 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 800, fontFamily: "var(--font-display)", color: "var(--color-dark)", letterSpacing: "-0.01em", marginBottom: 4 }}>
+          Advanced Analytics
+        </h2>
+        <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-muted)", marginBottom: 24 }}>
+          Deeper operational intelligence across your workflow library
+        </p>
+
+        {/* ANLZ-03: Cost Breakdown */}
+        <Section title="API Cost & Cache Savings" subtitle="Token usage and cache effectiveness" fullWidth>
+          <CostBreakdown data={costAnalytics} />
+        </Section>
+
+        {/* Two-column grid: Version Trajectory + Batch Trends */}
+        <div className="grid-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginTop: 24 }}>
+          {/* ANLZ-01: Version Trajectory */}
+          <Section title="Version Health Trajectory" subtitle="Health score changes across re-analyses">
+            {versionedWorkflows.length > 0 ? (
+              <>
+                <select
+                  value={selectedTrajectoryId || ""}
+                  onChange={(e) => setSelectedTrajectoryId(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    marginBottom: 16,
+                    borderRadius: "var(--radius-sm)",
+                    border: "1px solid var(--color-border)",
+                    background: "var(--color-surface)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 12,
+                    color: "var(--color-dark)",
+                  }}
+                >
+                  {versionedWorkflows.map(w => (
+                    <option key={w.id} value={w.id}>{w.decomposition.title} (v{w.version || 1})</option>
+                  ))}
+                </select>
+                <VersionTrajectoryChart data={versionTrajectory} />
+              </>
+            ) : (
+              <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-muted)", padding: "24px 0", textAlign: "center" }}>
+                Re-analyze a workflow to see version health trajectory
+              </div>
+            )}
+          </Section>
+
+          {/* ANLZ-02: Batch Trends */}
+          <Section title="Library Health Trends" subtitle="Aggregate health across all workflows">
+            <BatchTrendsChart data={batchTrends} />
+          </Section>
+        </div>
+
+        {/* ANLZ-04: Gap Heatmap */}
+        <div style={{ marginTop: 24 }}>
+          <Section title="Gap Frequency Patterns" subtitle={`Gap distribution across ${workflows.length} workflows`} fullWidth>
+            <GapHeatmap data={gapPatterns} totalWorkflows={workflows.length} />
+          </Section>
+        </div>
+      </div>
     </div>
   );
 }
