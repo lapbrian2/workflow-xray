@@ -37,7 +37,28 @@ export default function XRayPage() {
     exportLock.current = true;
     setExporting(true);
     try {
-      await exportToPdf(workflow.decomposition, workflow.costContext);
+      // Attempt to capture the React Flow viewport for embedding in the PDF
+      let flowImageDataUrl: string | undefined;
+      try {
+        const { toPng } = await import("html-to-image");
+        const viewportEl = document.querySelector(".react-flow__viewport") as HTMLElement | null;
+        if (viewportEl) {
+          flowImageDataUrl = await toPng(viewportEl, {
+            backgroundColor: "#FFFFFF",
+            width: 2048,
+            height: 1200,
+            filter: (node: HTMLElement) => {
+              const cl = node.classList;
+              if (!cl) return true;
+              return !cl.contains("react-flow__minimap") && !cl.contains("react-flow__controls");
+            },
+          });
+        }
+      } catch {
+        // Flow viewport not mounted or capture failed -- PDF will render without diagram section
+      }
+
+      await exportToPdf(workflow.decomposition, workflow.costContext, flowImageDataUrl);
       addToast("success", "PDF downloaded successfully");
     } catch (err) {
       console.error("PDF export failed:", err);
