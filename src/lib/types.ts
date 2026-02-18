@@ -109,6 +109,7 @@ export interface Workflow {
   _partial?: boolean;              // true when analysis was recovered from malformed AI output
   _recoveryReason?: string;        // explanation of what was recovered
   cacheHit?: boolean;              // true when result was served from analysis cache
+  cachedAt?: string;               // ISO timestamp of when the cached analysis was originally created
 }
 
 export interface StageInput {

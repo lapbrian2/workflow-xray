@@ -4,7 +4,9 @@ import { saveWorkflow, listWorkflows } from "@/lib/db";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { errorResponse } from "@/lib/api-errors";
 import { DecomposeInputSchema } from "@/lib/validation";
-import { classifyClaudeError } from "@/lib/claude";
+import { classifyClaudeError, getPromptVersion, getModelId } from "@/lib/claude";
+import { computeAnalysisHash, getCachedAnalysis, setCachedAnalysis } from "@/lib/analysis-cache";
+import { generateId } from "@/lib/utils";
 import type { DecomposeRequest, Workflow } from "@/lib/types";
 
 export const maxDuration = 120;
@@ -78,6 +80,77 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // ── Cache check ──
+        const contentHash = computeAnalysisHash(
+          {
+            description: enrichedDescription,
+            stages: body.stages,
+            costContext: body.costContext,
+          },
+          getPromptVersion(),
+          getModelId()
+        );
+
+        if (!body.skipCache) {
+          const cached = await getCachedAnalysis(contentHash);
+          if (cached) {
+            send({ type: "progress", step: "cache", message: "Using cached analysis..." });
+
+            const freshId = generateId();
+
+            // Assemble workflow from cached decomposition
+            const workflow: Workflow = {
+              id: freshId,
+              decomposition: { ...cached.decomposition, id: freshId },
+              description: enrichedDescription,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              version: 1,
+              ...(body.costContext
+                ? {
+                    costContext: {
+                      hourlyRate: body.costContext.hourlyRate,
+                      hoursPerStep: body.costContext.hoursPerStep,
+                      teamSize: body.costContext.teamSize,
+                      teamContext: body.costContext.teamContext?.trim().slice(0, 200) || undefined,
+                    },
+                  }
+                : {}),
+              promptVersion: cached.metadata.promptVersion,
+              modelUsed: cached.metadata.modelUsed,
+              tokenUsage: {
+                inputTokens: cached.metadata.inputTokens,
+                outputTokens: cached.metadata.outputTokens,
+              },
+              cacheHit: true,
+              cachedAt: cached.cachedAt,
+            };
+
+            // Handle version computation for cached results
+            if (body.parentId) {
+              workflow.parentId = body.parentId;
+              try {
+                const allWorkflows = await listWorkflows();
+                const existingVersions = allWorkflows.filter(
+                  (w) => w.parentId === body.parentId || w.id === body.parentId
+                );
+                const maxVersion = existingVersions.reduce(
+                  (max, w) => Math.max(max, w.version || 1),
+                  1
+                );
+                workflow.version = maxVersion + 1;
+              } catch {
+                workflow.version = 2;
+              }
+            }
+
+            await saveWorkflow(workflow);
+            send({ type: "complete", workflow });
+            controller.close();
+            return;
+          }
+        }
+
         const decomposeRequest: DecomposeRequest = {
           description: enrichedDescription,
           stages: body.stages as DecomposeRequest["stages"],
@@ -140,7 +213,29 @@ export async function POST(request: NextRequest) {
             outputTokens: _meta.outputTokens,
           },
           ...(_partial ? { _partial, _recoveryReason } : {}),
+          cacheHit: false,
         };
+
+        // ── Save to cache (only for non-partial results) ──
+        if (!_partial) {
+          try {
+            await setCachedAnalysis(contentHash, {
+              hash: contentHash,
+              decomposition: { ...decomposition, id: decomposition.id },
+              metadata: {
+                promptVersion: _meta.promptVersion,
+                modelUsed: _meta.modelUsed,
+                inputTokens: _meta.inputTokens,
+                outputTokens: _meta.outputTokens,
+              },
+              cachedAt: new Date().toISOString(),
+              hitCount: 0,
+            });
+          } catch (cacheErr) {
+            // Non-critical -- log and continue
+            console.warn("[decompose] Cache write failed:", cacheErr);
+          }
+        }
 
         await saveWorkflow(workflow);
 

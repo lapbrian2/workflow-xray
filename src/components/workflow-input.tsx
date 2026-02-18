@@ -28,6 +28,7 @@ export default function WorkflowInput({
   ]);
   const [showCostContext, setShowCostContext] = useState(false);
   const [costContext, setCostContext] = useState<CostContext>({});
+  const [skipCache, setSkipCache] = useState(false);
   const submitLock = useRef(false);
 
   const handleSubmit = async () => {
@@ -58,6 +59,7 @@ export default function WorkflowInput({
           ...(costContext.hourlyRate || costContext.hoursPerStep || costContext.teamSize || costContext.teamContext
             ? { costContext }
             : {}),
+          ...(skipCache ? { skipCache: true } : {}),
         }),
       });
 
@@ -402,6 +404,30 @@ export default function WorkflowInput({
             Without these, the analysis uses conservative defaults.
           </p>
         )}
+      </div>
+
+      {/* Force re-analysis (skip cache) */}
+      <div style={{ marginBottom: 16 }}>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            cursor: "pointer",
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            color: "var(--color-muted)",
+            fontWeight: 500,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={skipCache}
+            onChange={(e) => setSkipCache(e.target.checked)}
+            style={{ accentColor: "var(--color-accent)" }}
+          />
+          Force re-analysis (skip cache)
+        </label>
       </div>
 
       {inputMode === "freeform" ? (
