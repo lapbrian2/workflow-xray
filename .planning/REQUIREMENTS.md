@@ -31,10 +31,10 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Advanced Analytics
 
-- [ ] **ANLZ-01**: Dashboard shows version-over-version health score trajectories for individual workflows
-- [ ] **ANLZ-02**: Dashboard shows batch comparison trends across all analyzed workflows
-- [ ] **ANLZ-03**: Dashboard shows API cost breakdown with cache savings highlighted
-- [ ] **ANLZ-04**: Dashboard shows gap frequency heatmap (which gap types appear most across workflows)
+- [x] **ANLZ-01**: Dashboard shows version-over-version health score trajectories for individual workflows
+- [x] **ANLZ-02**: Dashboard shows batch comparison trends across all analyzed workflows
+- [x] **ANLZ-03**: Dashboard shows API cost breakdown with cache savings highlighted
+- [x] **ANLZ-04**: Dashboard shows gap frequency heatmap (which gap types appear most across workflows)
 
 ## v2 Requirements
 
@@ -91,10 +91,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CACH-02 | Phase 6 | Complete |
 | CACH-03 | Phase 6 | Complete |
 | CACH-04 | Phase 6 | Complete |
-| ANLZ-01 | Phase 7 | Pending |
-| ANLZ-02 | Phase 7 | Pending |
-| ANLZ-03 | Phase 7 | Pending |
-| ANLZ-04 | Phase 7 | Pending |
+| ANLZ-01 | Phase 7 | Complete |
+| ANLZ-02 | Phase 7 | Complete |
+| ANLZ-03 | Phase 7 | Complete |
+| ANLZ-04 | Phase 7 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 17 total
@@ -103,4 +103,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-18*
-*Last updated: 2026-02-18 after Phase 6 completion*
+*Last updated: 2026-02-18 after Phase 7 completion — v1.1 COMPLETE (17/17 requirements)*
