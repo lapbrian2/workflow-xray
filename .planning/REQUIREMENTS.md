@@ -24,10 +24,10 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Analysis Caching
 
-- [ ] **CACH-01**: Identical workflow submissions (same description + team size) return cached results without re-calling Claude API
-- [ ] **CACH-02**: Cached results have 7-day TTL and auto-expire from Vercel KV
-- [ ] **CACH-03**: User can force re-analysis (skip cache) when they want fresh results
-- [ ] **CACH-04**: UI indicates when results were served from cache vs fresh analysis
+- [x] **CACH-01**: Identical workflow submissions (same description + team size) return cached results without re-calling Claude API
+- [x] **CACH-02**: Cached results have 7-day TTL and auto-expire from Vercel KV
+- [x] **CACH-03**: User can force re-analysis (skip cache) when they want fresh results
+- [x] **CACH-04**: UI indicates when results were served from cache vs fresh analysis
 
 ### Advanced Analytics
 
@@ -87,10 +87,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TEST-04 | Phase 5 | Complete |
 | TEST-05 | Phase 5 | Complete |
 | TEST-06 | Phase 5 | Complete |
-| CACH-01 | Phase 6 | Pending |
-| CACH-02 | Phase 6 | Pending |
-| CACH-03 | Phase 6 | Pending |
-| CACH-04 | Phase 6 | Pending |
+| CACH-01 | Phase 6 | Complete |
+| CACH-02 | Phase 6 | Complete |
+| CACH-03 | Phase 6 | Complete |
+| CACH-04 | Phase 6 | Complete |
 | ANLZ-01 | Phase 7 | Pending |
 | ANLZ-02 | Phase 7 | Pending |
 | ANLZ-03 | Phase 7 | Pending |
@@ -103,4 +103,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-18*
-*Last updated: 2026-02-18 after roadmap creation*
+*Last updated: 2026-02-18 after Phase 6 completion*
