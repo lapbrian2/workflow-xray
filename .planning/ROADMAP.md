@@ -53,11 +53,11 @@ Plans:
   2. Cached entries auto-expire after 7 days -- a cache entry older than 7 days triggers a fresh analysis on next submission
   3. User can check a "Force re-analysis" option before submitting to bypass cache and get fresh results from Claude
   4. Results page clearly indicates whether analysis was served from cache or generated fresh, including when the cached analysis was originally created
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 06-01: TBD
-- [ ] 06-02: TBD
+- [ ] 06-01-PLAN.md — TDD: Cache library with content hash computation, cache get/set, type/schema changes
+- [ ] 06-02-PLAN.md — Route integration, skip-cache UI checkbox, cache indicator on results page
 
 ### Phase 7: Advanced Analytics
 **Goal**: Dashboard delivers deeper operational intelligence -- version health trajectories, batch comparison trends, API cost breakdowns with cache savings, and gap frequency patterns across all analyzed workflows
@@ -85,5 +85,5 @@ Plans:
 | 3. AI Reliability | v1.0 | 2/2 | Complete | 2026-02-17 |
 | 4. Reporting & Export | v1.0 | 2/2 | Complete | 2026-02-17 |
 | 5. Debt Closure & Test Infrastructure | v1.1 | 3/3 | Complete | 2026-02-18 |
-| 6. Analysis Caching | v1.1 | 0/? | Not started | - |
+| 6. Analysis Caching | v1.1 | 0/2 | Not started | - |
 | 7. Advanced Analytics | v1.1 | 0/? | Not started | - |
