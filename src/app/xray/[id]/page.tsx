@@ -670,6 +670,56 @@ export default function XRayPage() {
         </div>
       )}
 
+      {/* Cache hit indicator */}
+      {workflow.cacheHit && (
+        <div
+          data-testid="cache-indicator"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 14px",
+            background: "rgba(23, 165, 137, 0.04)",
+            border: "1px solid rgba(23, 165, 137, 0.15)",
+            borderRadius: "var(--radius-sm)",
+            marginTop: 12,
+            animation: "fadeInUp 0.4s var(--ease-spring) 0.05s both",
+          }}
+        >
+          <span style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            fontWeight: 600,
+            color: "var(--color-success)",
+          }}>
+            Cached result
+          </span>
+          {workflow.cachedAt && (
+            <span style={{
+              fontFamily: "var(--font-body)",
+              fontSize: 11,
+              color: "var(--color-muted)",
+            }}>
+              -- originally analyzed {new Date(workflow.cachedAt).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          )}
+          <span style={{
+            fontFamily: "var(--font-body)",
+            fontSize: 11,
+            color: "var(--color-muted)",
+            marginLeft: "auto",
+          }}>
+            Re-submit with &quot;Force re-analysis&quot; for fresh results
+          </span>
+        </div>
+      )}
+
       {/* Version Timeline */}
       {versionSiblings.length > 1 && (
         <VersionTimeline
