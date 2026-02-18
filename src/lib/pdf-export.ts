@@ -3,6 +3,7 @@
 import type { Decomposition, Gap, Step, CostContext } from "./types";
 import { LAYER_LABELS, GAP_LABELS } from "./types";
 import { PDF_COLORS, parseSeverityColor, parseLayerColor } from "./pdf-shared";
+import { getTeamTier } from "./team-calibration";
 
 /**
  * Estimate ROI using ranges (low–high) with explicit assumptions.
@@ -361,6 +362,41 @@ export async function exportToPdf(
   doc.text(summaryLines, margin + 8, y + 7);
   y += summaryBoxHeight + 10;
 
+  // ── Team Calibration Context (conditional on teamSize) ──
+  if (costContext?.teamSize) {
+    drawHorizontalRule();
+    drawSectionHeader("Team Calibration Context");
+
+    const tierLabel = (() => {
+      const tier = getTeamTier(costContext.teamSize);
+      return tier === "solo" ? "Solo" : tier === "small" ? "Small" : tier === "medium" ? "Medium" : "Large";
+    })();
+
+    // Compact info box
+    const teamLines: string[] = [];
+    teamLines.push(`Team Size: ${costContext.teamSize} people (${tierLabel} tier)`);
+    if (costContext.teamContext) {
+      teamLines.push(`Context: ${costContext.teamContext}`);
+    }
+    teamLines.push(`Calibration: Scores adjusted for ${tierLabel}-team thresholds. Smaller teams see amplified fragility scores.`);
+
+    const teamBoxHeight = teamLines.length * 5 + 8;
+    checkPageBreak(teamBoxHeight + 4);
+    doc.setFillColor(...bgLight);
+    doc.roundedRect(margin, y, contentWidth, teamBoxHeight, 2, 2, "F");
+
+    let teamY = y + 6;
+    teamLines.forEach((line) => {
+      doc.setFontSize(8.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...bodyText);
+      doc.text(line, margin + 8, teamY);
+      teamY += 5;
+    });
+
+    y += teamBoxHeight + 6;
+  }
+
   // ── Summary Stats ──
   drawHorizontalRule();
   drawSectionHeader("Key Metrics");
@@ -423,7 +459,27 @@ export async function exportToPdf(
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...metric.color);
-    doc.text(`${metric.value}/100`, pageWidth - margin, y, { align: "right" });
+    const scoreText = `${metric.value}/100`;
+    doc.text(scoreText, pageWidth - margin, y, { align: "right" });
+
+    // Confidence badge next to score
+    if (decomposition.health.confidence) {
+      const confLevel = decomposition.health.confidence.level;
+      const confLabel = confLevel === "high" ? "(calibrated)" : "(estimated)";
+      const confColor: [number, number, number] = confLevel === "high" ? colorGreen : muted;
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...confColor);
+      const scoreWidth = doc.getTextWidth(scoreText);
+      // Reset font to measure score width at its actual size
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      const scoreWidthActual = doc.getTextWidth(scoreText);
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...confColor);
+      doc.text(confLabel, pageWidth - margin - scoreWidthActual - 3, y, { align: "right" });
+    }
 
     y += 2;
 
