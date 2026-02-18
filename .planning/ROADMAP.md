@@ -68,11 +68,11 @@ Plans:
   2. Dashboard shows aggregate comparison trends across all analyzed workflows -- batch-level insights like "average fragility decreased 20% this week"
   3. Dashboard shows API cost breakdown with token usage and cache hit savings clearly highlighted (e.g., "42 analyses, 18 cache hits, ~$3.20 saved")
   4. Dashboard shows a gap frequency heatmap revealing which gap types (handoff, documentation, automation, etc.) appear most often across the entire workflow library
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 07-01: TBD
-- [ ] 07-02: TBD
+- [ ] 07-01-PLAN.md — Analytics computation engine (4 functions) + version trajectory and batch trends components
+- [ ] 07-02-PLAN.md — Cost breakdown and gap heatmap components + dashboard integration of all 4 analytics sections
 
 ## Progress
 
@@ -86,4 +86,4 @@ Plans:
 | 4. Reporting & Export | v1.0 | 2/2 | Complete | 2026-02-17 |
 | 5. Debt Closure & Test Infrastructure | v1.1 | 3/3 | Complete | 2026-02-18 |
 | 6. Analysis Caching | v1.1 | 0/2 | Not started | - |
-| 7. Advanced Analytics | v1.1 | 0/? | Not started | - |
+| 7. Advanced Analytics | v1.1 | 0/2 | Not started | - |
