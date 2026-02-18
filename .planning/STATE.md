@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-18)
 
 **Core value:** Teams can submit any workflow description and receive an accurate, actionable diagnostic -- with team-size-aware analysis -- that reveals bottlenecks, gaps, and automation opportunities they couldn't see before.
-**Current focus:** Phase 7: Advanced Analytics (v1.1) -- COMPLETE
+**Current focus:** v1.2 Collaboration & Intelligence -- Defining requirements
 
 ## Current Position
 
-Phase: 7 of 7 (Advanced Analytics) -- COMPLETE
-Plan: 2 of 2 complete
-Status: v1.1 Milestone Complete
-Last activity: 2026-02-18 — 07-02 cost breakdown, gap heatmap, dashboard integration completed (2 tasks, 3 files)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-18 — Milestone v1.2 started
 
-Progress: [██████████████████████████████] 100% (v1.0: 11/11) | v1.1: [██████████] 7/7 (all phases complete)
+Progress: v1.0: [██████████] 11/11 | v1.1: [██████████] 7/7 | v1.2: ░░░░░░░░░░ 0%
 
 ## Performance Metrics
 
@@ -39,44 +39,24 @@ Progress: [███████████████████████
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- [v1.1 Roadmap]: Debt closure combined with test infrastructure (Phase 5) so debt fixes become first test targets
-- [v1.1 Roadmap]: Caching before analytics because ANLZ-03 depends on cacheHit field added in Phase 6
-- [v1.1 Roadmap]: All analytics client-side (no server routes) to avoid double data fetch
-- [05-01]: Used direct toPng capture instead of captureFlowAsDataUrl to avoid node-position dependency
-- [05-01]: Confidence badges positioned to left of score value using font measurement for alignment
-- [05-02]: Node environment (not jsdom) for pure function tests -- no DOM needed
-- [05-02]: MSW at network level for Anthropic API mocking -- enables decompose pipeline tests in 05-03
-- [05-02]: Factory pattern (makeStep/makeGap/makeWorkflow) for reusable test data
-- [05-03]: Dummy ANTHROPIC_API_KEY in tests to pass SDK client-side header validation before MSW intercepts
-- [05-03]: MOCK_CLAUDE toggle as early-return in callClaude functions for E2E (Next.js server separate process from Playwright)
-- [05-03]: Playwright webServer env object for cross-platform compatibility
-- [06-01]: Test file at __tests__/lib/ (project convention) not src/__tests__/ (plan path)
-- [06-01]: Hash excludes hourlyRate/hoursPerStep (display-only, don't affect Claude analysis)
-- [06-01]: 7-day TTL for KV cache; hitCount incremented on read for accurate tracking
-- [06-02]: cachedAt added to Workflow type in Task 1 (moved from Task 2) due to compilation dependency
-- [06-02]: Fresh workflow ID generated per cached submission (each submission = distinct KV entry)
-- [06-02]: Cache write non-critical (try/catch, logged, never blocks user)
-- [07-01]: All 4 analytics functions in single module for cohesion and shared type exports
-- [07-01]: BFS chain traversal walks parentId up then collects all descendants from root
-- [07-01]: Cost estimation uses Sonnet pricing constants at top of file for easy updating
-- [07-01]: Savings formula: cacheHits * averageCostPerNonCachedAnalysis
-- [07-02]: CSS grid for gap heatmap instead of Recharts -- more visual control for severity blocks
-- [07-02]: Auto-select first versioned workflow when trajectory dropdown initializes
-- [07-02]: All analytics sections grouped under single Advanced Analytics header with subtitle
-- [07-02]: Token bar uses stacked horizontal layout with proportional widths for input vs output
+- [v1.2 Scope]: Split v1.2 + v1.3 — Collaboration & AI first, Integrations & Automation later
+- [v1.2 Scope]: Full collaboration suite (shared library, shareable links, comments)
+- [v1.2 Scope]: All three deeper AI features (roadmaps, cross-workflow, predictive)
+- [v1.2 Scope]: Google Workspace + automation engine deferred to v1.3
 
 ### Pending Todos
 
-None.
+- Batch extract SSE fix deployed -- verify user can reproduce success after hard refresh
 
 ### Blockers/Concerns
 
 - Vercel KV race conditions on workflow:ids array (identified in v1.0, not yet fixed)
 - Per-isolate rate limiting ineffective in production (deferred, acceptable at team scale)
 - OneDrive path causes npm run build static generation failures (TypeScript compiles fine)
+- Batch extract bug fixed (SSE stream parsing) -- deployed, needs user verification
 
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Completed 07-02-PLAN.md (cost breakdown, gap heatmap, dashboard integration). v1.1 milestone complete.
+Stopped at: v1.2 milestone started, defining requirements
 Resume file: None

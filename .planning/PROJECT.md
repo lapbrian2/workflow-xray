@@ -4,7 +4,19 @@
 
 An AI-powered operational diagnostic engine that analyzes business workflows and delivers scored, actionable intelligence calibrated to team capacity. Consultants submit workflow descriptions (via text, URL, file, screenshot, Notion, or site crawl), and the app decomposes them into structured steps with team-size-aware gap analysis, health metrics with confidence indicators, visual flow maps, and remediation plans — all exportable as professional PDF reports. Built on Next.js 16, React 19, Claude Sonnet 4, deployed on Vercel.
 
-This is the diagnostic/analysis layer of a larger vision: a composable AI operating system with modular Reasoning Cells, visual NeuroFlow builder, persistent Personas, and a skill marketplace. The v1.0 foundation is hardened and shipped; v1.1 focuses on quality, caching, and deeper analytics.
+This is the diagnostic/analysis layer of a larger vision: a composable AI operating system with modular Reasoning Cells, visual NeuroFlow builder, persistent Personas, and a skill marketplace. The v1.0 foundation is hardened and shipped; v1.1 added quality, caching, and analytics; v1.2 brings team collaboration and deeper AI intelligence.
+
+## Current Milestone: v1.2 Collaboration & Intelligence
+
+**Goal:** Enable team collaboration on workflow analyses and deliver deeper AI-powered insights that increase client value.
+
+**Target features:**
+- Shared team library visible to all authenticated users instead of isolated personal views
+- Shareable links for any X-Ray result (team-internal and client-facing)
+- Comments and notes on workflows and specific gaps
+- AI-generated implementation roadmaps with phased timelines and effort estimates
+- Cross-workflow pattern detection (shared bottlenecks, common gaps across client workflows)
+- Predictive health scoring (forecast impact of proposed improvements)
 
 ## Current State
 
@@ -66,7 +78,12 @@ Teams can submit any workflow description and receive an accurate, actionable di
 
 ### Active
 
-(None yet — define next milestone to add requirements)
+- [ ] Shared team workflow library (all users see same workflows)
+- [ ] Shareable links for X-Ray results (team + client access)
+- [ ] Comments and notes on workflows and gaps
+- [ ] AI-generated implementation roadmaps with timelines
+- [ ] Cross-workflow pattern detection
+- [ ] Predictive health scoring
 
 ### Out of Scope
 
@@ -79,8 +96,13 @@ Teams can submit any workflow description and receive an accurate, actionable di
 - Mobile app — web-first, PWA viable
 - Distributed rate limiting — per-isolate limits acceptable at team scale
 - Offline mode — online-first diagnostic tool
-- Sentry error monitoring — deferred to v1.2 (not blocking current usage)
-- Component tests with Testing Library — deferred; Vitest units + Playwright E2E sufficient for v1.1
+- Sentry error monitoring — deferred (not blocking current usage)
+- Component tests with Testing Library — deferred; Vitest units + Playwright E2E sufficient
+- Google Workspace integration (Docs import, Sheets export) — deferred to v1.3
+- Jira/Asana integration — deferred to v1.3+
+- Slack notifications — deferred to v1.3+
+- Scheduled re-analysis / automation engine — deferred to v1.3
+- Health score alerts and change detection — deferred to v1.3
 
 ## Context
 
@@ -131,4 +153,4 @@ Teams can submit any workflow description and receive an accurate, actionable di
 | TDD for cache library | Red-green cycle caught edge cases (empty input, missing fields) | ✓ Good — 14 tests covering all paths |
 
 ---
-*Last updated: 2026-02-18 after v1.1 milestone completion*
+*Last updated: 2026-02-18 after v1.2 milestone start*
