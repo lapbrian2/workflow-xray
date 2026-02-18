@@ -37,12 +37,12 @@
   3. Single-workflow PDF exports contain the captured flow diagram image (not a placeholder or missing section)
   4. Running `npx vitest` executes unit tests for scoring, decompose pipeline, chart-data computation, and team calibration -- all pass with coverage reported
   5. Running `npx playwright test` executes an E2E test that submits a workflow, observes SSE progress, views results, and exports a PDF -- all steps pass without hitting the real Claude API
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
-- [ ] 05-03: TBD
+- [ ] 05-01-PLAN.md — Close v1.0 display debt (partial warning, PDF team context, flow diagram wiring)
+- [ ] 05-02-PLAN.md — Vitest + MSW infrastructure and unit tests for scoring, calibration, chart data
+- [ ] 05-03-PLAN.md — Decompose pipeline tests with MSW and Playwright E2E test
 
 ### Phase 6: Analysis Caching
 **Goal**: Identical workflow submissions skip the Claude API call entirely and return cached results instantly, reducing API costs and response time for repeated analyses
@@ -84,6 +84,6 @@ Plans:
 | 2. Team-Size-Aware Analysis | v1.0 | 3/3 | Complete | 2026-02-16 |
 | 3. AI Reliability | v1.0 | 2/2 | Complete | 2026-02-17 |
 | 4. Reporting & Export | v1.0 | 2/2 | Complete | 2026-02-17 |
-| 5. Debt Closure & Test Infrastructure | v1.1 | 0/? | Not started | - |
+| 5. Debt Closure & Test Infrastructure | v1.1 | 0/3 | Planned | - |
 | 6. Analysis Caching | v1.1 | 0/? | Not started | - |
 | 7. Advanced Analytics | v1.1 | 0/? | Not started | - |
