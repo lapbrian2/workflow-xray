@@ -6,17 +6,11 @@ An AI-powered operational diagnostic engine that analyzes business workflows and
 
 This is the diagnostic/analysis layer of a larger vision: a composable AI operating system with modular Reasoning Cells, visual NeuroFlow builder, persistent Personas, and a skill marketplace. The v1.0 foundation is hardened and shipped; v1.1 focuses on quality, caching, and deeper analytics.
 
-## Current Milestone: v1.1 Quality & Intelligence
+## Current State
 
-**Goal:** Close v1.0 tech debt, establish test coverage for core logic and critical user flows, add analysis caching to reduce API costs, and deepen dashboard analytics with time-series trends and batch comparison insights.
+**Shipped:** v1.1 Quality & Intelligence on 2026-02-18 (3 phases, 7 plans, 14 tasks)
 
-**Target features:**
-- Fix 3 display-layer gaps from v1.0 (partial result warning, PDF team context, flow diagram wiring)
-- Vitest unit tests for core logic (scoring, decompose, team-calibration, chart-data)
-- Playwright E2E for submit → analyze → export critical flow
-- MSW API mock layer for zero-cost testing
-- Analysis caching by content hash (skip re-analysis for identical workflows)
-- Advanced analytics: time-series health tracking, batch comparison trends, deeper dashboard
+Workflow X-Ray now has comprehensive test coverage (41 unit tests + 1 E2E), intelligent analysis caching that eliminates duplicate API costs, and an advanced analytics dashboard with version health trajectories, batch comparison trends, API cost breakdowns, and gap frequency heatmaps.
 
 ## Core Value
 
@@ -55,18 +49,24 @@ Teams can submit any workflow description and receive an accurate, actionable di
 - ✓ Programmatic PDF generation for cross-browser consistency — v1.0 (REPT-01)
 - ✓ Dashboard health trend charts with Recharts — v1.0 (REPT-02)
 - ✓ PDF structured sections (executive summary, flow diagram, gap analysis, recommendations) — v1.0 (REPT-03)
+- ✓ Partial result warning banner on xray page — v1.1 (DEBT-01)
+- ✓ PDF exports include team context and confidence badges — v1.1 (DEBT-02)
+- ✓ Flow diagram captured and embedded in PDF exports — v1.1 (DEBT-03)
+- ✓ Vitest unit test infrastructure with V8 coverage — v1.1 (TEST-01)
+- ✓ MSW mock handlers for Claude API (zero-cost testing) — v1.1 (TEST-02)
+- ✓ Unit tests for scoring, calibration, chart-data, decompose pipeline — v1.1 (TEST-03..05)
+- ✓ Playwright E2E test for submit → SSE → results → PDF — v1.1 (TEST-06)
+- ✓ Analysis caching with SHA-256 content hash, 7-day TTL — v1.1 (CACH-01, CACH-02)
+- ✓ Force re-analysis (skip cache) option — v1.1 (CACH-03)
+- ✓ Cache indicator on results page — v1.1 (CACH-04)
+- ✓ Version health trajectory chart on dashboard — v1.1 (ANLZ-01)
+- ✓ Batch comparison trends across workflow library — v1.1 (ANLZ-02)
+- ✓ API cost breakdown with cache savings — v1.1 (ANLZ-03)
+- ✓ Gap frequency heatmap with severity — v1.1 (ANLZ-04)
 
-### Active (v1.1)
+### Active
 
-- [ ] Wire flow diagram capture to PDF export UI handler
-- [ ] Add partial result warning indicator to xray page
-- [ ] Include team context and confidence in PDF exports
-- [ ] Unit test infrastructure with Vitest covering core logic
-- [ ] E2E tests with Playwright for critical user flows (submit → analyze → export)
-- [ ] API mock layer (MSW) for testing without API costs
-- [ ] Analysis caching by content hash to avoid duplicate API costs
-- [ ] Time-series health tracking across workflow versions
-- [ ] Batch comparison trends and deeper dashboard analytics
+(None yet — define next milestone to add requirements)
 
 ### Out of Scope
 
@@ -84,19 +84,22 @@ Teams can submit any workflow description and receive an accurate, actionable di
 
 ## Context
 
-- **Shipped:** v1.0 on 2026-02-17 (4 phases, 11 plans, 54 commits)
-- **Codebase:** 22,416 LOC TypeScript across 73 source files
+- **Shipped:** v1.1 on 2026-02-18 (7 phases total: 4 v1.0 + 3 v1.1, 18 plans)
+- **Codebase:** ~24,300 LOC TypeScript
 - **Users:** A consulting team analyzing client workflows and delivering diagnostic reports
 - **Deployment:** Vercel (KV primary, Blob fallback, in-memory local dev)
 - **AI Model:** Claude Sonnet 4 (claude-sonnet-4-20250514) with prompt caching, maxRetries=3
 - **Auth:** Single password gate via AUTH_PASSWORD env var
-- **Storage:** Multi-tier (Vercel KV → Vercel Blob → in-memory) with fail-hard writes
+- **Storage:** Multi-tier (Vercel KV → Vercel Blob → in-memory) with fail-hard writes, cache entries with 7-day TTL
 - **Error handling:** AppError + withApiHandler wrapper on all 13 routes, Zod validation
-- **Streaming:** SSE decompose endpoint with server-driven progress events
-- **PDF system:** jsPDF programmatic drawing, shared pdf-shared.ts module, 4 export types
-- **Charting:** Recharts 3.7.0 for health trend visualization
-- **Known tech debt:** 3 display-layer gaps from v1.0 (partial warning, PDF team context, flow diagram wiring)
-- **No test coverage exists** — addressed in v1.1
+- **Streaming:** SSE decompose endpoint with server-driven progress events (multi-line parser)
+- **PDF system:** jsPDF programmatic drawing with team context, confidence badges, flow diagram capture
+- **Charting:** Recharts 3.7.0 — health trends, version trajectory, batch trends, cost breakdown
+- **Analytics:** 4 client-side pure functions (version trajectory, batch trends, cost analytics, gap patterns)
+- **Caching:** SHA-256 content hash → Vercel KV with 7-day TTL, skip-cache option, cache indicator banner
+- **Testing:** Vitest 4.x (41 unit tests, V8 coverage), Playwright 1.58.x (1 E2E), MSW 2.x (API mocks)
+- **Known tech debt:** v1.0 display-layer gaps all closed in v1.1
+- **Open issues:** Vercel KV race conditions on workflow:ids array, OneDrive path build failures
 
 ## Constraints
 
@@ -120,6 +123,12 @@ Teams can submit any workflow description and receive an accurate, actionable di
 | html-to-image pinned to 1.11.11 | Newer versions have confirmed export bugs per React Flow docs | ⚠️ Revisit — monitor for fixes |
 | Per-period averages for health trends | Shows actual changes per time bucket, not cumulative | ✓ Good — meaningful trend visualization |
 | Accept tech debt at v1.0 | 5 display-layer items, no functional gaps | ✓ Good — shipped on time |
+| MSW at network level (not function mocks) | Full decompose pipeline runs in tests — catches real integration bugs | ✓ Good — found SSE parser bug during testing |
+| MOCK_CLAUDE env toggle for E2E | Playwright runs separate Next.js process, MSW can't intercept server-side | ✓ Good — clean separation |
+| Cache validated Decomposition objects | Avoid re-parsing raw Claude responses on cache hit | ✓ Good — instant cache returns |
+| All analytics client-side | Dashboard already fetches all workflows; avoid double data fetch | ✓ Good — no new API routes needed |
+| CSS grid for gap heatmap | Better visual control than Recharts for severity-colored blocks | ✓ Good — clear visual impact |
+| TDD for cache library | Red-green cycle caught edge cases (empty input, missing fields) | ✓ Good — 14 tests covering all paths |
 
 ---
-*Last updated: 2026-02-18 after v1.1 milestone start*
+*Last updated: 2026-02-18 after v1.1 milestone completion*
