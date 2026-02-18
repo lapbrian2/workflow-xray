@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-18)
 
 **Core value:** Teams can submit any workflow description and receive an accurate, actionable diagnostic -- with team-size-aware analysis -- that reveals bottlenecks, gaps, and automation opportunities they couldn't see before.
-**Current focus:** Phase 6: Analysis Caching (v1.1)
+**Current focus:** Phase 6 complete. Next: Phase 7: Analytics Dashboard (v1.1)
 
 ## Current Position
 
-Phase: 6 of 7 (Analysis Caching)
-Plan: 1 of 2 complete — 06-02 next
-Status: Executing (06-01 complete, 06-02 pending)
-Last activity: 2026-02-18 — 06-01 analysis cache library complete (TDD, 14 tests, 4 files)
+Phase: 6 of 7 (Analysis Caching) -- COMPLETE
+Plan: 2 of 2 complete
+Status: Phase 6 complete. Ready for Phase 7.
+Last activity: 2026-02-18 — 06-02 cache route integration + UI complete (2 tasks, 4 files)
 
-Progress: [██████████████████████████░░░░] 85% (v1.0: 11/11) | v1.1: [██████░░░░] 4/5 (06-01 done)
+Progress: [████████████████████████████░░] 90% (v1.0: 11/11) | v1.1: [████████░░] 5/5 phases 5-6 done, phase 7 next
 
 ## Performance Metrics
 
@@ -28,6 +28,7 @@ Progress: [███████████████████████
 - 05-02: 9 min, 3 tasks, 10 files modified
 - 05-03: 12 min, 2 tasks, 6 files modified
 - 06-01: 5 min, 3 tasks (TDD), 4 files modified
+- 06-02: 5 min, 2 tasks, 4 files modified
 
 ## Accumulated Context
 
@@ -50,6 +51,9 @@ Recent decisions affecting current work:
 - [06-01]: Test file at __tests__/lib/ (project convention) not src/__tests__/ (plan path)
 - [06-01]: Hash excludes hourlyRate/hoursPerStep (display-only, don't affect Claude analysis)
 - [06-01]: 7-day TTL for KV cache; hitCount incremented on read for accurate tracking
+- [06-02]: cachedAt added to Workflow type in Task 1 (moved from Task 2) due to compilation dependency
+- [06-02]: Fresh workflow ID generated per cached submission (each submission = distinct KV entry)
+- [06-02]: Cache write non-critical (try/catch, logged, never blocks user)
 
 ### Pending Todos
 
@@ -64,5 +68,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Completed 06-01-PLAN.md (analysis cache library). Next: 06-02 route integration + UI.
+Stopped at: Completed 06-02-PLAN.md (cache route integration + UI). Phase 6 complete. Next: Phase 7 analytics dashboard.
 Resume file: None
