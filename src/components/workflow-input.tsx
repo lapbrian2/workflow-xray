@@ -89,10 +89,12 @@ export default function WorkflowInput({
         buffer = parts.pop() || "";
 
         for (const part of parts) {
-          const line = part.trim();
-          if (!line.startsWith("data: ")) continue;
+          // Extract the data line from the SSE event (may contain event: and data: lines)
+          const lines = part.trim().split("\n");
+          const dataLine = lines.find((l) => l.startsWith("data: "));
+          if (!dataLine) continue;
           try {
-            const event = JSON.parse(line.slice(6));
+            const event = JSON.parse(dataLine.slice(6));
 
             if (event.type === "progress") {
               setProgressMessage(event.message);
@@ -106,9 +108,11 @@ export default function WorkflowInput({
               throw new Error(event.message);
             }
           } catch (parseErr) {
-            if (parseErr instanceof Error && parseErr.message !== "Unexpected end of JSON input") {
-              throw parseErr;
+            // Suppress JSON parse errors from incomplete SSE chunks
+            if (parseErr instanceof Error && parseErr.message.startsWith("Unexpected")) {
+              continue;
             }
+            throw parseErr;
           }
         }
       }
