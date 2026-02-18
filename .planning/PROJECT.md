@@ -4,7 +4,19 @@
 
 An AI-powered operational diagnostic engine that analyzes business workflows and delivers scored, actionable intelligence calibrated to team capacity. Consultants submit workflow descriptions (via text, URL, file, screenshot, Notion, or site crawl), and the app decomposes them into structured steps with team-size-aware gap analysis, health metrics with confidence indicators, visual flow maps, and remediation plans — all exportable as professional PDF reports. Built on Next.js 16, React 19, Claude Sonnet 4, deployed on Vercel.
 
-This is the diagnostic/analysis layer of a larger vision: a composable AI operating system with modular Reasoning Cells, visual NeuroFlow builder, persistent Personas, and a skill marketplace. The v1.0 foundation is now hardened and shipping.
+This is the diagnostic/analysis layer of a larger vision: a composable AI operating system with modular Reasoning Cells, visual NeuroFlow builder, persistent Personas, and a skill marketplace. The v1.0 foundation is hardened and shipped; v1.1 focuses on quality, caching, and deeper analytics.
+
+## Current Milestone: v1.1 Quality & Intelligence
+
+**Goal:** Close v1.0 tech debt, establish test coverage for core logic and critical user flows, add analysis caching to reduce API costs, and deepen dashboard analytics with time-series trends and batch comparison insights.
+
+**Target features:**
+- Fix 3 display-layer gaps from v1.0 (partial result warning, PDF team context, flow diagram wiring)
+- Vitest unit tests for core logic (scoring, decompose, team-calibration, chart-data)
+- Playwright E2E for submit → analyze → export critical flow
+- MSW API mock layer for zero-cost testing
+- Analysis caching by content hash (skip re-analysis for identical workflows)
+- Advanced analytics: time-series health tracking, batch comparison trends, deeper dashboard
 
 ## Core Value
 
@@ -44,17 +56,17 @@ Teams can submit any workflow description and receive an accurate, actionable di
 - ✓ Dashboard health trend charts with Recharts — v1.0 (REPT-02)
 - ✓ PDF structured sections (executive summary, flow diagram, gap analysis, recommendations) — v1.0 (REPT-03)
 
-### Active
+### Active (v1.1)
 
-- [ ] Unit test infrastructure with Vitest covering core logic
-- [ ] Component tests with Testing Library for critical UI
-- [ ] E2E tests with Playwright for critical user flows
-- [ ] API mock layer (MSW) for testing without API costs
-- [ ] Analysis caching by content hash to avoid duplicate API costs
-- [ ] Sentry error monitoring for production failure capture
 - [ ] Wire flow diagram capture to PDF export UI handler
 - [ ] Add partial result warning indicator to xray page
 - [ ] Include team context and confidence in PDF exports
+- [ ] Unit test infrastructure with Vitest covering core logic
+- [ ] E2E tests with Playwright for critical user flows (submit → analyze → export)
+- [ ] API mock layer (MSW) for testing without API costs
+- [ ] Analysis caching by content hash to avoid duplicate API costs
+- [ ] Time-series health tracking across workflow versions
+- [ ] Batch comparison trends and deeper dashboard analytics
 
 ### Out of Scope
 
@@ -67,6 +79,8 @@ Teams can submit any workflow description and receive an accurate, actionable di
 - Mobile app — web-first, PWA viable
 - Distributed rate limiting — per-isolate limits acceptable at team scale
 - Offline mode — online-first diagnostic tool
+- Sentry error monitoring — deferred to v1.2 (not blocking current usage)
+- Component tests with Testing Library — deferred; Vitest units + Playwright E2E sufficient for v1.1
 
 ## Context
 
@@ -81,8 +95,8 @@ Teams can submit any workflow description and receive an accurate, actionable di
 - **Streaming:** SSE decompose endpoint with server-driven progress events
 - **PDF system:** jsPDF programmatic drawing, shared pdf-shared.ts module, 4 export types
 - **Charting:** Recharts 3.7.0 for health trend visualization
-- **Known tech debt:** 5 items accepted from v1.0 audit (see MILESTONES.md)
-- **No test coverage exists** — top priority for next milestone
+- **Known tech debt:** 3 display-layer gaps from v1.0 (partial warning, PDF team context, flow diagram wiring)
+- **No test coverage exists** — addressed in v1.1
 
 ## Constraints
 
@@ -108,4 +122,4 @@ Teams can submit any workflow description and receive an accurate, actionable di
 | Accept tech debt at v1.0 | 5 display-layer items, no functional gaps | ✓ Good — shipped on time |
 
 ---
-*Last updated: 2026-02-18 after v1.0 milestone*
+*Last updated: 2026-02-18 after v1.1 milestone start*
