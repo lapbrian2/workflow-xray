@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-18)
 
 **Core value:** Teams can submit any workflow description and receive an accurate, actionable diagnostic -- with team-size-aware analysis -- that reveals bottlenecks, gaps, and automation opportunities they couldn't see before.
-**Current focus:** Phase 5: Debt Closure & Test Infrastructure (v1.1)
+**Current focus:** Phase 5 complete. Next: Phase 6 (Caching)
 
 ## Current Position
 
-Phase: 5 of 7 (Debt Closure & Test Infrastructure)
-Plan: 05-03 next (05-01, 05-02 complete)
-Status: Executing — 05-02 complete, 05-03 next
-Last activity: 2026-02-18 — 05-02 complete (Vitest + MSW test infrastructure, 31 tests, 9 min)
+Phase: 5 of 7 (Debt Closure & Test Infrastructure) -- COMPLETE
+Plan: Phase 5 complete (05-01, 05-02, 05-03 done). Next: Phase 6.
+Status: Phase 5 complete — ready for Phase 6 (Caching)
+Last activity: 2026-02-18 — 05-03 complete (decompose pipeline tests + E2E, 41 unit tests + 1 E2E, 12 min)
 
-Progress: [████████████████████░░░░░░░░░░] 67% (v1.0: 11/11) | v1.1: [██░░░░░░░░] 2/9
+Progress: [█████████████████████░░░░░░░░░] 70% (v1.0: 11/11) | v1.1: [███░░░░░░░] 3/9
 
 ## Performance Metrics
 
@@ -26,6 +26,7 @@ Progress: [████████████████████░░░
 **v1.1:**
 - 05-01: 8 min, 3 tasks, 4 files modified
 - 05-02: 9 min, 3 tasks, 10 files modified
+- 05-03: 12 min, 2 tasks, 6 files modified
 
 ## Accumulated Context
 
@@ -42,6 +43,9 @@ Recent decisions affecting current work:
 - [05-02]: Node environment (not jsdom) for pure function tests -- no DOM needed
 - [05-02]: MSW at network level for Anthropic API mocking -- enables decompose pipeline tests in 05-03
 - [05-02]: Factory pattern (makeStep/makeGap/makeWorkflow) for reusable test data
+- [05-03]: Dummy ANTHROPIC_API_KEY in tests to pass SDK client-side header validation before MSW intercepts
+- [05-03]: MOCK_CLAUDE toggle as early-return in callClaude functions for E2E (Next.js server separate process from Playwright)
+- [05-03]: Playwright webServer env object for cross-platform compatibility
 
 ### Pending Todos
 
@@ -56,5 +60,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Completed 05-02-PLAN.md. Next: 05-03 (decompose pipeline tests).
+Stopped at: Completed 05-03-PLAN.md. Phase 5 complete. Next: Phase 6 (Caching).
 Resume file: None
