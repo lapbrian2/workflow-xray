@@ -78,29 +78,29 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DEBT-01 | TBD | Pending |
-| DEBT-02 | TBD | Pending |
-| DEBT-03 | TBD | Pending |
-| TEST-01 | TBD | Pending |
-| TEST-02 | TBD | Pending |
-| TEST-03 | TBD | Pending |
-| TEST-04 | TBD | Pending |
-| TEST-05 | TBD | Pending |
-| TEST-06 | TBD | Pending |
-| CACH-01 | TBD | Pending |
-| CACH-02 | TBD | Pending |
-| CACH-03 | TBD | Pending |
-| CACH-04 | TBD | Pending |
-| ANLZ-01 | TBD | Pending |
-| ANLZ-02 | TBD | Pending |
-| ANLZ-03 | TBD | Pending |
-| ANLZ-04 | TBD | Pending |
+| DEBT-01 | Phase 5 | Pending |
+| DEBT-02 | Phase 5 | Pending |
+| DEBT-03 | Phase 5 | Pending |
+| TEST-01 | Phase 5 | Pending |
+| TEST-02 | Phase 5 | Pending |
+| TEST-03 | Phase 5 | Pending |
+| TEST-04 | Phase 5 | Pending |
+| TEST-05 | Phase 5 | Pending |
+| TEST-06 | Phase 5 | Pending |
+| CACH-01 | Phase 6 | Pending |
+| CACH-02 | Phase 6 | Pending |
+| CACH-03 | Phase 6 | Pending |
+| CACH-04 | Phase 6 | Pending |
+| ANLZ-01 | Phase 7 | Pending |
+| ANLZ-02 | Phase 7 | Pending |
+| ANLZ-03 | Phase 7 | Pending |
+| ANLZ-04 | Phase 7 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 17 total
-- Mapped to phases: 0
-- Unmapped: 17
+- Mapped to phases: 17
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-18*
-*Last updated: 2026-02-18 after initial definition*
+*Last updated: 2026-02-18 after roadmap creation*
