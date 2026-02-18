@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-18)
 
 **Core value:** Teams can submit any workflow description and receive an accurate, actionable diagnostic -- with team-size-aware analysis -- that reveals bottlenecks, gaps, and automation opportunities they couldn't see before.
-**Current focus:** Phase 7: Advanced Analytics (v1.1)
+**Current focus:** Phase 7: Advanced Analytics (v1.1) -- COMPLETE
 
 ## Current Position
 
-Phase: 7 of 7 (Advanced Analytics)
-Plan: 1 of 2 complete — executing plan 2 next
-Status: Executing (07-01 complete, 07-02 remaining)
-Last activity: 2026-02-18 — 07-01 analytics engine + charts completed (2 tasks, 3 files)
+Phase: 7 of 7 (Advanced Analytics) -- COMPLETE
+Plan: 2 of 2 complete
+Status: v1.1 Milestone Complete
+Last activity: 2026-02-18 — 07-02 cost breakdown, gap heatmap, dashboard integration completed (2 tasks, 3 files)
 
-Progress: [█████████████████████████████░] 93% (v1.0: 11/11) | v1.1: [█████████░] 6/7 (07-01 done)
+Progress: [██████████████████████████████] 100% (v1.0: 11/11) | v1.1: [██████████] 7/7 (all phases complete)
 
 ## Performance Metrics
 
@@ -30,6 +30,7 @@ Progress: [███████████████████████
 - 06-01: 5 min, 3 tasks (TDD), 4 files modified
 - 06-02: 5 min, 2 tasks, 4 files modified
 - 07-01: 5 min, 2 tasks, 3 files created
+- 07-02: 5 min, 2 tasks, 3 files created/modified
 
 ## Accumulated Context
 
@@ -59,6 +60,10 @@ Recent decisions affecting current work:
 - [07-01]: BFS chain traversal walks parentId up then collects all descendants from root
 - [07-01]: Cost estimation uses Sonnet pricing constants at top of file for easy updating
 - [07-01]: Savings formula: cacheHits * averageCostPerNonCachedAnalysis
+- [07-02]: CSS grid for gap heatmap instead of Recharts -- more visual control for severity blocks
+- [07-02]: Auto-select first versioned workflow when trajectory dropdown initializes
+- [07-02]: All analytics sections grouped under single Advanced Analytics header with subtitle
+- [07-02]: Token bar uses stacked horizontal layout with proportional widths for input vs output
 
 ### Pending Todos
 
@@ -73,5 +78,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Completed 07-01-PLAN.md (analytics engine + charts). Next: 07-02 (cost/heatmap + dashboard).
+Stopped at: Completed 07-02-PLAN.md (cost breakdown, gap heatmap, dashboard integration). v1.1 milestone complete.
 Resume file: None
