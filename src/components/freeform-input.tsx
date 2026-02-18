@@ -1269,6 +1269,11 @@ export default function FreeformInput({
       }));
 
       try {
+        // Guard: skip if extractedDescription is missing or too short
+        if (!wf.extractedDescription || wf.extractedDescription.trim().length < 10) {
+          throw new Error("Description too short to analyze");
+        }
+
         // 1. Decompose via SSE stream (same endpoint as single submit)
         const res = await fetchWithTimeout(
           "/api/decompose",
@@ -1414,6 +1419,7 @@ export default function FreeformInput({
         if (abort.signal.aborted) break;
         failed++;
         const errorMsg = err instanceof Error ? err.message : "Failed";
+        console.error(`[AnalyzeAll] Workflow "${wf.title}" failed:`, err);
         failedItems.push({ ...wf, status: "error", error: errorMsg });
         setAnalyzeAllProgress((prev) => ({
           ...prev,
