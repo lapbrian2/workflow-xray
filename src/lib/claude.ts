@@ -10,6 +10,94 @@ const CLAUDE_MODEL = "claude-sonnet-4-20250514";
 
 const LOG_TOKENS = process.env.LOG_TOKEN_USAGE === "true";
 
+// ─── Mock toggle for E2E testing (no real API calls) ───
+const MOCK_CLAUDE = process.env.MOCK_CLAUDE === "true";
+
+function getMockDecomposeResponse(): ClaudeResponse {
+  const mockResponse = JSON.stringify({
+    title: "Mock Workflow Analysis",
+    steps: [
+      { id: "step_1", name: "Receive Request", description: "Initial request intake", owner: "Operator", layer: "human", inputs: ["request"], outputs: ["ticket"], tools: ["email"], automationScore: 30, dependencies: [] },
+      { id: "step_2", name: "Process Data", description: "Transform and validate data", owner: "System", layer: "orchestration", inputs: ["ticket"], outputs: ["processed_data"], tools: ["script"], automationScore: 85, dependencies: ["step_1"] },
+      { id: "step_3", name: "Review Output", description: "Human review of processed results", owner: "Manager", layer: "human", inputs: ["processed_data"], outputs: ["approved_output"], tools: ["dashboard"], automationScore: 20, dependencies: ["step_2"] },
+    ],
+    gaps: [
+      { type: "bottleneck", severity: "high", stepIds: ["step_3"], description: "Manager review creates delays", suggestion: "Add auto-approval for low-risk items", confidence: "high" },
+      { type: "manual_overhead", severity: "medium", stepIds: ["step_1"], description: "Manual request intake", suggestion: "Implement web form submission", confidence: "inferred" },
+    ],
+  });
+  return {
+    text: "```json\n" + mockResponse + "\n```",
+    inputTokens: 500,
+    outputTokens: 300,
+  };
+}
+
+function getMockExtractionResponse(): ClaudeResponse {
+  const mockResponse = JSON.stringify({
+    workflows: [
+      {
+        id: "wf_1",
+        title: "Mock Extracted Workflow",
+        description: "A workflow extracted from a mock document for testing purposes.",
+        confidence: "high",
+        sourceSnippet: "Mock source snippet",
+      },
+    ],
+    totalWorkflowsFound: 1,
+    extractionNotes: "Mock extraction completed successfully.",
+  });
+  return {
+    text: "```json\n" + mockResponse + "\n```",
+    inputTokens: 200,
+    outputTokens: 150,
+  };
+}
+
+function getMockRemediationResponse(): ClaudeResponse {
+  const mockResponse = JSON.stringify({
+    title: "Mock Remediation Plan",
+    summary: "This is a mock remediation plan for testing purposes.",
+    phases: [
+      {
+        id: "phase_1",
+        name: "Quick Wins",
+        description: "Immediate improvements",
+        timeframe: "Week 1-2",
+        tasks: [
+          {
+            id: "task_1",
+            title: "Automate request intake",
+            description: "Replace manual email intake with a web form.",
+            priority: "high",
+            effort: "quick_win",
+            owner: null,
+            gapIds: [0],
+            stepIds: ["step_1"],
+            tools: ["Typeform"],
+            successMetric: "Zero manual intake emails per week",
+            dependencies: [],
+          },
+        ],
+      },
+    ],
+    projectedImpact: [
+      {
+        metricName: "Automation Potential",
+        currentValue: "45%",
+        projectedValue: "70%",
+        confidence: "medium",
+        assumption: "All quick wins implemented within 2 weeks",
+      },
+    ],
+  });
+  return {
+    text: "```json\n" + mockResponse + "\n```",
+    inputTokens: 300,
+    outputTokens: 250,
+  };
+}
+
 function loadPrompt(filename: string): { text: string; hash: string } {
   const cached = promptCache.get(filename);
   if (cached) return cached;
@@ -96,6 +184,10 @@ export interface ClaudeResponse {
 }
 
 export async function callClaude(userMessage: string): Promise<ClaudeResponse> {
+  if (MOCK_CLAUDE) {
+    return getMockDecomposeResponse();
+  }
+
   const response = await client.messages.create({
     model: CLAUDE_MODEL,
     max_tokens: 4096,
@@ -131,6 +223,10 @@ export async function callClaude(userMessage: string): Promise<ClaudeResponse> {
 }
 
 export async function callClaudeExtraction(userMessage: string): Promise<ClaudeResponse> {
+  if (MOCK_CLAUDE) {
+    return getMockExtractionResponse();
+  }
+
   const response = await client.messages.create({
     model: CLAUDE_MODEL,
     max_tokens: 6144,
@@ -166,6 +262,10 @@ export async function callClaudeExtraction(userMessage: string): Promise<ClaudeR
 }
 
 export async function callClaudeRemediation(userMessage: string): Promise<ClaudeResponse> {
+  if (MOCK_CLAUDE) {
+    return getMockRemediationResponse();
+  }
+
   const response = await client.messages.create({
     model: CLAUDE_MODEL,
     max_tokens: 6144,
