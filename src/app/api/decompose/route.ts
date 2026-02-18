@@ -139,6 +139,7 @@ export async function POST(request: NextRequest) {
             inputTokens: _meta.inputTokens,
             outputTokens: _meta.outputTokens,
           },
+          ...(_partial ? { _partial, _recoveryReason } : {}),
         };
 
         await saveWorkflow(workflow);

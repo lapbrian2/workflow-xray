@@ -106,6 +106,8 @@ export interface Workflow {
   };
   remediationPlan?: RemediationPlan; // attached remediation plan (if generated)
   extractionSource?: ExtractionSource; // how this workflow was sourced
+  _partial?: boolean;              // true when analysis was recovered from malformed AI output
+  _recoveryReason?: string;        // explanation of what was recovered
 }
 
 export interface StageInput {

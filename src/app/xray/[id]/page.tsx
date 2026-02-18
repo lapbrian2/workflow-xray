@@ -582,6 +582,40 @@ export default function XRayPage() {
         </div>
       </div>
 
+      {/* Partial result warning banner */}
+      {workflow._partial && (
+        <div
+          data-testid="partial-warning"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "10px 14px",
+            background: "rgba(212, 160, 23, 0.06)",
+            border: "1px solid rgba(212, 160, 23, 0.2)",
+            borderRadius: "var(--radius-sm)",
+            marginTop: 12,
+            animation: "fadeInUp 0.4s var(--ease-spring) 0.05s both",
+          }}
+        >
+          <span style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 12,
+            fontWeight: 700,
+            color: "#D4A017",
+          }}>
+            {"\u26A0"} <strong>Partial Results</strong>
+          </span>
+          <span style={{
+            fontFamily: "var(--font-body)",
+            fontSize: 12,
+            color: "var(--color-muted)",
+          }}>
+            {workflow._recoveryReason || "This analysis was recovered from incomplete AI output. Some details may be missing."}
+          </span>
+        </div>
+      )}
+
       {/* Team context banner */}
       {workflow.costContext?.teamSize && (
         <div style={{
