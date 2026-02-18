@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-18)
 ## Current Position
 
 Phase: 5 of 7 (Debt Closure & Test Infrastructure)
-Plan: 3 plans (05-01, 05-02, 05-03) in 2 waves — ready to execute
-Status: Planned — ready to execute
-Last activity: 2026-02-18 — Phase 5 planned (3 plans, verified)
+Plan: 05-02 next (05-01 complete)
+Status: Executing — 05-01 complete, 05-02 next
+Last activity: 2026-02-18 — 05-01 complete (display-layer debt closure, 3 tasks, 8 min)
 
-Progress: [████████████████████░░░░░░░░░░] 67% (v1.0: 11/11) | v1.1: [░░░░░░░░░░] 0%
+Progress: [████████████████████░░░░░░░░░░] 67% (v1.0: 11/11) | v1.1: [█░░░░░░░░░] 1/9
 
 ## Performance Metrics
 
@@ -23,7 +23,8 @@ Progress: [████████████████████░░░
 - Average duration: ~8 min/plan
 - Total execution time: ~92 min
 
-**v1.1:** No plans completed yet.
+**v1.1:**
+- 05-01: 8 min, 3 tasks, 4 files modified
 
 ## Accumulated Context
 
@@ -35,6 +36,8 @@ Recent decisions affecting current work:
 - [v1.1 Roadmap]: Debt closure combined with test infrastructure (Phase 5) so debt fixes become first test targets
 - [v1.1 Roadmap]: Caching before analytics because ANLZ-03 depends on cacheHit field added in Phase 6
 - [v1.1 Roadmap]: All analytics client-side (no server routes) to avoid double data fetch
+- [05-01]: Used direct toPng capture instead of captureFlowAsDataUrl to avoid node-position dependency
+- [05-01]: Confidence badges positioned to left of score value using font measurement for alignment
 
 ### Pending Todos
 
@@ -49,5 +52,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Phase 5 planned. Next: execute Phase 5.
+Stopped at: Completed 05-01-PLAN.md. Next: 05-02 (test infrastructure setup).
 Resume file: None
