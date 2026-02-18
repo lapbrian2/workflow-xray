@@ -9,18 +9,18 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Debt Closure
 
-- [ ] **DEBT-01**: Xray page shows warning banner when viewing partial/recovered analysis results
-- [ ] **DEBT-02**: PDF exports include team size context and confidence indicators alongside scores
-- [ ] **DEBT-03**: Flow diagram is captured and embedded in single-workflow PDF exports
+- [x] **DEBT-01**: Xray page shows warning banner when viewing partial/recovered analysis results
+- [x] **DEBT-02**: PDF exports include team size context and confidence indicators alongside scores
+- [x] **DEBT-03**: Flow diagram is captured and embedded in single-workflow PDF exports
 
 ### Testing Infrastructure
 
-- [ ] **TEST-01**: Vitest configured with coverage reporting for core business logic
-- [ ] **TEST-02**: MSW mock handlers intercept Claude API calls for zero-cost test execution
-- [ ] **TEST-03**: Unit tests cover scoring engine (computeHealth, team calibration, threshold multipliers)
-- [ ] **TEST-04**: Unit tests cover decompose pipeline (JSON extraction, partial recovery, Zod validation)
-- [ ] **TEST-05**: Unit tests cover chart data computation (computeHealthTrends, edge cases)
-- [ ] **TEST-06**: Playwright E2E test covers submit workflow -> SSE progress -> view results -> export PDF flow
+- [x] **TEST-01**: Vitest configured with coverage reporting for core business logic
+- [x] **TEST-02**: MSW mock handlers intercept Claude API calls for zero-cost test execution
+- [x] **TEST-03**: Unit tests cover scoring engine (computeHealth, team calibration, threshold multipliers)
+- [x] **TEST-04**: Unit tests cover decompose pipeline (JSON extraction, partial recovery, Zod validation)
+- [x] **TEST-05**: Unit tests cover chart data computation (computeHealthTrends, edge cases)
+- [x] **TEST-06**: Playwright E2E test covers submit workflow -> SSE progress -> view results -> export PDF flow
 
 ### Analysis Caching
 
@@ -78,15 +78,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DEBT-01 | Phase 5 | Pending |
-| DEBT-02 | Phase 5 | Pending |
-| DEBT-03 | Phase 5 | Pending |
-| TEST-01 | Phase 5 | Pending |
-| TEST-02 | Phase 5 | Pending |
-| TEST-03 | Phase 5 | Pending |
-| TEST-04 | Phase 5 | Pending |
-| TEST-05 | Phase 5 | Pending |
-| TEST-06 | Phase 5 | Pending |
+| DEBT-01 | Phase 5 | Complete |
+| DEBT-02 | Phase 5 | Complete |
+| DEBT-03 | Phase 5 | Complete |
+| TEST-01 | Phase 5 | Complete |
+| TEST-02 | Phase 5 | Complete |
+| TEST-03 | Phase 5 | Complete |
+| TEST-04 | Phase 5 | Complete |
+| TEST-05 | Phase 5 | Complete |
+| TEST-06 | Phase 5 | Complete |
 | CACH-01 | Phase 6 | Pending |
 | CACH-02 | Phase 6 | Pending |
 | CACH-03 | Phase 6 | Pending |

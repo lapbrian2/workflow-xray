@@ -21,7 +21,7 @@
 
 **Milestone Goal:** Close v1.0 tech debt, establish test coverage for core logic and critical user flows, add analysis caching to reduce API costs, and deepen dashboard analytics with time-series trends and batch comparison insights.
 
-- [ ] **Phase 5: Debt Closure & Test Infrastructure** - Fix v1.0 display gaps and establish comprehensive test coverage as a safety net for all subsequent work
+- [x] **Phase 5: Debt Closure & Test Infrastructure** - Fix v1.0 display gaps and establish comprehensive test coverage as a safety net for all subsequent work — completed 2026-02-18
 - [ ] **Phase 6: Analysis Caching** - Eliminate duplicate API costs by caching validated analysis results keyed by content hash
 - [ ] **Phase 7: Advanced Analytics** - Deliver time-series health tracking, batch comparison trends, cost insights, and gap frequency analysis on the dashboard
 
@@ -84,6 +84,6 @@ Plans:
 | 2. Team-Size-Aware Analysis | v1.0 | 3/3 | Complete | 2026-02-16 |
 | 3. AI Reliability | v1.0 | 2/2 | Complete | 2026-02-17 |
 | 4. Reporting & Export | v1.0 | 2/2 | Complete | 2026-02-17 |
-| 5. Debt Closure & Test Infrastructure | v1.1 | 0/3 | Planned | - |
+| 5. Debt Closure & Test Infrastructure | v1.1 | 3/3 | Complete | 2026-02-18 |
 | 6. Analysis Caching | v1.1 | 0/? | Not started | - |
 | 7. Advanced Analytics | v1.1 | 0/? | Not started | - |
