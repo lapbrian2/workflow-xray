@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-18)
 ## Current Position
 
 Phase: 5 of 7 (Debt Closure & Test Infrastructure)
-Plan: 05-02 next (05-01 complete)
-Status: Executing — 05-01 complete, 05-02 next
-Last activity: 2026-02-18 — 05-01 complete (display-layer debt closure, 3 tasks, 8 min)
+Plan: 05-03 next (05-01, 05-02 complete)
+Status: Executing — 05-02 complete, 05-03 next
+Last activity: 2026-02-18 — 05-02 complete (Vitest + MSW test infrastructure, 31 tests, 9 min)
 
-Progress: [████████████████████░░░░░░░░░░] 67% (v1.0: 11/11) | v1.1: [█░░░░░░░░░] 1/9
+Progress: [████████████████████░░░░░░░░░░] 67% (v1.0: 11/11) | v1.1: [██░░░░░░░░] 2/9
 
 ## Performance Metrics
 
@@ -25,6 +25,7 @@ Progress: [████████████████████░░░
 
 **v1.1:**
 - 05-01: 8 min, 3 tasks, 4 files modified
+- 05-02: 9 min, 3 tasks, 10 files modified
 
 ## Accumulated Context
 
@@ -38,6 +39,9 @@ Recent decisions affecting current work:
 - [v1.1 Roadmap]: All analytics client-side (no server routes) to avoid double data fetch
 - [05-01]: Used direct toPng capture instead of captureFlowAsDataUrl to avoid node-position dependency
 - [05-01]: Confidence badges positioned to left of score value using font measurement for alignment
+- [05-02]: Node environment (not jsdom) for pure function tests -- no DOM needed
+- [05-02]: MSW at network level for Anthropic API mocking -- enables decompose pipeline tests in 05-03
+- [05-02]: Factory pattern (makeStep/makeGap/makeWorkflow) for reusable test data
 
 ### Pending Todos
 
@@ -52,5 +56,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Completed 05-01-PLAN.md. Next: 05-02 (test infrastructure setup).
+Stopped at: Completed 05-02-PLAN.md. Next: 05-03 (decompose pipeline tests).
 Resume file: None
