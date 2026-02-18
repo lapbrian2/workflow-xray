@@ -108,6 +108,7 @@ export interface Workflow {
   extractionSource?: ExtractionSource; // how this workflow was sourced
   _partial?: boolean;              // true when analysis was recovered from malformed AI output
   _recoveryReason?: string;        // explanation of what was recovered
+  cacheHit?: boolean;              // true when result was served from analysis cache
 }
 
 export interface StageInput {

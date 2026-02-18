@@ -37,6 +37,7 @@ export const DecomposeInputSchema = z.object({
     .optional(),
   context: z.string().max(5000).optional(),
   parentId: z.string().optional(),
+  skipCache: z.boolean().optional(),
   costContext: z
     .object({
       hourlyRate: z.number().min(0).max(10000).optional(),
