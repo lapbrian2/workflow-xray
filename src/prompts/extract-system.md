@@ -13,9 +13,18 @@ A workflow is a repeatable sequence of steps performed by people and/or tools to
 - Sprint planning ceremony
 - Invoice approval chain
 
+**Workflows in structured data (spreadsheets, databases, templates):** Spreadsheets and data templates often encode operational workflows implicitly through their structure. Each sheet, matrix, checklist, or rule set typically represents a distinct operational process. Extract these as workflows by describing the human/system process that uses that data. For example:
+- A "QA Checklist" sheet → the quality assurance validation workflow
+- A "Generation Matrix" or "Combination Grid" → the production/generation pipeline workflow
+- A "Forbidden Rules" or "Validation" sheet → the filtering/compliance checking workflow
+- A "Style Definitions" sheet → the style configuration and selection workflow
+- Any sheet with statuses, stages, or sequential IDs → the operational process it tracks
+
+When extracting from structured data, describe HOW someone uses each sheet/table as part of their work process, not just what data it contains.
+
 ## What does NOT count
 
-- Pure informational/reference content (glossaries, FAQs, policy statements)
+- Pure standalone reference lookups with no operational process (e.g., a phone directory)
 - One-off project plans with no repeatable pattern
 - Meeting notes that don't describe a process
 - Marketing copy or blog articles (unless they describe an internal process)
@@ -54,5 +63,5 @@ Return valid JSON with this structure:
 5. If the document contains NO workflows, return an empty array with an explanation in documentSummary.
 6. Do NOT invent workflows that aren't in the document. Only extract what's actually described.
 7. The description field should be written in a way that's ready to be fed directly into a workflow decomposition tool.
-8. Maximum 10 workflows per document. If more exist, extract the 10 most detailed ones.
+8. Maximum 20 workflows per document. If more exist, extract the 20 most detailed ones.
 9. Return ONLY the JSON object. No markdown fences, no explanation text before or after.

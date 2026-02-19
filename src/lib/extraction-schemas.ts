@@ -17,7 +17,7 @@ export const ExtractedWorkflowSchema = z.object({
 });
 
 export const ExtractionResultSchema = z.object({
-  workflows: z.array(ExtractedWorkflowSchema).max(10),
+  workflows: z.array(ExtractedWorkflowSchema).max(20),
   documentTitle: z.string().max(400).optional().default("Untitled Document"),
   documentSummary: z.string().max(600).optional().default(""),
   totalWorkflowsFound: z.number().int().min(0).optional().default(0),

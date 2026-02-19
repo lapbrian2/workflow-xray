@@ -229,7 +229,7 @@ export async function callClaudeExtraction(userMessage: string): Promise<ClaudeR
 
   const response = await client.messages.create({
     model: CLAUDE_MODEL,
-    max_tokens: 6144,
+    max_tokens: 8192,
     system: [
       {
         type: "text",
@@ -238,7 +238,7 @@ export async function callClaudeExtraction(userMessage: string): Promise<ClaudeR
       },
     ],
     messages: [{ role: "user", content: userMessage }],
-  }, { timeout: 45000 });
+  }, { timeout: 60000 });
 
   const textBlock = response.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") {
