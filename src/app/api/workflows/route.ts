@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listWorkflows, getWorkflow, saveWorkflow, deleteWorkflow } from "@/lib/db";
+import { listWorkflows, getWorkflow, saveWorkflow } from "@/lib/db";
+import { cascadeDeleteWorkflow } from "@/lib/db-cascade";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { withApiHandler } from "@/lib/api-handler";
 import { AppError } from "@/lib/api-errors";
@@ -57,8 +58,8 @@ export const DELETE = withApiHandler(
       throw new AppError("VALIDATION_ERROR", "ID is required.", 400);
     }
 
-    await deleteWorkflow(id);
-    return NextResponse.json({ deleted: true });
+    const result = await cascadeDeleteWorkflow(id);
+    return NextResponse.json({ deleted: true, sharesRevoked: result.sharesRevoked });
   },
   { bodyType: "none" }
 );
