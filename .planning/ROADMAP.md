@@ -4,6 +4,7 @@
 
 - ✅ **v1.0 Consulting-Grade Diagnostic Engine** — Phases 1-4 (shipped 2026-02-17) | [Archive](milestones/v1.0-ROADMAP.md)
 - ✅ **v1.1 Quality & Intelligence** — Phases 5-7 (shipped 2026-02-18) | [Archive](milestones/v1.1-ROADMAP.md)
+- 🔄 **v1.2 Collaboration & Intelligence** — Phases 8-10
 
 ## Phases
 
@@ -26,9 +27,21 @@
 
 </details>
 
-## Progress
+### v1.2 Collaboration & Intelligence (Phases 8-10)
 
-**All milestones shipped.**
+- [ ] **Phase 8: Auth & Shareable Links** — Middleware auth boundaries, token-based share links, read-only share view, cascade delete
+  - Requirements: AUTH-01..02, SHAR-01..05 (7 requirements)
+  - Key files: middleware.ts, db-shares.ts, db-cascade.ts, /api/shares, /api/share/[token], /share/[token] page, sharing components
+
+- [ ] **Phase 9: Comments & Notes** — Workflow-level and gap-level comments, resolve toggle, comments in share view
+  - Requirements: CMNT-01..05 (5 requirements)
+  - Key files: db-comments.ts, /api/comments, comment components, xray page Notes tab, gap-card badges
+
+- [ ] **Phase 10: Cross-Workflow AI Intelligence** — Pattern detection, implementation roadmaps, predictive health scoring
+  - Requirements: ROAD-01..03, PTRN-01..04, PRED-01..03 (10 requirements)
+  - Key files: db-analysis.ts, /api/analysis/patterns, /api/analysis/predictions, analysis components, enhanced remediation
+
+## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -39,3 +52,6 @@
 | 5. Debt Closure & Test Infrastructure | v1.1 | 3/3 | Complete | 2026-02-18 |
 | 6. Analysis Caching | v1.1 | 2/2 | Complete | 2026-02-18 |
 | 7. Advanced Analytics | v1.1 | 2/2 | Complete | 2026-02-18 |
+| 8. Auth & Shareable Links | v1.2 | 0/? | Pending | — |
+| 9. Comments & Notes | v1.2 | 0/? | Pending | — |
+| 10. Cross-Workflow AI Intelligence | v1.2 | 0/? | Pending | — |

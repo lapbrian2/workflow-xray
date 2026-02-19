@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-18)
+See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Teams can submit any workflow description and receive an accurate, actionable diagnostic -- with team-size-aware analysis -- that reveals bottlenecks, gaps, and automation opportunities they couldn't see before.
-**Current focus:** v1.2 Collaboration & Intelligence -- Defining requirements
+**Current focus:** v1.2 Collaboration & Intelligence -- Ready for Phase 8
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-02-18 — Milestone v1.2 started
+Phase: 8 (Auth & Shareable Links)
+Plan: Not yet created
+Status: Ready for /gsd:plan-phase 8
+Last activity: 2026-02-19 — Requirements + Roadmap defined
 
-Progress: v1.0: [██████████] 11/11 | v1.1: [██████████] 7/7 | v1.2: ░░░░░░░░░░ 0%
+Progress: v1.0: [██████████] 11/11 | v1.1: [██████████] 7/7 | v1.2: ░░░░░░░░░░ 0/3 phases
 
 ## Performance Metrics
 
@@ -43,6 +43,10 @@ Recent decisions affecting current work:
 - [v1.2 Scope]: Full collaboration suite (shared library, shareable links, comments)
 - [v1.2 Scope]: All three deeper AI features (roadmaps, cross-workflow, predictive)
 - [v1.2 Scope]: Google Workspace + automation engine deferred to v1.3
+- [v1.2 Arch]: Comments as separate KV entries, not embedded in workflow JSON
+- [v1.2 Arch]: Token-based share links (crypto.randomUUID), not workflow IDs
+- [v1.2 Arch]: Curated server-side aggregation for Claude prompts
+- [v1.2 Arch]: No Zustand store expansion — component-local state for new features
 
 ### Pending Todos
 
@@ -53,10 +57,9 @@ Recent decisions affecting current work:
 - Vercel KV race conditions on workflow:ids array (identified in v1.0, not yet fixed)
 - Per-isolate rate limiting ineffective in production (deferred, acceptable at team scale)
 - OneDrive path causes npm run build static generation failures (TypeScript compiles fine)
-- Batch extract bug fixed (SSE stream parsing) -- deployed, needs user verification
 
 ## Session Continuity
 
-Last session: 2026-02-18
-Stopped at: v1.2 milestone started, defining requirements
+Last session: 2026-02-19
+Stopped at: v1.2 milestone initialized, requirements + roadmap defined, ready for Phase 8
 Resume file: None
