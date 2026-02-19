@@ -269,8 +269,9 @@ export async function POST(request: NextRequest) {
             break;
         }
 
+        const errDetail = error instanceof Error ? error.message : String(error);
         console.error("Decompose SSE error:", error);
-        send({ type: "error", code, message: userMessage });
+        send({ type: "error", code, message: `${userMessage} [${classified.type}: ${errDetail}]` });
       } finally {
         try { controller.close(); } catch { /* already closed */ }
       }
