@@ -82,13 +82,8 @@ async function getCacheBackend(): Promise<CacheBackend> {
   if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
     return "kv";
   }
-  if (process.env.ALLOW_MEMORY_STORAGE === "true") {
-    return "memory";
-  }
-  throw new Error(
-    "No cache backend configured. Set KV_REST_API_URL + KV_REST_API_TOKEN, " +
-      "or ALLOW_MEMORY_STORAGE=true for local development."
-  );
+  // Fall back to memory storage — works for dev and when KV isn't configured
+  return "memory";
 }
 
 const CACHE_TTL_SECONDS = 604800; // 7 days
