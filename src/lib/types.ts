@@ -266,3 +266,16 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   completed: "Completed",
   blocked: "Blocked",
 };
+
+// ─── Share Link Types ───
+
+export interface ShareLink {
+  token: string;              // crypto.randomUUID() -- URL-safe unique token
+  workflowId: string;         // ID of the shared workflow
+  label?: string;             // Optional user-provided label (e.g. "For client review")
+  createdAt: string;          // ISO timestamp
+  expiresAt?: string;         // ISO timestamp -- null means no expiry
+  accessCount: number;        // How many times the share link has been accessed
+  lastAccessedAt?: string;    // ISO timestamp of last access
+  permissions: "readonly";    // Only readonly for now -- future-proofing the field
+}

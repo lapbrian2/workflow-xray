@@ -193,3 +193,19 @@ export const ParseFileMetaSchema = z.object({
   fileSize: z.number().min(0),
 });
 export type ParseFileMeta = z.infer<typeof ParseFileMetaSchema>;
+
+// ─── /api/shares (POST -- create share link) ───
+
+export const CreateShareLinkSchema = z.object({
+  workflowId: z.string().min(1, { error: "Workflow ID is required." }),
+  label: z.string().max(200).optional(),
+  expiresInDays: z.number().int().min(1).max(365).optional(),
+});
+export type CreateShareLinkInput = z.infer<typeof CreateShareLinkSchema>;
+
+// ─── /api/shares (DELETE -- revoke share link) ───
+
+export const DeleteShareLinkSchema = z.object({
+  token: z.string().min(1, { error: "Share token is required." }),
+});
+export type DeleteShareLinkInput = z.infer<typeof DeleteShareLinkSchema>;
