@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import type { Workflow } from "@/lib/types";
+import type { Workflow, ShareLink } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { getWorkflowLocal, saveWorkflowLocal } from "@/lib/client-db";
 import XRayViz from "@/components/xray-viz";
@@ -31,6 +31,14 @@ export default function XRayPage() {
   const [notionPageId, setNotionPageId] = useState<string | null>(null);
   const exportLock = useRef(false);
   const syncLock = useRef(false);
+
+  // ─── Share state ───
+  const [showSharePanel, setShowSharePanel] = useState(false);
+  const [shares, setShares] = useState<ShareLink[]>([]);
+  const [sharesLoading, setSharesLoading] = useState(false);
+  const [creatingShare, setCreatingShare] = useState(false);
+  const [newShareLabel, setNewShareLabel] = useState("");
+  const [newShareExpiry, setNewShareExpiry] = useState<number | undefined>(undefined);
 
   const handleExportPdf = async () => {
     if (!workflow || exportLock.current) return;
@@ -123,6 +131,87 @@ export default function XRayPage() {
     }
   };
 
+  // ─── Share handlers ───
+
+  const fetchShares = async (workflowId: string) => {
+    setSharesLoading(true);
+    try {
+      const res = await fetch(`/api/shares?workflowId=${workflowId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setShares(data.shares || []);
+      }
+    } catch {
+      // Silently fail -- shares panel will show empty state
+    } finally {
+      setSharesLoading(false);
+    }
+  };
+
+  const handleToggleSharePanel = () => {
+    const next = !showSharePanel;
+    setShowSharePanel(next);
+    if (next && workflow) {
+      fetchShares(workflow.id);
+    }
+  };
+
+  const handleCreateShare = async () => {
+    if (!workflow || creatingShare) return;
+    setCreatingShare(true);
+    try {
+      const res = await fetch("/api/shares", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workflowId: workflow.id,
+          label: newShareLabel || undefined,
+          expiresInDays: newShareExpiry,
+        }),
+      });
+      if (!res.ok) {
+        let err;
+        try {
+          err = await res.json();
+        } catch {
+          err = { error: { message: `Failed with status ${res.status}` } };
+        }
+        throw new Error(err.error?.message || "Failed to create share link");
+      }
+      const newLink: ShareLink = await res.json();
+      setShares((prev) => [newLink, ...prev]);
+      setNewShareLabel("");
+      setNewShareExpiry(undefined);
+      addToast("success", "Share link created");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to create share link";
+      addToast("error", msg);
+    } finally {
+      setCreatingShare(false);
+    }
+  };
+
+  const handleCopyShareLink = async (token: string) => {
+    const url = `${window.location.origin}/share/${token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      addToast("success", "Link copied");
+    } catch {
+      addToast("error", "Failed to copy link");
+    }
+  };
+
+  const handleRevokeShare = async (token: string) => {
+    try {
+      const res = await fetch(`/api/shares?token=${token}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Revoke failed");
+      setShares((prev) => prev.filter((s) => s.token !== token));
+      addToast("success", "Share link revoked");
+    } catch {
+      addToast("error", "Failed to revoke share link");
+    }
+  };
+
   // Retry counter to re-trigger the effect
   const [retryCount, setRetryCount] = useState(0);
 
@@ -132,6 +221,8 @@ export default function XRayPage() {
     setSynced(false);
     setNotionUrl(null);
     setNotionPageId(null);
+    setShowSharePanel(false);
+    setShares([]);
   }, [id, resetXRayView]);
 
   useEffect(() => {
@@ -475,6 +566,27 @@ export default function XRayPage() {
             Remediation Plan
           </Link>
           <button
+            onClick={handleToggleSharePanel}
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              color: showSharePanel ? "var(--color-accent)" : "var(--color-dark)",
+              padding: "6px 14px",
+              borderRadius: "var(--radius-sm)",
+              border: `1.5px solid ${showSharePanel ? "rgba(232,85,58,0.25)" : "var(--color-border)"}`,
+              background: showSharePanel ? "rgba(232,85,58,0.04)" : "var(--color-surface)",
+              cursor: "pointer",
+              transition: "all var(--duration-normal) var(--ease-default)",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontWeight: 600,
+              boxShadow: "var(--shadow-xs)",
+            }}
+          >
+            {shares.length > 0 ? `Share (${shares.length})` : "Share"}
+          </button>
+          <button
             onClick={handleReanalyze}
             style={{
               fontFamily: "var(--font-mono)",
@@ -602,6 +714,22 @@ export default function XRayPage() {
           </Link>
         </div>
       </div>
+
+      {/* Share Management Panel */}
+      {showSharePanel && (
+        <SharePanel
+          shares={shares}
+          sharesLoading={sharesLoading}
+          creatingShare={creatingShare}
+          newShareLabel={newShareLabel}
+          newShareExpiry={newShareExpiry}
+          onLabelChange={setNewShareLabel}
+          onExpiryChange={setNewShareExpiry}
+          onCreate={handleCreateShare}
+          onCopy={handleCopyShareLink}
+          onRevoke={handleRevokeShare}
+        />
+      )}
 
       {/* Partial result warning banner */}
       {workflow._partial && (
@@ -817,5 +945,287 @@ function Tag({ label }: { label: string }) {
     >
       {label}
     </span>
+  );
+}
+
+function SharePanel({
+  shares,
+  sharesLoading,
+  creatingShare,
+  newShareLabel,
+  newShareExpiry,
+  onLabelChange,
+  onExpiryChange,
+  onCreate,
+  onCopy,
+  onRevoke,
+}: {
+  shares: ShareLink[];
+  sharesLoading: boolean;
+  creatingShare: boolean;
+  newShareLabel: string;
+  newShareExpiry: number | undefined;
+  onLabelChange: (v: string) => void;
+  onExpiryChange: (v: number | undefined) => void;
+  onCreate: () => void;
+  onCopy: (token: string) => void;
+  onRevoke: (token: string) => void;
+}) {
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
+  return (
+    <div
+      style={{
+        border: "1px solid var(--color-border)",
+        borderRadius: "var(--radius-lg)",
+        background: "var(--color-surface)",
+        padding: "20px 24px",
+        marginTop: 16,
+        animation: "fadeInUp 0.4s var(--ease-spring) both",
+      }}
+    >
+      {/* Create section */}
+      <div style={{ marginBottom: 20 }}>
+        <div
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 12,
+            fontWeight: 700,
+            color: "var(--color-dark)",
+            marginBottom: 12,
+          }}
+        >
+          Create share link
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input
+            type="text"
+            placeholder="e.g., For client review"
+            value={newShareLabel}
+            onChange={(e) => onLabelChange(e.target.value)}
+            style={{
+              fontFamily: "var(--font-body)",
+              fontSize: 13,
+              padding: "6px 12px",
+              borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--color-border)",
+              background: "#fff",
+              color: "var(--color-text)",
+              outline: "none",
+              flex: "1 1 180px",
+              minWidth: 0,
+            }}
+          />
+          <select
+            value={newShareExpiry ?? ""}
+            onChange={(e) => {
+              const v = e.target.value;
+              onExpiryChange(v ? Number(v) : undefined);
+            }}
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 12,
+              padding: "6px 10px",
+              borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--color-border)",
+              background: "#fff",
+              color: "var(--color-text)",
+              cursor: "pointer",
+            }}
+          >
+            <option value="">No expiry</option>
+            <option value="7">7 days</option>
+            <option value="30">30 days</option>
+            <option value="90">90 days</option>
+          </select>
+          <button
+            onClick={onCreate}
+            disabled={creatingShare}
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              fontWeight: 600,
+              color: "#fff",
+              padding: "7px 16px",
+              borderRadius: "var(--radius-sm)",
+              border: "none",
+              background: "var(--color-accent)",
+              cursor: creatingShare ? "wait" : "pointer",
+              opacity: creatingShare ? 0.7 : 1,
+              transition: "all 0.2s",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            {creatingShare ? (
+              <>
+                <span
+                  style={{
+                    width: 10,
+                    height: 10,
+                    border: "2px solid rgba(255,255,255,0.3)",
+                    borderTop: "2px solid #fff",
+                    borderRadius: "50%",
+                    animation: "spin 0.8s linear infinite",
+                    display: "inline-block",
+                  }}
+                />
+                Creating...
+              </>
+            ) : (
+              "Create Link"
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div
+        style={{
+          height: 1,
+          background: "var(--color-border)",
+          marginBottom: 16,
+        }}
+      />
+
+      {/* Existing links section */}
+      <div>
+        <div
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 12,
+            fontWeight: 700,
+            color: "var(--color-dark)",
+            marginBottom: 12,
+          }}
+        >
+          Existing links
+        </div>
+
+        {sharesLoading ? (
+          <div
+            style={{
+              fontFamily: "var(--font-body)",
+              fontSize: 13,
+              color: "var(--color-muted)",
+              padding: "16px 0",
+            }}
+          >
+            Loading share links...
+          </div>
+        ) : shares.length === 0 ? (
+          <div
+            style={{
+              fontFamily: "var(--font-body)",
+              fontSize: 13,
+              color: "var(--color-muted)",
+              padding: "16px 0",
+            }}
+          >
+            No share links yet
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {shares.map((share) => (
+              <div
+                key={share.token}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "10px 14px",
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--color-border)",
+                  background: "rgba(0,0,0,0.01)",
+                  flexWrap: "wrap",
+                }}
+              >
+                {/* Label + dates */}
+                <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "var(--color-dark)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {share.label || "Untitled link"}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "var(--font-body)",
+                      fontSize: 11,
+                      color: "var(--color-muted)",
+                      marginTop: 2,
+                      display: "flex",
+                      gap: 10,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span>Created {formatDate(share.createdAt)}</span>
+                    <span>
+                      {share.expiresAt
+                        ? `Expires ${formatDate(share.expiresAt)}`
+                        : "No expiry"}
+                    </span>
+                    <span>
+                      {share.accessCount} {share.accessCount === 1 ? "view" : "views"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button
+                    onClick={() => onCopy(share.token)}
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: "var(--color-accent)",
+                      padding: "4px 10px",
+                      borderRadius: "var(--radius-sm)",
+                      border: "1px solid rgba(232,85,58,0.2)",
+                      background: "rgba(232,85,58,0.04)",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    Copy Link
+                  </button>
+                  <button
+                    onClick={() => onRevoke(share.token)}
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: "var(--color-danger, #dc3545)",
+                      padding: "4px 10px",
+                      borderRadius: "var(--radius-sm)",
+                      border: "1px solid rgba(220,53,69,0.2)",
+                      background: "rgba(220,53,69,0.04)",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    Revoke
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
