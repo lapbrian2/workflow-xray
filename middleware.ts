@@ -9,7 +9,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { AUTH_COOKIE_NAME } from "@/lib/auth";
+
+// Inline constant — cannot import from @/lib/auth because it uses Node.js crypto
+// which is not available in Edge Runtime.
+const AUTH_COOKIE_NAME = "xray_auth";
 
 // ─── Public paths that skip auth ───
 
