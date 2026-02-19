@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-19)
 ## Current Position
 
 Phase: 8 (Auth & Shareable Links)
-Plan: Not yet created
-Status: Ready for /gsd:plan-phase 8
-Last activity: 2026-02-19 — Requirements + Roadmap defined
+Plan: 08-01 complete, ready for 08-02
+Status: Executing Phase 8
+Last activity: 2026-02-19 — Completed 08-01 (auth middleware + share data layer)
 
-Progress: v1.0: [██████████] 11/11 | v1.1: [██████████] 7/7 | v1.2: ░░░░░░░░░░ 0/3 phases
+Progress: v1.0: [██████████] 11/11 | v1.1: [██████████] 7/7 | v1.2: [███░░░░░░░] 1/3 phases (08: 1/3 plans)
 
 ## Performance Metrics
 
@@ -32,6 +32,9 @@ Progress: v1.0: [██████████] 11/11 | v1.1: [█████�
 - 07-01: 5 min, 2 tasks, 3 files created
 - 07-02: 5 min, 2 tasks, 3 files created/modified
 
+**v1.2:**
+- 08-01: 3 min, 2 tasks, 4 files created/modified
+
 ## Accumulated Context
 
 ### Decisions
@@ -47,6 +50,8 @@ Recent decisions affecting current work:
 - [v1.2 Arch]: Token-based share links (crypto.randomUUID), not workflow IDs
 - [v1.2 Arch]: Curated server-side aggregation for Claude prompts
 - [v1.2 Arch]: No Zustand store expansion — component-local state for new features
+- [08-01]: Reimplemented SHA-256 in middleware using Web Crypto API (Edge Runtime cannot use Node.js crypto)
+- [08-01]: Best-effort access count updates in getShareLink (no throw on failure for public routes)
 
 ### Pending Todos
 
@@ -61,5 +66,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-19
-Stopped at: v1.2 milestone initialized, requirements + roadmap defined, ready for Phase 8
+Stopped at: Completed 08-01-PLAN.md (auth middleware + share data layer)
 Resume file: None
