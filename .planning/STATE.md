@@ -34,6 +34,7 @@ Progress: v1.0: [██████████] 11/11 | v1.1: [█████�
 
 **v1.2:**
 - 08-01: 3 min, 2 tasks, 4 files created/modified
+- 08-02: 6 min, 2 tasks, 4 files created/modified
 - 08-03: 4 min, 2 tasks, 2 files created
 
 ## Accumulated Context
@@ -53,6 +54,9 @@ Recent decisions affecting current work:
 - [v1.2 Arch]: No Zustand store expansion — component-local state for new features
 - [08-01]: Reimplemented SHA-256 in middleware using Web Crypto API (Edge Runtime cannot use Node.js crypto)
 - [08-01]: Best-effort access count updates in getShareLink (no throw on failure for public routes)
+- [08-02]: Share button placed between Remediation Plan and Re-analyze in header action row
+- [08-02]: SharePanel as inline sub-component (not separate file), consistent with existing Tag pattern
+- [08-02]: Shares fetched on panel open (not page load) to avoid unnecessary API calls
 - [08-03]: GapAnalysis/HealthCard on share page omit teamSize/teamContext props (costContext stripped from sanitized response)
 - [08-03]: Share page uses local useState for tab state, not Zustand store -- fully independent of app state
 
